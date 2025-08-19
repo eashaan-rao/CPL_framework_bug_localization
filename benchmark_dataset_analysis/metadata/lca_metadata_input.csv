@@ -1,0 +1,14 @@
+repo_name,language,total_unique_bug_report
+quarkusio/quarkus,Java,957
+hannah-sten/texify-idea,Kotlin,53
+horizontalsystems/unstoppable-wallet-android,Kotlin,16
+intellij-rust/intellij-rust,Kotlin,233
+jwstegemann/fritz2,Kotlin,12
+square/anvil,Kotlin,50
+square/kotlinpoet,Kotlin,24
+square/leakcanary,Kotlin,36
+square/okhttp,Kotlin,16
+thundernest/k-9,Kotlin,147
+dmwm/wmcore,Python,277
+iterative/dvc,Python,133
+rucio/rucio,Python,404

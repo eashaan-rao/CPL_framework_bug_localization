@@ -1,0 +1,7 @@
+repo_name,language,total_unique_bug_report
+apache/tomcat,Java,1056
+eclipse-aspectj/aspectj,Java,593
+eclipse-birt/birt,Java,4178
+eclipse-jdt/eclipse.jdt.ui,Java,6274
+eclipse-platform/eclipse.platform.swt,Java,4151
+eclipse-platform/eclipse.platform.ui,Java,6495
