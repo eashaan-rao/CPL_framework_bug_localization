@@ -12,10 +12,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Configuration
-PROJECTS_METADATA_PATH = '/home/user/CS21D002_A_Eashaan_Rao/Research/PhD/Objective1/data/processed/project_metadata.parquet'
-BUG_REPORTS_PATH = '/home/user/CS21D002_A_Eashaan_Rao/Research/PhD/Objective1/data/processed/bug_reports.parquet'
-REPO_BASE_PATH = '/home/user/CS21D002_A_Eashaan_Rao/Research/PhD/Objective1/data/repos' # Base folder where all repos are cloned
-RESULT_PATH = '/home/user/CS21D002_A_Eashaan_Rao/Research/PhD/Objective1/results' # base folder where all results will be stored.
+PROJECTS_METADATA_PATH = '/home/cs21d002_eashaan/PhD/Objective1/data/processed/project_metadata.parquet'
+BUG_REPORTS_PATH = '/home/cs21d002_eashaan/PhD/Objective1/data/processed/bug_reports.parquet'
+REPO_BASE_PATH = '/home/cs21d002_eashaan/PhD/Objective1/data/repos' # Base folder where all repos are cloned
+RESULT_PATH = '/home/cs21d002_eashaan/PhD/Objective1/results' # base folder where all results will be stored.
 NUM_SAMPLE_PROJECTS = 6
 
 LANGUAGE_EXTENSIONS = {
@@ -28,9 +28,9 @@ LANGUAGE_EXTENSIONS = {
 }
 
 BUCKET_STRATEGIES = {
-    'annual': 'Y',
-    'semi-annual': '2Q',
-    'quartely': 'Q'
+    'annual': 'A',      # Using 'A' for year-end is slightly more standard than 'Y'
+    'semi-annual': '6M',
+    'quarterly': 'Q'    # Corrected the typo from 'quartely'
 }
 K_VALUES = [30, 50, 75, 100, 125, 150, 200]
 
@@ -43,11 +43,15 @@ class ElasticSearchManager:
     Manages Elasticseach indexing, querying, and stats.
     '''
     def __init__(self, host='localhost', port=9200):
-        self.client = Elasticsearch([{'host': host, 'port': port, 'scheme': 'http'}], timeout=30)
+        self.client = Elasticsearch([{'host': host, 'port': port, 'scheme': 'http'}])
+        # self.client = Elasticsearch(f'http://{host}"{port}', request_timeout=30)
         if not self.client.ping():
             raise ConnectionError("Could not connect to Elasticsearch.")
         
     def create_index(self, index_name: str):
+        '''
+        Creates an index with the updates max_clause_count setting.
+        '''
         if self.client.indices.exists(index=index_name):
             self.client.indices.delete(index=index_name)
 
@@ -81,12 +85,41 @@ class ElasticSearchManager:
             bulk(self.client, actions)
         
     def get_candidate_files(self, index_name: str, bug_report_text: str, top_k: int):
-        query = {"match": {"content": bug_report_text}}
+        """
+        Queries the index using a robust 'match' query with a 'minimum_should_match' constraint
+        and token truncation to ensure both reliability and recall
+        """
+        if not bug_report_text or not isinstance(bug_report_text, str):
+            return [], True
+        
+        # We only need to do minimal cleaning now, as the analyzer will handle the rest.
+        clean_text = ' '.join(bug_report_text.replace('\n', ' ').replace('\r', ' ').split())
+        # 1. Tokenize the text to control the clause count directly
+        tokens = re.split(r'[^a-zA-Z0-9]+', clean_text)
+        # 2. Truncate the token list to stay safely under the any server limit
+        max_tokens = 900
+        query_tokens = tokens[:max_tokens]
+        query_text = ' '.join(query_tokens)
+
+        query = {
+            "match": {
+                "content": {
+                    "query": query_text,
+                    # Use the deafault "or" operator, but increase precision by
+                    # requiring at least 2 terms to match
+                    "minimum_should_match": "50%"  
+                }
+            }
+        }
+
         try:
             response = self.client.search(index=index_name, query=query, size=top_k)
-            return [hit['_source']['file'] for hit in response['hits']['hits']]
-        except Exception:
-            return []
+            output = [hit['_source']['file_path'] for hit in response['hits']['hits']]
+            flag = not output
+            return output, flag
+        except Exception as e:
+            print(f"Error during Elasticsearch query for index {index_name}: {e}")
+            return [], True
         
     def get_index_stats(self, index_name: str):
         stats = self.client.indices.stats(index=index_name, metric='store')
@@ -122,21 +155,21 @@ def checkout_commit(repo_path, sha):
 
 def select_sample_projects(df_meta):
     '''
-    Selects a stratified sample of projects.
+    Selects a stratified sample of projects using existing categorical columns.
     '''
     print("Selecting a stratified sample of projects....")
-    # Create strata from size and age
-    df_meta['size_cat'] = pd.qcut(df_meta['project_size'], q=[0, 0.33, 0.66, 1], labels=['small', 'medium', 'large'])
-    df_meta['age_cat'] = pd.qcut(df_meta['project_age'], q=[0, 0.5, 1], labels=['new', 'mid-era'])
-    df_meta['strata'] = df_meta['size_cat'].astype(str) + '_' + df_meta['age_cat'].astype(str)
+    # Create the 'strata' column directly from the existing categorical columns.
+    # We assume 'project_size' has ('large', 'medium', 'small') and project_age has ('new', 'mid-era')
+    df_meta['strata'] = df_meta['project_size'] + '_' + df_meta['project_age']
 
     # Ensure we get one project from each stratum
-    sample_df = df_meta.groupby('strata', group_keys=False).apply(lambda x: x.samples(1))
+    sample_df = df_meta.groupby('strata', group_keys=False).apply(lambda x: x.sample(1) if not x.empty else None
+                                                                  ).reset_index(drop=True) # Reset index to get a clean Dataframe
     print("Selected Projects:")
     print(sample_df[['repo_name', 'strata', 'language']])
     return sample_df
 
-def group_bugs_into_buckets(df_bugs, strategy_freq, repo_path):
+def group_bugs_into_buckets(df_bugs, strategy_name, repo_path):
     '''
     Group bug reports into temporal buckets using commit_dates derived from their SHAs. 
     '''
@@ -152,7 +185,20 @@ def group_bugs_into_buckets(df_bugs, strategy_freq, repo_path):
     df_bugs['commit_date'] = df_bugs['pre_fix_commit_sha'].map(commit_dates)
     df_bugs.dropna(subset=['commit_date'], inplace=True) # Drop bugs invalid 
 
-    df_bugs['bucket'] = df_bugs['commit_date'].dt.to_period(strategy_freq)
+    # Explicitly convert the column to the correct datetime type
+    df_bugs['commit_date'] = pd.to_datetime(df_bugs['commit_date'], utc=True)
+
+    if strategy_name == 'annual':
+        # Bucket by year, e.g., '2014'
+        df_bugs['bucket'] = df_bugs['commit_date'].dt.year.astype(str)
+    elif strategy_name == 'semi-annual':
+        # H1 for months 1-6, H2 for months 7-12
+        half = (df_bugs['commit_date'].dt.month - 1) // 6 + 1
+        df_bugs['bucket'] = df_bugs['commit_date'].dt.year.astype(str) + '_H' + half.astype(str)
+    elif strategy_name == 'quarterly':
+        # Q1, Q2, Q3, Q4
+        df_bugs['bucket'] = df_bugs['commit_date'].dt.year.astype(str) + '_Q' + df_bugs['commit_date'].dt.quarter.astype(str)
+
     
     # for each bucket, find the bug with the latest creation date to get the snapshot SHA
     latest_shas = df_bugs.loc[df_bugs.groupby('bucket')['commit_date'].idxmax()]
@@ -169,7 +215,7 @@ def generate_and_save_plots(summary_df):
     # Plot 1: Recall vs K for each strategy
     # This plot helps to see how recall saturates for each strategy
 
-    plt.style.use('searborn-v0_8-whitegrid')
+    plt.style.use('seaborn-v0_8-whitegrid')
     fig1, ax1 = plt.subplots(figsize=(10, 6))
 
     recall_cols = [f'Recall@{k}' for k in K_VALUES]
@@ -232,6 +278,7 @@ def run_experiment():
     sample_repo_names = sample_projects_df['repo_name'].tolist()
 
     results = []
+    no_result_count = 0
 
     for _, project_row in tqdm(sample_projects_df.iterrows(), total=len(sample_projects_df), desc="Projects"):
         repo_name = project_row['repo_name']
@@ -250,7 +297,7 @@ def run_experiment():
             print(f"\n---- Processing: {repo_name} | Strategy: {strategy_name} ----")
 
             # Step 2: Group bugs and define indexing tasks
-            bucketing_plan = group_bugs_into_buckets(project_bugs, freq, repo_path)
+            bucketing_plan = group_bugs_into_buckets(project_bugs, strategy_name, repo_path)
 
             for bucket, (bugs_in_bucket, snapshot_sha) in tqdm(bucketing_plan.items(), desc=f"Buckets ({strategy_name})"):
                 if not snapshot_sha:
@@ -258,6 +305,7 @@ def run_experiment():
 
                 # Define a unique index name
                 index_name = re.sub(r'[^a-z0-9]', '_', f"{repo_name}_{strategy_name}_{bucket}".lower())
+                print("\n Indeex _name: ", index_name)
 
                 # Checkout, index, and record costs
                 if not checkout_commit(repo_path, snapshot_sha):
@@ -269,10 +317,17 @@ def run_experiment():
                 indexing_time = (time.time() - start_time) / 60  # in minutes
                 index_stats = es_manager.get_index_stats(index_name)
 
-
+                # Add a flag to print only once
+                # printed_debug_info = False
                 # Step 3: Run retrieval for all bugs in the bucket
                 for bug in bugs_in_bucket:
-                    candidates = es_manager.get_candidate_files(index_name, bug['bug_report_text', max(K_VALUES)])
+                    candidates_absolute, flag = es_manager.get_candidate_files(index_name, bug['bug_report_text'], max(K_VALUES))
+                    if flag:
+                        no_result_count += 1
+                    # print("\n Candidates_absolute: ", candidates_absolute)
+                    # Normalize the candidate paths by making them relative to the repo root
+                    # this removes the prefix like '/home/user/...'
+                    candidates_relative = [os.path.relpath(path, start=repo_path) for path in candidates_absolute]
 
                     result_row = {
                         'repo_name': repo_name,
@@ -282,17 +337,39 @@ def run_experiment():
                         'index_size_gb': index_stats['size_gb']
                     }
 
-                    # Calculate hits for each K
+                    # Calculate hits for each K using normalized relative paths
                     for k in K_VALUES:
-                        candidates_at_k = set(candidates[:k])
+                        candidates_at_k = set(candidates_relative[:k])
                         ground_truth = set(bug['ground_truth_files'])
+                        # Debugging block
+                        # if not printed_debug_info and k == max(K_VALUES) and ground_truth:
+                        #     print("\n--- DEBUGGING PATHS ---")
+                        #     print(f"Repo Path (start): {repo_path}")
+
+                            # Print one sample from each set to compare format
+                            # sample_candidate = next(iter(candidates_at_k), "N/A")
+                            # sample_ground_truth = next(iter(ground_truth), "N/A")
+
+                            # print(f"Sample Candidate Path: {sample_candidate}")
+                            # print(f"Sample Ground Truth Path: {sample_ground_truth}")
+
+                            # print("Full Candidate Set:", candidates_at_k)
+                            # print("Full Ground Truth Set:", ground_truth)
+
+                            # printed_debug_info = True
+                        # End debugging block
+
                         hit = 1 if not candidates_at_k.isdisjoint(ground_truth) else 0
                         result_row[f'hit@{k}'] = hit
 
                     results.append(result_row)
+                    # Add a break to stop after one bug for easy inspection
+                    # if printed_debug_info:
+                    #     break
 
                 # Cleanup to save space
                 es_manager.delete_index(index_name)
+                # exit(0)
 
     # Step 4: Aggregrate and Analyze Results
     print("--- Experiment Complete. Aggregating results ---")
@@ -315,6 +392,7 @@ def run_experiment():
     overall_summary = final_summary.groupby('strategy').mean()
 
     print("--- Overall Summary Across All Sample Projects ---")
+    print(f"Number of bug reports where no candidate files are received: {no_result_count}")
     print(overall_summary)
 
     # Save results for further analysis and plotting
