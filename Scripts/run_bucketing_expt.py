@@ -83,6 +83,8 @@ class ElasticSearchManager:
                         continue
         if actions:
             bulk(self.client, actions)
+
+        return len(actions)
         
     def get_candidate_files(self, index_name: str, bug_report_text: str, top_k: int):
         """
@@ -107,7 +109,7 @@ class ElasticSearchManager:
                     "query": query_text,
                     # Use the deafault "or" operator, but increase precision by
                     # requiring at least 2 terms to match
-                    "minimum_should_match": "50%"  
+                    "minimum_should_match": 2  
                 }
             }
         }
@@ -115,6 +117,7 @@ class ElasticSearchManager:
         try:
             response = self.client.search(index=index_name, query=query, size=top_k)
             output = [hit['_source']['file_path'] for hit in response['hits']['hits']]
+            # print(output)
             flag = not output
             return output, flag
         except Exception as e:
@@ -144,6 +147,7 @@ def checkout_commit(repo_path, sha):
     try:
         repo = git.Repo(repo_path)
         repo.git.checkout(sha, f=True)
+        repo.git.submodule('update', '--init', '--recursive')
         return True
     except git.exc.GitCommandError as e:
         print(f"Error checking out {sha} in {repo_path}: {e}")
@@ -404,8 +408,110 @@ def run_experiment():
 
     generate_and_save_plots(overall_summary)
 
+def run_per_commit_experiment():
+    '''
+    Main function to execute the "per-commit" experimental protocol to find the gold-standard recall
+    for the Elasticsearch query.
+    '''
+    es_manager = ElasticSearchManager()
+
+    # Load Data
+    print("Loading metadata and bug reports...")
+    df_meta = pd.read_parquet(PROJECTS_METADATA_PATH)
+    df_bugs = pd.read_parquet(BUG_REPORTS_PATH)
+
+    # Step 1: Select sample projects
+    sample_projects_df = select_sample_projects(df_meta)
+
+    results = []
+    total_bugs_processed = 0
+    commit_skipped = 0
+    empty_indexes = 0
+    no_result_count = 0
+    hits_per_k = {k: 0 for k in K_VALUES}
+
+    for _, project_row in tqdm(sample_projects_df.iterrows(), total=len(sample_projects_df), desc="Projects"):
+        repo_name = project_row['repo_name']
+        language = project_row['language']
+        repo_path = get_project_path(repo_name, language)
+
+        if not os.path.exists(repo_path):
+            print(f"Warning: Repo path not found at {repo_path}. Skipping project")
+            continue
+
+        project_bugs = df_bugs[df_bugs['repo_name'] == repo_name].copy()
+        if project_bugs.empty:
+            continue
+
+        # Iteratre through each bug report
+        for _, bug in tqdm(project_bugs.iterrows(), total=len(project_bugs), desc=f"Bugs in {repo_name}", leave=False):
+            total_bugs_processed += 1
+            snapshot_sha = bug['pre_fix_commit_sha']
+            bug_id = bug['bug_id']
+
+            # Define a unique index name for this bug
+            index_name = re.sub(r'[^a-z0-9]', '_', f"{repo_name}_{bug_id}".lower())
+
+            # 1. Checkout the specific commit
+            if not checkout_commit(repo_path, snapshot_sha):
+                print("Commit doesn't exist: ", snapshot_sha)
+                commit_skipped =+ 1
+                continue
+
+            # 2. Create index and index the files for this snapshot
+            es_manager.create_index(index_name)
+            num_files_indexed = es_manager.index_source_files(index_name, repo_path)
+
+            if num_files_indexed == 0:
+                empty_indexes += 1
+                es_manager.delete_index(index_name) # Clean up the empty index
+                print("Empty Index...")
+                continue # skip to the next bug
+
+            # 3. Get candidates for this single bug against its "perfect" index
+            candidates_absolute, flag = es_manager.get_candidate_files(index_name, bug['bug_report_text'], max(K_VALUES))
+            if flag:
+                no_result_count += 1
+
+            # 4. Normalize paths and calculate hit
+            candidates_relatives = [os.path.relpath(path, start=repo_path) for path in candidates_absolute]
+            # print("Relative path:", candidates_relatives)
+            ground_truth = set(bug['ground_truth_files'])
+
+            for k in K_VALUES:
+                candidates_at_k = set(candidates_relatives[:k])
+                if not candidates_at_k.isdisjoint(ground_truth):
+                    # for a given K, if we find a hit, we count it and can stop checking larger K's for this bug
+                    # to be precise, we should count hits for each K independently
+                    hits_per_k[k] += 1
+
+            # 5. Immediately delete the index to save space
+            es_manager.delete_index(index_name)
+    
+    # Aggregrate and analyze the final results
+    print("\n\n Per-commit experiment complete")
+    print(f"Total bug reports processed: {total_bugs_processed}")
+    print(f"Checkout failures: {commit_skipped}")
+    print(f"Number of bug reports with no output: {no_result_count}")
+    print(f"Empty Index Failures: {empty_indexes} ({empty_indexes/total_bugs_processed:.2%})")
+    
+
+    print("\n Recall @ K Results")
+    final_recall = {}
+    for k, hits in hits_per_k.items():
+        recall = hits / total_bugs_processed if total_bugs_processed > 0 else 0
+        final_recall[f"Recall@{k}"] = recall
+        print(f"Recall@{k}: {recall: .4f} ({hits}/{total_bugs_processed})")
+
+    # Save final results
+    df_final_recall = pd.DataFrame([final_recall])
+    recall_path = os.path.join(RESULT_PATH, 'per_commit_recall_results.csv')
+    df_final_recall.to_csv(recall_path, index=False)
+    print(f"\m Final Recall results saved to {recall_path}")
+
 if __name__ == '__main__':
-    run_experiment()
+    # run_experiment()
+    run_per_commit_experiment()
 
 
 

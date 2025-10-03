@@ -1,5 +1,11 @@
 /Resources/
 /obj1/
 /Dataset/
-/SOTA_original
 /data/repos
+/data/embedding_dbs
+/data/embedding_dbs_sample
+/data/cache
+/results
+*.parquet
+*.pkl
+*.pyc
