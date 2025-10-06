@@ -140,12 +140,14 @@ def create_labeled_samples(project_name, language, bug_metadata_db, blob_embeddi
     return labeled_samples
 
 # Pre-processing function
-def preprocess_and_cache_samples(raw_samples, bug_reports_df, repo, tokenizer, cache_path):
+def preprocess_and_cache_samples(raw_samples, bug_reports_df, repo, tokenizer, cache_meta_path, cache_code_ids_path):
     '''
-    Performs the slow pre-processing (reading files, tokenizing) and saves the results to a parquet file for fast
-    loading in the future.
+    Performs the slow pre-processing (reading files, tokenizing) and saves results into two files:
+    a) A Parquet file for metadata (labels, bug_ids, etc.)
+    b) A Numpy .npy file for the large code_ids tensors. 
     '''
-    processed_data = []
+    metadata = []
+    code_ids_list = []
 
     # Create a dictionary for fast bug text lookup
     bug_texts = pd.Series(
@@ -162,7 +164,7 @@ def preprocess_and_cache_samples(raw_samples, bug_reports_df, repo, tokenizer, c
             truncation=True,
             max_length=PARAMS['max_bug_len'],
             return_tensors='pt'
-        )['input_ids'].squeeze(0).tolist() # Convert to list for DataFrame storage
+        )['input_ids'].squeeze(0).numpy() # using numpy array
 
         # process source code
         try:
@@ -181,29 +183,41 @@ def preprocess_and_cache_samples(raw_samples, bug_reports_df, repo, tokenizer, c
             padded_tensor = torch.zeros((PARAMS['max_lines'], PARAMS['max_line_len']), dtype=torch.long)
             num_lines_to_copy = min(len(tokenized_lines), PARAMS['max_lines'])
             padded_tensor[:num_lines_to_copy] = tokenized_lines[:num_lines_to_copy]
-            padded_tokenized_lines = padded_tensor.flatten().tolist() # Convert to list
+        
+        # Separate metadata from large tensor data
+        code_ids_list.append(padded_tensor.flatten().numpy())
+        metadata.append({
+            'bug_ids': tokenized_bug, 
+            'label': label,
+            'project_type': project_type,
+            'bug_id': bug_id,
+            'blob_sha': blob_sha
+        })
 
-            processed_data.append({
-                'bug_ids': tokenized_bug, 
-                'code_ids': padded_tokenized_lines,
-                'label': label,
-                'project_type': project_type,
-                'bug_id': bug_id,
-                'blob_sha': blob_sha
-            })
+    # Save the two separate files
+    print("Saving metadata to Parquet file...")
+    meta_df = pd.DataFrame(metadata)
+    meta_df.to_parquet(cache_meta_path, index=False)
 
-    # Save to Parquet file
-    df = pd.DataFrame(processed_data)
-    df.to_parquet(cache_path, index=False)
-    print(f"Successfully cache {len(df)} samples to {cache_path}")
-    return df
-
+    print("Stacking and saving code_ids to .npy file...")
+    # Vertically stack all the flat code_id arrays into one giant 2D array
+    all_code_ids = np.vstack(code_ids_list).astype(np.int32) # use int32 to save space
+    np.save(cache_code_ids_path, all_code_ids)
+    print(f"Successfully cache data to {cache_meta_path} and {cache_code_ids_path}")
+   
 # Step 2: Data Preparation & Pytorch Dataset
 class BugLocalizationDataset(Dataset):
-    '''Custom PyTorch Dataset for the hybrid model.'''
-    def __init__(self, cache_path):
-        # Load the entire pre-processed dataframe. This is fast
-        self.data = pd.read_parquet(cache_path)
+    '''Custom PyTorch Dataset for the hybrid model.
+    Loads pre-processed data from a metadata file and a memory-mapped NumPY file.
+    '''
+    def __init__(self, cache_meta_path, cache_code_ids_path):
+        # Load the metadata. This is small and fits in RAM.
+        self.metadata = pd.read_parquet(cache_meta_path)
+
+        # Load the massive code_ids array using memory mapping. This does not load the file into RAM. Its fast 
+        # and memory-efficient
+        self.code_ids_data = np.load(cache_code_ids_path, mmap_mode='r')
+
         # self.samples = samples
         # self.bug_db = bug_metadata_db
         # self.repo = repo
@@ -220,14 +234,17 @@ class BugLocalizationDataset(Dataset):
         # ).to_dict()
         
     def __len__(self):
-        return len(self.data)
+        return len(self.metadata)
     
-    def __getitem__(self, idx):
+    def __getitem__(self, idx):        
         # Get the row .iloc is fast for integer-location based indexing.
-        sample = self.data.iloc[idx]
+        meta_sample = self.metadata.iloc[idx]
 
-        # Reshape the 1D list back into a 2D tensor
-        code_ids_tensor = torch.tensor(sample['code_ids'], dtype=torch.long).reshape(
+        # get the code_ids array from the memory-mapped filed. Very fast.
+        code_ids_flat = self.code_ids_data[idx]
+
+        # Reshape the flat array back into a 2D tensor the model expects
+        code_ids_tensor = torch.from_numpy(code_ids_flat).reshape(
             PARAMS['max_lines'], PARAMS['max_line_len']
         )
 
@@ -267,12 +284,12 @@ class BugLocalizationDataset(Dataset):
 
         # Convert pre-tokenized data (Stored as lists/value) back to tensors
         return {
-            'bug_ids': torch.tensor(sample['bug_ids'], dtype=torch.long),
+            'bug_ids': torch.tensor(meta_sample['bug_ids'], dtype=torch.long),
             'code_ids': code_ids_tensor, # Used the reshaped tensor
-            'label': torch.tensor(sample['label'], dtype=torch.long),
-            'project_type': sample['project_type'],
-            'bug_id': sample['bug_id'],
-            'blob_sha': sample['blob_sha']
+            'label': torch.tensor(meta_sample['label'], dtype=torch.long),
+            'project_type': meta_sample['project_type'],
+            'bug_id': meta_sample['bug_id'],
+            'blob_sha': meta_sample['blob_sha']
         }
 
 # Step 3: Training and Evaluation Functions
@@ -299,34 +316,45 @@ def train(model, source_loader, target_loader, optimizer, criterion, epoch, devi
 
         progress_bar.set_postfix({'loss': f'{combined_loss.item(): .4f}'})
 
-def evaluate(model, language, test_bug_ids, bug_db, blob_db, repo, tokenizer, device):
+def evaluate(model, test_meta_path, test_code_ids_path, device):
     '''
-    Evaluates the model on the test set.
+    Evaluates the model on the pre-processed test set.
     '''
     model.eval()
 
-    # Generate candidate pairs for the test set using our create_labeled_samples()
-    # We set is_training_data = False to ensure the ground truth is NOT force included
-    print("Generating candidates for the test set...")
-    test_samples = create_labeled_samples(
-        TARGET_PROJECT, language,
-        bug_db, blob_db, TOP_K_CANDIDATES, is_training_data=False, bug_ids_to_process=test_bug_ids
-    )
-
-    if not test_samples:
-        print("No valid samples generated for the test set. Cannot evaluate.")
-        return {"Top-1 Acc": 0, "Top-5 Acc": 0, "Top-10 Acc": 0, "MAP": 0, "MRR": 0}
+    print("Loading pre-processed test data for evaluation...")
+    # Use the same fast Dataset, but on the test cache files
+    eval_dataset = BugLocalizationDataset(test_meta_path, test_code_ids_path)
+    eval_loader = DataLoader(eval_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, pin_memory=True)
 
     # Group samples by bug_id to evaluate each bug's ranked list
-    bugs_to_evaluate = {}
-    for bug_id, blob_sha, _, _ in test_samples:
-        if bug_id not in bugs_to_evaluate:
-            bugs_to_evaluate[bug_id] = []
-        bugs_to_evaluate[bug_id].append(blob_sha)
+    # We can get this info from the loaded metadata
+    bugs_to_evaluate = eval_dataset.metadata.groupby('bug_id')['blob_sha'].apply(list).to_dict()
+    ground_truth_shas_df = eval_dataset.metadata[eval_dataset.metadata['label'] == 1]
+    ground_truth_map = ground_truth_shas_df.groupby('bug_id')['blob_sha'].apply(set).to_dict()
 
-    # Create a single dataset for efficient scoring
-    eval_dataset = BugLocalizationDataset(test_samples, bug_db, repo, tokenizer)
-    eval_loader = DataLoader(eval_dataset, batch_size=BATCH_SIZE, shuffle=False)
+    # Generate candidate pairs for the test set using our create_labeled_samples()
+    # We set is_training_data = False to ensure the ground truth is NOT force included
+    # print("Generating candidates for the test set...")
+    # test_samples = create_labeled_samples(
+    #     TARGET_PROJECT, language,
+    #     bug_db, blob_db, TOP_K_CANDIDATES, is_training_data=False, bug_ids_to_process=test_bug_ids
+    # )
+
+    # if not test_samples:
+    #     print("No valid samples generated for the test set. Cannot evaluate.")
+    #     return {"Top-1 Acc": 0, "Top-5 Acc": 0, "Top-10 Acc": 0, "MAP": 0, "MRR": 0}
+
+    # # Group samples by bug_id to evaluate each bug's ranked list
+    # bugs_to_evaluate = {}
+    # for bug_id, blob_sha, _, _ in test_samples:
+    #     if bug_id not in bugs_to_evaluate:
+    #         bugs_to_evaluate[bug_id] = []
+    #     bugs_to_evaluate[bug_id].append(blob_sha)
+
+    # # Create a single dataset for efficient scoring
+    # eval_dataset = BugLocalizationDataset(test_samples, bug_db, repo, tokenizer)
+    # eval_loader = DataLoader(eval_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
     # Get model predictions for all candidates
     predictions = {}
@@ -346,25 +374,26 @@ def evaluate(model, language, test_bug_ids, bug_db, blob_db, repo, tokenizer, de
     average_precisions = [] 
     reciprocal_ranks = [] 
 
-    for bug_id, candidates in bugs_to_evaluate.items():
+    for bug_id in bugs_to_evaluate:
         ranked_preds = sorted(predictions.get(bug_id, []), key=lambda x: x[1], reverse=True)
         ranked_shas = [sha for sha, score in ranked_preds]
+        ground_truth = ground_truth_map.get(bug_id, set())
 
-        ground_truth_shas = {
-            sha 
-            for path, sha in get_path_to_sha_map(repo, bug_db[bug_id]['commit_sha']).items() 
-            if any(path.endswith(gt_file) for gt_file in bug_db[bug_id]['ground_truth_files'])
-            }
+        # ground_truth_shas = {
+        #     sha 
+        #     for path, sha in get_path_to_sha_map(repo, bug_db[bug_id]['commit_sha']).items() 
+        #     if any(path.endswith(gt_file) for gt_file in bug_db[bug_id]['ground_truth_files'])
+        #     }
 
         # Calculate Top-K
         for k in top_k_hits:
-            if not set(ranked_shas[:k]).isdisjoint(ground_truth_shas):
+            if not set(ranked_shas[:k]).isdisjoint(ground_truth):
                 top_k_hits[k] += 1
 
         # MRR
         found_rank = -1
         for i, sha in enumerate(ranked_shas):
-            if sha in ground_truth_shas:
+            if sha in ground_truth:
                 found_rank = i + 1
                 break
         if found_rank != -1:
@@ -376,7 +405,7 @@ def evaluate(model, language, test_bug_ids, bug_db, blob_db, repo, tokenizer, de
         hits = 0
         precision_at_k = []
         for i, sha in enumerate(ranked_shas):
-            if sha in ground_truth_shas:
+            if sha in ground_truth:
                 hits += 1
                 precision_at_k.append(hits / (i + 1))
         if precision_at_k:
@@ -446,48 +475,64 @@ def main():
 
     # Define cache paths
     os.makedirs(BLOB_CACHE_DIR, exist_ok=True)
-    source_cache_path = os.path.join(BLOB_CACHE_DIR, f'{SOURCE_PROJECT.replace("/", "_")}_source_cache.parquet')
-    target_cache_path = os.path.join(BLOB_CACHE_DIR, f'{TARGET_PROJECT.replace("/", "_")}_target_train_cache.parquet')
+    source_meta_path = os.path.join(BLOB_CACHE_DIR, f'{SOURCE_PROJECT.replace("/", "_")}_source_meta.parquet')
+    source_code_ids_path = os.path.join(BLOB_CACHE_DIR, f'{SOURCE_PROJECT.replace("/", "_")}_source_code_ids.npy')
+    
+    target_train_meta_path = os.path.join(BLOB_CACHE_DIR, f'{TARGET_PROJECT.replace("/", "_")}_target_train_meta.parquet')
+    target_train_code_ids_path = os.path.join(BLOB_CACHE_DIR, f'{TARGET_PROJECT.replace("/", "_")}_target_train_code_ids.npy')
+
+    target_test_meta_path = os.path.join(BLOB_CACHE_DIR, f'{TARGET_PROJECT.replace("/", "_")}_target_test_meta.parquet')
+    target_test_code_ids_path = os.path.join(BLOB_CACHE_DIR, f'{TARGET_PROJECT.replace("/", "_")}_target_test_code_ids.npy')
+    
 
     source_repo = git.Repo(get_project_path(SOURCE_PROJECT, source_language))
     target_repo = git.Repo(get_project_path(TARGET_PROJECT, target_language))
+
+    target_bug_ids = list(target_bug_db.keys())
+    # 3a. Split the BUG IDs into training and testing sets
+    train_bug_ids, test_bug_ids = train_test_split(
+        target_bug_ids,
+        test_size=(1 - TARGET_TRAIN_SPLIT),
+        random_state=42 # for reproducibility
+    )
     
     # 2. Preprocess source data (with caching)
-    if not os.path.exists(source_cache_path):
+    if not os.path.exists(source_meta_path) or not os.path.exists(source_code_ids_path):
         print("Source cache not found. Generating samples and preprocessing..")
         source_samples = source_samples = create_labeled_samples(SOURCE_PROJECT, source_language, source_bug_db, source_blob_db,
                                             TOP_K_CANDIDATES, is_training_data=True)
-        preprocess_and_cache_samples(source_samples, df_bugs, source_repo, tokenizer, source_cache_path)
+        preprocess_and_cache_samples(source_samples, df_bugs, source_repo, tokenizer, source_meta_path, source_code_ids_path)
     else:
-        print(f"Loading preprocessed source data from {source_cache_path}")
+        print(f"Loading preprocessed source data from cache")
 
-    # 3. Pre-process target data (with caching)
-    if not os.path.exists(target_cache_path):
+    # 3. Pre-process target training data (with caching)
+    if not os.path.exists(target_train_meta_path) or not os.path.exists(target_train_code_ids_path):
         print("Target train cache not found. Generating samples and preprocessing..")
-        target_bug_ids = list(target_bug_db.keys())
-        # 3a. Split the BUG IDs into training and testing sets
-        train_bug_ids, test_bug_ids = train_test_split(
-            target_bug_ids,
-            test_size=(1 - TARGET_TRAIN_SPLIT),
-            random_state=42 # for reproducibility
-        )
+        
         # 3b. Create training samples using ONLY the bug IDs from the training split
         target_train_samples = create_labeled_samples(
             TARGET_PROJECT, target_language, target_bug_db, target_blob_db, 
             TOP_K_CANDIDATES, is_training_data=True, bug_ids_to_process=train_bug_ids #Pass the specific IDs to process
         )
-        preprocess_and_cache_samples(target_train_samples, df_bugs, target_repo, tokenizer, target_cache_path)
-    else:
-        print(f"Loading preprocessed target train data from {target_cache_path}")
-        # Need to regenerate test_bug_ids if loading from cache
-        target_bug_ids = list(target_bug_db.keys())
-        _, test_bug_ids = train_test_split(
-            target_bug_ids, test_size=(1 - TARGET_TRAIN_SPLIT), random_state=42
+        preprocess_and_cache_samples(target_train_samples, df_bugs, target_repo, tokenizer, target_train_meta_path, 
+                                     target_train_code_ids_path)
+    
+    # 3. Pre-process target testing data (with caching)
+    if not os.path.exists(target_test_meta_path) or not os.path.exists(target_test_code_ids_path):
+        print("Target test cache not found. Generating samples and preprocessing..")
+        
+        # 3b. Create training samples using ONLY the bug IDs from the training split
+        target_test_samples = create_labeled_samples(
+            TARGET_PROJECT, target_language, target_bug_db, target_blob_db, 
+            TOP_K_CANDIDATES, is_training_data=False, bug_ids_to_process=test_bug_ids #Pass the specific IDs to process
         )
+        preprocess_and_cache_samples(target_test_samples, df_bugs, target_repo, tokenizer, target_test_meta_path, 
+                                     target_test_code_ids_path)
     
     # 4. Create FAST Datasets and DataLoaders
-    source_dataset = BugLocalizationDataset(source_cache_path)
-    target_train_dataset = BugLocalizationDataset(target_cache_path)
+    source_dataset = BugLocalizationDataset(source_meta_path, source_code_ids_path)
+    target_train_dataset = BugLocalizationDataset(target_train_meta_path, target_train_code_ids_path)
+    # The test dataset will be loaded inside the evaluate function
 
     source_loader = DataLoader(source_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True)
     target_train_loader = DataLoader(target_train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True)
@@ -509,7 +554,7 @@ def main():
 
     # 7. Final Evaluation
     print("\n-- Starting Final Evaluation ---")
-    final_metrics = evaluate(model, target_language, test_bug_ids, target_bug_db, target_blob_db, target_repo, tokenizer, device)
+    final_metrics = evaluate(model,  target_test_meta_path, target_test_code_ids_path, device)
     print(f"\n Final Metrics on Target Project: \n {final_metrics}")
 
 if __name__ == '__main__':

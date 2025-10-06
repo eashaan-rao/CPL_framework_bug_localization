@@ -9,3 +9,4 @@
 *.parquet
 *.pkl
 *.pyc
+*.npy
