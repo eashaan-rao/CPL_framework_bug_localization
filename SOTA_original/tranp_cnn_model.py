@@ -37,12 +37,96 @@ class N_CNN(nn.Module):
         embedded = embedded.unsqueeze(1) # -> (batch, 1, seq_len, embed_dim)
         
         # Apply convolutions, then global max-pooling
-        convolved = [F.relu(conv(embedded)).squeeze(3) for conv in self.convs]
-        pooled = [F.max_pool1d(item, item.size(2)).squeeze(2) for item in convolved]
+        pooled = []
+        for conv in self.convs:
+            conv_out = F.relu(conv(embedded), inplace=True) # inplace ReLU
+            conv_out = conv_out.squeeze(3) # (batch, num_kernels, seq_len)
+            # Global max pooling
+            pooled_out = F.adaptive_max_pool1d(conv_out, 1).squeeze(2)
+            pooled.append(pooled_out)
+        cat = torch.cat(pooled, dim=1)
         
-        # Concatenate features and apply dropout
-        cat = torch.cat(pooled, 1)
+        # convolved = [F.relu(conv(embedded)).squeeze(3) for conv in self.convs]
+        # pooled = [F.max_pool1d(item, item.size(2)).squeeze(2) for item in convolved]
+        
+        # # Concatenate features and apply dropout
+        # cat = torch.cat(pooled, 1)
         return self.dropout(cat)
+    
+class P_CNN_Parallelized(nn.Module):
+    '''
+    Optimized P_CNN with chunked parallel processing to avoid sequential bottleneck.
+    '''
+    def __init__(self, vocab_size, embedding_dim, stmt_kernels, stmt_kernel_sizes, file_kernels, file_kernels_sizes, dropout,
+                 chunk_size):
+        super(P_CNN_Parallelized, self).__init__()
+        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)
+        self.chunk_size = chunk_size # Process statements in chunks
+
+        # Stage 1: Within-statement Convolutions
+        self.statement_convs = nn.ModuleList([
+            nn.Conv2d(1, stmt_kernels, (k, embedding_dim)) for k in stmt_kernel_sizes
+        ])
+
+        # Stage 2: Between-statement convolutions
+        stmt_output_dim = stmt_kernels * len(stmt_kernel_sizes)
+        self.file_convs = nn.ModuleList([
+            nn.Conv1d(stmt_output_dim, file_kernels, k, padding=k//2) for k in file_kernels_sizes
+        ])
+        self.dropout = nn.Dropout(dropout)
+        self.output_dim = file_kernels * len(file_kernels_sizes)
+
+    def forward(self, x):
+        '''
+        x: (batch_size, num_statements, statement_length)
+        '''
+        batch_size, num_stmts, stmt_len = x.shape
+        # Embed all tokens at once
+        x_embed = self.embedding(x) # (batch, num_stmts, stmt_len, embed_dim)
+
+        # Key optimization: Process statements in manageable chunks, instead of creating one massive 
+        # (99200, 1, 14, 512) tensor, we process in chunks of size (5000, 1, 14, 512)
+
+        stmt_vectors_list = []
+        total_stmts = batch_size * num_stmts
+
+        # Flatten for processing
+        x_embed_flat = x_embed.view(total_stmts, stmt_len, -1)
+
+        # Process in chunks
+        for chunk_start in range(0, total_stmts, self.chunk_size):
+            chunk_end = min(chunk_start + self.chunk_size, total_stmts)
+
+            # Get chunk and add channel dimension
+            chunk = x_embed_flat[chunk_start:chunk_end].unsqueeze(1) # (chunk_size, 1, stmt_len, embed_dim)
+
+            # Stage 1: Statement-level features (parallel within chunk)
+            stmt_pooled = []
+            for conv in self.statement_convs:
+                conv_out = F.relu(conv(chunk), inplace=True).squeeze(3)
+                pooled_out = F.adaptive_max_pool1d(conv_out, 1).squeeze(2)
+                stmt_pooled.append(pooled_out)
+
+            chunk_vectors = torch.cat(stmt_pooled, dim=1)
+            stmt_vectors_list.append(chunk_vectors)
+
+        # Concatenate all chunks
+        stmt_vectors = torch.cat(stmt_vectors_list, dim=0)
+
+        # Reshape back to file structure
+        stmt_vectors = stmt_vectors.view(batch_size, num_stmts, -1)
+        x_file = stmt_vectors.permute(0, 2, 1) # (batch, features, num_stmts)
+
+        # Stage 2: File-level features
+        file_pooled = []
+        for conv in self.file_convs:
+            conv_out = F.relu(conv(x_file), inplace=True)
+            pooled_out = F.adaptive_max_pool1d(conv_out, 1).squeeze(2)
+            file_pooled.append(pooled_out)
+
+        final_vector = torch.cat(file_pooled, dim=1)
+        return self.dropout(final_vector)
+
     
 class P_CNN(nn.Module):
     '''
@@ -66,7 +150,7 @@ class P_CNN(nn.Module):
         # This CNN operates on the sequence of statement vectors produced by Stage 1.
         stmt_output_dim = stmt_kernels * len(stmt_kernel_sizes)
         self.file_convs = nn.ModuleList(
-            [nn.Conv1d(stmt_output_dim, file_kernels, k, padding="same") for k in file_kernel_sizes]
+            [nn.Conv1d(stmt_output_dim, file_kernels, k, padding=k//2) for k in file_kernel_sizes]
         )
         self.dropout = nn.Dropout(dropout)
         # The output dimension will be the total number of filters
@@ -77,25 +161,108 @@ class P_CNN(nn.Module):
         x input shape: (batch_size, num_statements, statement_length)
         '''
         batch_size, num_stmts, stmt_len= x.shape
+        print(f"\nP_CNN Input: batch={batch_size}, statements={num_stmts}, tokens={stmt_len}")
+        print(f"Total sub-batches to process: {batch_size * num_stmts}")
 
         # To process efficiently, flatten all statements into a single large batch
         x_embed = self.embedding(x) # Shape: (batch_size, num_stmts, stmt_len, embed_dim)
         x_flat = x_embed.view(batch_size * num_stmts, 1, stmt_len, -1)
 
-        # Get a vector for each statement
-        stmt_features = [F.relu(conv(x_flat)).squeeze(3) for conv in self.statement_convs]
-        stmt_pooled = [F.max_pool1d(item, item.size(2)).squeeze(2) for item in stmt_features]
-        stmt_vectors = torch.cat(stmt_pooled, 1)
+        # Stage 1: Statement-level features with fused operations
+        stmt_pooled = []
+        for conv in self.statement_convs:
+            conv_out = F.relu(conv(x_flat), inplace=True).squeeze(3)
+            pooled_out = F.adaptive_max_pool1d(conv_out, 1).squeeze(2)
+            stmt_pooled.append(pooled_out)
 
-        # Reshape back to the file structure
-        x_reshaped = stmt_vectors.view(batch_size, num_stmts, -1).permute(0, 2, 1)
+        # stmt_features = [F.relu(conv(x_flat)).squeeze(3) for conv in self.statement_convs]
+        # stmt_pooled = [F.max_pool1d(item, item.size(2)).squeeze(2) for item in stmt_features]
+        stmt_vectors = torch.cat(stmt_pooled, dim=1)
+
+        # Reshape back to the file-level processing
+        stmt_vectors = stmt_vectors.view(batch_size, num_stmts, -1)
+        x_file = stmt_vectors.permute(0, 2, 1)
         
-        file_features = [F.relu(conv(x_reshaped)) for conv in self.file_convs]
-        file_pooled = [F.max_pool1d(item, item.size(2)).squeeze(2) for item in file_features]
+        # Stage 2: File-level features with fused operations
+        file_pooled = []
+        for conv in self.file_convs:
+            conv_out = F.relu(conv(x_file), inplace=True)
+            pooled_out = F.adaptive_max_pool1d(conv_out, 1).squeeze(2)
+            file_pooled.append(pooled_out)
+
+        # file_features = [F.relu(conv(x_reshaped)) for conv in self.file_convs]
+        # file_pooled = [F.max_pool1d(item, item.size(2)).squeeze(2) for item in file_features]
         
-        final_vector = torch.cat(file_pooled, 1)
+        final_vector = torch.cat(file_pooled, dim=1)
         final_vector = self.dropout(final_vector)
         return final_vector
+
+class P_CNN_FullyParallel(nn.Module):
+    '''
+    Alternative: Used grouped convolutions for true parallelism. This processes all statements
+    simulataneously using PyTorch's native batching
+    '''
+    def __init__(self, vocab_size, embedding_dim, stmt_kernels, stmt_kernel_sizes, file_kernels,
+                 file_kernel_sizes, dropout):
+        super(P_CNN_FullyParallel, self).__init__()
+        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)
+
+        # Stage 1: Use 1D convolutions instead of 2D for better parallelism
+        self.statement_convs = nn.ModuleList(
+            [nn.Conv1d(embedding_dim, stmt_kernels, k, padding=k//2) for k in stmt_kernel_sizes]
+        )
+
+        # Stage 2: Between-Statement convolutions
+        stmt_output_dim = stmt_kernels * len(stmt_kernel_sizes)
+        self.file_convs = nn.ModuleList([
+            nn.Conv1d(stmt_output_dim, file_kernels, k, padding=k//2) for k in file_kernel_sizes
+        ])
+        self.dropout = nn.Dropout(dropout)
+        self.output_dim = file_kernels * len(file_kernel_sizes)
+    
+    def forward(self, x):
+        '''
+        x: (batch_size, num_statements, statement_length)
+        '''
+        batch_size, num_stmts, stmt_len = x.shape
+        
+        # Embed: (batch, num_stmts, stmt_len, embed_dim)
+        x_embed = self.embedding(x)
+        
+        # Reshape to process all statements in parallel
+        # (batch * num_stmts, stmt_len, embed_dim)
+        x_flat = x_embed.view(batch_size * num_stmts, stmt_len, -1)
+        
+        # Transpose for Conv1d: (batch * num_stmts, embed_dim, stmt_len)
+        x_flat = x_flat.transpose(1, 2)
+        
+        # Stage 1: Statement-level convolutions (fully parallel)
+        stmt_features = []
+        for conv in self.statement_convs:
+            # Conv1d is faster than Conv2d for 1D sequences
+            conv_out = F.relu(conv(x_flat), inplace=True)
+            # Global max pooling
+            pooled = F.adaptive_max_pool1d(conv_out, 1).squeeze(2)
+            stmt_features.append(pooled)
+        
+        stmt_vectors = torch.cat(stmt_features, dim=1)
+        
+        # Reshape back: (batch, num_stmts, features)
+        stmt_vectors = stmt_vectors.view(batch_size, num_stmts, -1)
+        
+        # Transpose for file-level: (batch, features, num_stmts)
+        x_file = stmt_vectors.transpose(1, 2)
+        
+        # Stage 2: File-level convolutions
+        file_features = []
+        for conv in self.file_convs:
+            conv_out = F.relu(conv(x_file), inplace=True)
+            pooled = F.adaptive_max_pool1d(conv_out, 1).squeeze(2)
+            file_features.append(pooled)
+        
+        final_vector = torch.cat(file_features, dim=1)
+        return self.dropout(final_vector)
+
 
 class TRANPCNN(nn.Module):
     '''
@@ -112,12 +279,26 @@ class TRANPCNN(nn.Module):
             params['nl_kernels'], params['nl_kernel_sizes'], params['dropout']
         )
 
-        self.p_cnn = P_CNN(
+        # self.p_cnn = P_CNN(
+        #     params['vocab_size'], params['code_embedding_dim'],
+        #     params['stmt_kernels'], params['stmt_kernel_sizes'],
+        #     params['file_kernels'], params['file_kernel_sizes'], params['dropout']
+        # )
+
+        # Option1 :Chunk processing (safer, more memory efficient)
+        # self.p_cnn = P_CNN_Parallelized(
+        #     params['vocab_size'], params['code_embedding_dim'],
+        #     params['stmt_kernels'], params['stmt_kernel_sizes'],
+        #     params['file_kernels'], params['file_kernel_sizes'], params['dropout'], chunk_size=5000
+        # )
+
+        # Option 2: Fully parallel (faster but uses more memory)
+        self.p_cnn = P_CNN_FullyParallel(
             params['vocab_size'], params['code_embedding_dim'],
             params['stmt_kernels'], params['stmt_kernel_sizes'],
-            params['file_kernels'], params['file_kernel_sizes'], params['dropout']
-        )
-
+            params['file_kernels'], params['file_kernel_sizes'], 
+            params['dropout'])
+        
         # Project_Specific Prediction Layer
         combined_dim = self.n_cnn.output_dim + self.p_cnn.output_dim
         # hidden_dim = params['hidden_dim']
@@ -130,7 +311,7 @@ class TRANPCNN(nn.Module):
         '''Helper function to create a standard two-layer FCN.'''
         return nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Dropout(dropout),
             nn.Linear(hidden_dim, num_classes)
         )
