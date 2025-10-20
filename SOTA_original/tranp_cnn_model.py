@@ -286,18 +286,18 @@ class TRANPCNN(nn.Module):
         # )
 
         # Option1 :Chunk processing (safer, more memory efficient)
-        # self.p_cnn = P_CNN_Parallelized(
-        #     params['vocab_size'], params['code_embedding_dim'],
-        #     params['stmt_kernels'], params['stmt_kernel_sizes'],
-        #     params['file_kernels'], params['file_kernel_sizes'], params['dropout'], chunk_size=5000
-        # )
-
-        # Option 2: Fully parallel (faster but uses more memory)
-        self.p_cnn = P_CNN_FullyParallel(
+        self.p_cnn = P_CNN_Parallelized(
             params['vocab_size'], params['code_embedding_dim'],
             params['stmt_kernels'], params['stmt_kernel_sizes'],
-            params['file_kernels'], params['file_kernel_sizes'], 
-            params['dropout'])
+            params['file_kernels'], params['file_kernel_sizes'], params['dropout'], chunk_size=5000
+        )
+
+        # Option 2: Fully parallel (faster but uses more memory)
+        # self.p_cnn = P_CNN_FullyParallel(
+        #     params['vocab_size'], params['code_embedding_dim'],
+        #     params['stmt_kernels'], params['stmt_kernel_sizes'],
+        #     params['file_kernels'], params['file_kernel_sizes'], 
+        #     params['dropout'])
         
         # Project_Specific Prediction Layer
         combined_dim = self.n_cnn.output_dim + self.p_cnn.output_dim

@@ -33,8 +33,8 @@ BUG_REPORTS_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/bug_rep
 BLOB_CACHE_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/cache"
 
 # Experiment Settings
-SOURCE_PROJECT = "huggingface/transformers"  # Example source project
-TARGET_PROJECT = "pandas-dev/pandas" # Example target project
+SOURCE_PROJECT = "pandas-dev/pandas" # Example source project
+TARGET_PROJECT = "huggingface/transformers" # Example target project
 TOP_K_CANDIDATES = 300
 TARGET_TRAIN_SIZE = 0.10 # Use 10% of target data for training
 TEST_SET_SIZE = 0.2
@@ -50,8 +50,8 @@ PARAMS = {
     'max_bug_len': 512, # Added: max length for bug report text
     'stmt_kernels': 100,
     'stmt_kernel_sizes': [3, 4, 5],
-    'max_lines': 775, # Max statements per file
-    'max_line_len': 14, # Max tokens per statement
+    'max_lines': 768, # Max statements per file
+    'max_line_len': 19, # Max tokens per statement
     'file_kernels': 100,
     'file_kernel_sizes': [3, 5, 7],
     'hidden_dim': 256,
@@ -59,8 +59,8 @@ PARAMS = {
     'dropout':0.5
 }
 # Training Hyperparameters
-EPOCHS = 1
-BATCH_SIZE = 256
+EPOCHS = 10
+BATCH_SIZE = 192
 LEARNING_RATE = 0.001
 WEIGHT_DECAY = 1e-5 # For regularization
 
@@ -144,12 +144,25 @@ def create_labeled_samples(project_name, language, bug_metadata_db, blob_embeddi
     return labeled_samples
 
 # Pre-processing function
-def preprocess_and_cache_samples(raw_samples, bug_reports_df, repo, tokenizer, cache_meta_path, cache_code_ids_path):
+def preprocess_and_cache_samples(raw_samples, bug_reports_df, repo, tokenizer, cache_meta_path, cache_code_ids_path, dtype=np.int32):
     '''
     Performs the slow pre-processing (reading files, tokenizing) and saves results into two files:
     a) A Parquet file for metadata (labels, bug_ids, etc.)
     b) A Numpy .npy file for the large code_ids tensors. 
+    Stores unique blobs only once, metadata references them by index
     '''
+    # Check if dtype is sufficient
+    vocab_size = len(tokenizer)
+    max_token_id = vocab_size - 1
+    
+    if dtype == np.int16 and max_token_id > 32767:
+        print(f"WARNING: vocab_size={vocab_size} exceeds int16 range. Using int32.")
+        dtype = np.int32
+    elif dtype == np.int8 and max_token_id > 127:
+        print(f"WARNING: vocab_size={vocab_size} exceeds int8 range. Using int16.")
+        dtype = np.int16
+    
+    print(f"Using dtype: {dtype.__name__} (vocab_size: {vocab_size:,})")
     metadata = []
 
     # Create a dictionary for fast bug text lookup
@@ -158,12 +171,36 @@ def preprocess_and_cache_samples(raw_samples, bug_reports_df, repo, tokenizer, c
         index= bug_reports_df['bug_id']
     ).to_dict()
 
+    # Get unique blobs
+    unique_blobs = list(set(blob_sha for _, blob_sha, _, _ in raw_samples))
+    unique_bugs = list(set(bug_id for bug_id, _, _, _ in raw_samples))
+    print(f"Total samples: {len(raw_samples)}")
+    print(f"Unique blobs: {len(unique_blobs)}")
+    print(f"Deduplication ratio: {len(raw_samples) / len(unique_blobs):.2f}x")
+
+    # === OPTIMIZATION 1: Tokenize bugs once ===
+    print("\nTokenizing unique bugs...")
+    bug_tokens = {}
+    for bug_id in tqdm(unique_bugs, desc="Tokenizing bugs"):
+        bug_text = bug_texts.get(bug_id, "")
+        tokenized_bug = tokenizer(
+            bug_text, padding='max_length', truncation=True,
+            max_length=PARAMS['max_bug_len'], return_tensors='pt'
+        )['input_ids'].squeeze(0).numpy()
+        bug_tokens[bug_id] = tokenized_bug.tolist()
+
+    # Create blob_sha -> index mapping
+    blob_to_idx = {sha: idx for idx, sha in enumerate(unique_blobs)}
+
+    # Process unique blobs only
+    num_blobs = len(unique_blobs)
+
     # Set up memory-mapped file before the loop
-    num_samples = len(raw_samples)
-    code_ids_shape = (num_samples, PARAMS['max_lines'] * PARAMS['max_line_len'])
+    # num_samples = len(raw_samples)
+    code_ids_shape = (num_blobs, PARAMS['max_lines'] * PARAMS['max_line_len'])
 
     # This creates the large file on disk but doesn't load it into RAM
-    print(f"Creating memory-mapped file at {cache_code_ids_path} with shape {code_ids_shape}...")
+    print(f"Creating memory-mapped file at {cache_code_ids_path} with shape {code_ids_shape} for {num_blobs} blobs...")
     # Create an empty array and save it first to create proper .npy format
     # This writes the header and allocates space
     empty_array = np.empty(code_ids_shape, dtype=np.int32)
@@ -173,18 +210,9 @@ def preprocess_and_cache_samples(raw_samples, bug_reports_df, repo, tokenizer, c
     # This reads the .npy header and maps to the data portion
     code_ids_mmap = np.load(cache_code_ids_path, mmap_mode='r+')
 
-    # Loop with enumerate and write incrementally
-    for i, (bug_id, blob_sha, label, project_type) in enumerate(tqdm(raw_samples, desc=f"Preprocessing and cachng")):
-        # process bug report
-        bug_text = bug_texts.get(bug_id, "")
-        tokenized_bug = tokenizer(
-            bug_text,
-            padding='max_length',
-            truncation=True,
-            max_length=PARAMS['max_bug_len'],
-            return_tensors='pt'
-        )['input_ids'].squeeze(0).numpy() # using numpy array
-
+    # Process each unique blob once
+    for blob_sha in tqdm(unique_blobs, desc=f"Preprocessing unqiue blobs"):
+        blob_idx = blob_to_idx[blob_sha] # Get index from mapping
         # process source code
         try:
             source_content = Blob(repo, hex_to_bin(blob_sha)).data_stream.read().decode('utf-8', 'ignore')
@@ -206,31 +234,34 @@ def preprocess_and_cache_samples(raw_samples, bug_reports_df, repo, tokenizer, c
             padded_tensor[:num_lines_to_copy] = tokenized_lines[:num_lines_to_copy]
         
         # Write data directly to disk instead of appending to a list
-        code_ids_mmap[i] = padded_tensor.flatten().numpy()
-        # Metadata is small, so we can still collect it in a list
+        code_ids_mmap[blob_idx] = padded_tensor.flatten().numpy()
+
+    code_ids_mmap.flush()
+    del code_ids_mmap
+
+     # === OPTIMIZATION 2: Create metadata WITHOUT re-tokenizing ===
+    print("\nCreating metadata (fast - no tokenization)...")
+    metadata = []
+    for bug_id, blob_sha, label, project_type in tqdm(raw_samples, desc="Building metadata"):
         metadata.append({
-            'bug_ids': tokenized_bug.tolist(), 
+            'bug_ids': bug_tokens[bug_id],  # Lookup pre-tokenized bug
+            'blob_idx': blob_to_idx[blob_sha],
             'label': label,
             'project_type': project_type,
             'bug_id': bug_id,
             'blob_sha': blob_sha
         })
-
-    # Flush to ensure all changes are written to disk
-    print("Flushing all writes to the .npy file...")
-    code_ids_mmap.flush()
-    del code_ids_mmap  # Close the memory-mapped file
-
-    # Save the two separate files
-    print("Saving metadata to Parquet file...")
+    
     meta_df = pd.DataFrame(metadata)
     meta_df.to_parquet(cache_meta_path, index=False)
+    
+    print(f"\n✓ Successfully cached:")
+    print(f"  - Metadata: {cache_meta_path}")
+    print(f"  - Code IDs: {cache_code_ids_path}")
+    print(f"  - Unique blobs: {num_blobs:,}")
+    print(f"  - Total samples: {len(raw_samples):,}")
+    print(f"  - File size: {num_blobs * PARAMS['max_lines'] * PARAMS['max_line_len'] * 4 / 1e9:.2f} GB")
 
-    # print("Stacking and saving code_ids to .npy file...")
-    # # Vertically stack all the flat code_id arrays into one giant 2D array
-    # all_code_ids = np.vstack(code_ids_list).astype(np.int32) # use int32 to save space
-    # np.save(cache_code_ids_path, all_code_ids)
-    print(f"Successfully cache data to {cache_meta_path} and {cache_code_ids_path}")
 
 def analyze_and_set_padding(raw_samples, repo, tokenizer):
     """
@@ -296,8 +327,8 @@ def analyze_and_set_padding(raw_samples, repo, tokenizer):
 
     # --- Dynamically update the global PARAMS ---
     print("\nUpdating PARAMS with 90th percentile values to optimize performance and disk space.")
-    PARAMS['max_lines'] = max_lines_90th
-    PARAMS['max_line_len'] = max_line_len_90th
+    PARAMS['max_lines'] = max_lines_75th
+    PARAMS['max_line_len'] = max_line_len_75th
     print(f"New 'max_lines': {PARAMS['max_lines']}")
     print(f"New 'max_line_len': {PARAMS['max_line_len']}\n")
    
@@ -333,7 +364,12 @@ class BugLocalizationDataset(Dataset):
         meta_sample = self.metadata.iloc[idx]
 
         # get the code_ids array from the memory-mapped filed. Very fast.
-        code_ids_flat = self.code_ids_data[idx]
+        # Get blob index (works for both old and new cache format)
+        if 'blob_idx' in meta_sample:
+            blob_idx = meta_sample['blob_idx']  # New deduplicated format
+        else:
+            blob_idx = idx  # Old format (backward compatible)
+        code_ids_flat = self.code_ids_data[blob_idx]
 
         # Reshape the flat array back into a 2D tensor the model expects
         code_ids_tensor = torch.from_numpy(code_ids_flat.copy()).reshape(
@@ -385,7 +421,7 @@ class BugLocalizationDataset(Dataset):
         }
 
 # Step 3: Training and Evaluation Functions
-def train(model, source_loader, target_loader, optimizer, criterion, epoch, device, scaler):
+def train(model, source_loader, target_loader, optimizer, criterion, epoch, device, scaler, accumulation_steps=3):
     model.train()
     progress_bar = tqdm(source_loader, desc=f'Epoch {epoch + 1}/ {EPOCHS}')
     iter_target = iter(itertools.cycle(target_loader))
@@ -409,17 +445,20 @@ def train(model, source_loader, target_loader, optimizer, criterion, epoch, devi
         bug_ids_t = target_batch['bug_ids'].to(device, non_blocking=True)
         code_ids_t = target_batch['code_ids'].to(device, non_blocking=True)
         labels_t = target_batch['label'].to(device, non_blocking=True)
+        # ensure accurate GPU timing
+        if device == 'cuda':
+            torch.cuda.synchronize()
         times['to_gpu'] += time.time() - t0
         
         optimizer.zero_grad(set_to_none=True)
         
-        t0 = time.time()
         with autocast(device_type='cuda'):
+            t0 = time.time()
             outputs_s = model(bug_ids_s, code_ids_s, 'source')
             loss_s = criterion(outputs_s, labels_s)
             outputs_t = model(bug_ids_t, code_ids_t, 'target')
             loss_t = criterion(outputs_t, labels_t)
-            combined_loss = loss_s + loss_t
+            combined_loss = (loss_s + loss_t) / accumulation_steps
         times['forward'] += time.time() - t0
 
         
@@ -428,16 +467,30 @@ def train(model, source_loader, target_loader, optimizer, criterion, epoch, devi
         scaler.scale(combined_loss).backward()
         times['backward'] += time.time() - t0
         
-        t0 = time.time()
-        scaler.step(optimizer)
-        scaler.update()
-        times['optim'] += time.time() - t0
-        
+        # step & zero-grad every accumulation_steps
+        if (batch_idx + 1) % accumulation_steps == 0:
+            t0 = time.time()
+            scaler.step(optimizer)
+            scaler.update()
+            optimizer.zero_grad(set_to_none=True)
+            if device == 'cuda':
+                torch.cuda.synchronize()
+            times['optim'] += time.time() - t0
+
         batch_time = time.time() - t_batch_start
         batch_count += 1
-        
-        losses.append(combined_loss.item())
+        losses.append(combined_loss.item() * accumulation_steps)  # record original scale
         batch_times.append(batch_time)
+        # t0 = time.time()
+        # scaler.step(optimizer)
+        # scaler.update()
+        # times['optim'] += time.time() - t0
+        
+        # batch_time = time.time() - t_batch_start
+        # batch_count += 1
+        
+        # losses.append(combined_loss.item())
+        # batch_times.append(batch_time)
 
         if batch_idx % 10 == 0:
             total = sum(times.values())
@@ -591,14 +644,14 @@ def main():
 
     # Define cache paths
     os.makedirs(BLOB_CACHE_DIR, exist_ok=True)
-    source_meta_path = os.path.join(BLOB_CACHE_DIR, f'{SOURCE_PROJECT.replace("/", "_")}_source_meta_90.parquet')
-    source_code_ids_path = os.path.join(BLOB_CACHE_DIR, f'{SOURCE_PROJECT.replace("/", "_")}_source_code_ids_90.npy')
+    source_meta_path = os.path.join(BLOB_CACHE_DIR, f'{SOURCE_PROJECT.replace("/", "_")}_source_meta.parquet')
+    source_code_ids_path = os.path.join(BLOB_CACHE_DIR, f'{SOURCE_PROJECT.replace("/", "_")}_source_code_ids.npy')
     
-    target_train_meta_path = os.path.join(BLOB_CACHE_DIR, f'{TARGET_PROJECT.replace("/", "_")}_target_train_meta_90.parquet')
-    target_train_code_ids_path = os.path.join(BLOB_CACHE_DIR, f'{TARGET_PROJECT.replace("/", "_")}_target_train_code_ids_90.npy')
+    target_train_meta_path = os.path.join(BLOB_CACHE_DIR, f'{TARGET_PROJECT.replace("/", "_")}_target_train_meta.parquet')
+    target_train_code_ids_path = os.path.join(BLOB_CACHE_DIR, f'{TARGET_PROJECT.replace("/", "_")}_target_train_code_ids.npy')
 
-    target_test_meta_path = os.path.join(BLOB_CACHE_DIR, f'{TARGET_PROJECT.replace("/", "_")}_target_test_meta_90.parquet')
-    target_test_code_ids_path = os.path.join(BLOB_CACHE_DIR, f'{TARGET_PROJECT.replace("/", "_")}_target_test_code_ids_90.npy')
+    target_test_meta_path = os.path.join(BLOB_CACHE_DIR, f'{TARGET_PROJECT.replace("/", "_")}_target_test_meta.parquet')
+    target_test_code_ids_path = os.path.join(BLOB_CACHE_DIR, f'{TARGET_PROJECT.replace("/", "_")}_target_test_code_ids.npy')
 
     target_bug_ids = list(target_bug_db.keys())
     # Split the BUG IDs into training and testing sets
@@ -640,7 +693,7 @@ def main():
     source_repo = git.Repo(get_project_path(SOURCE_PROJECT, source_language))
     # --- NEW: Run analysis and dynamically set padding before caching ---
     # We analyze on the source project's candidates as it's typically the largest dataset
-    analyze_and_set_padding(source_samples, source_repo, tokenizer)
+    # analyze_and_set_padding(source_samples, source_repo, tokenizer)
     target_repo = git.Repo(get_project_path(TARGET_PROJECT, target_language))
     
     
@@ -695,6 +748,9 @@ def main():
     #         model = torch.compile(model, mode='reduce-overhead')
     #     except Exception as e:
     #         print(f"Could not compile model: {e}")
+
+    # Enable cuDNN autotuner for potential speedups on fixed-size inputs
+    torch.backends.cudnn.benchmark = True
 
     criterion = nn.CrossEntropyLoss()
     # Use AdamW with fused=True for faster CUDA kernels
