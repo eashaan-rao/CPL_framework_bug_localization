@@ -16,15 +16,14 @@ import itertools
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence
 from torch_geometric.data import Batch, Data
+from transformers import AutoModel, AutoTokenizer
+import time
 
 # Local imports
 from cooba_model import COOBA, ProjectDiscriminator
-from cooba_ast_parsers import PythonASTParser, JavaASTParser, UNK_TOKEN, PAD_TOKEN
-from cooba_utils import build_vocabulary, load_glove_embeddings, save_preprocessors, load_preprocessors
+from cooba_ast_parsers import PythonASTParser, JavaASTParser
+from cooba_utils import preprocess_code_to_ast_embeddings, prepare_bug_embeddings
 
-# -- Configuration --
-# Experiment Mode: 'cross-project' or 'within-project'
-MODE = 'cross-project'
 
 REPO_BASE_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/repos"
 BUG_METADATA_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/embedding_dbs"
@@ -32,46 +31,36 @@ BLOB_DB_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/embedding_db
 RESULT_PATH = "/home/cs21d002_eashaan/PhD/Objective1/results"
 PROJECTS_METADATA_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/project_metadata.parquet"
 BUG_REPORTS_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/bug_reports_clean.parquet"
-GLOVE_FILE_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/glove.6B.100d.txt"
-CACHE_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/cooba"
-PREPROCESSOR_PATH = os.path.join(CACHE_DIR, 'cooba_preprocessors.pkl')
-GRAPH_CACHE_DIR = os.path.join(CACHE_DIR, 'graph_cache')
+CACHE_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/cooba_cache"
 
-# Experiment Settings
-SOURCE_PROJECT = 'apache/dolphinscheduler'
-TARGET_PROJECT = 'apache/dubbo'
-# Define project languages
-PROJECT_LANGUAGES = {
-    'apache/dolphinscheduler': 'java',
-    'apache/dubbo': 'java'
-}
+# BGE Model Configuration
+BGE_MODEL_NAME = 'BAAI/bge-code-v1'
+BGE_EMBEDDING_DIM = 512
 
+# Experiment settings
 TOP_K_CANDIDATES = 300
-TARGET_TRAIN_SIZE = 0.2
-TEST_SET_SIZE = 0.2
-WP_TRAIN_SIZE = 0.8
 MAX_BUG_LEN = 512
-MAX_CODE_SEQ_LEN = 1024    # For the CNN path (Path B)
-EMBEDDING_DIM = 300
+MAX_CODE_LEN = 1024
+MAX_AST_NODES = 500 # Maximum nodes in AST graph
 
 # Model Hyperparameters
 PARAMS = {
     'bug_encoder': {'hidden_dim': 256, 'num_layers': 2, 'dropout_prob':0.5},
-    'shared_extractor': {'num_filters': 128, 'kernel_sizes': [3, 4, 5]},
-    'individual_extractor': {'hidden_dim': 256, 'output_dim': 256, 'dropout_prob':0.5},
-    'fusion': {'output_dim': 256}
+    'shared_extractor': {'num_filters': 128, 'kernel_sizes': [3, 4, 5], 'dropout_prob':0.5},
+    'individual_extractor': {'hidden_dim': 256, 'output_dim': 256, 'num_layers': 2, 'dropout_prob':0.5},
+    'fusion': {'output_dim': 256, 'hidden_dim':384, 'dropout_prob':0.5}
 }
 
 # Training Hyperparameters
 EPOCHS = 10
-BATCH_SIZE = 64
+BATCH_SIZE = 32 # Smaller batch size due to graph processing
 LEARNING_RATE = 0.001
 DISC_LEARNING_RATE = 0.0005
 WEIGHT_DECAY = 1e-5
 MARGIN = 0.4 # For Margin Ranking Loss
 LAMBDA_ADV = 0.1 # Weight for adversarial loss
 
-# Step 1: Data Preparation & Candidate Generation using Faiss
+# Helper functions
 def get_project_path(repo_name, language):
     '''Constructs the local path to a project repository.'''
     return os.path.join(REPO_BASE_PATH, language.lower(), repo_name.replace('/', '_'))
@@ -92,12 +81,13 @@ def load_project_databases(project_name, meta_df):
     blob_db_path = os.path.join(BLOB_DB_DIR, project_name.replace('/', '_') + '_blob_embeddings32.pkl')
     bug_db_path = os.path.join(BUG_METADATA_DIR, project_name.replace('/', '_') + '_bug_metadata32.pkl')
     with open(blob_db_path, 'rb') as f:
-        blob_db = pickle.load(f)
+        blob_db = pickle.load(f)  # Dict: blob_sha -> embedding
     with open(bug_db_path, 'rb') as f:
-        bug_db = pickle.load(f)
+        bug_db = pickle.load(f) # Dict: bug_id -> {'embedding': ..., 'ground_truth_files': ...}
     return bug_db, blob_db, language
 
-def create_labeled_samples(project_name, language, bug_metadata_db, blob_embedding_db, top_k, is_training_data=True, bug_ids_to_process=None):
+def create_labeled_samples(project_name, language, bug_metadata_db, blob_embedding_db, top_k, 
+                           is_training_data=True, bug_ids_to_process=None):
     '''
     The main data preparation function. It generates candidates using Faiss, creates labeled pairs, and ensures
     ground truth is included for training. It now processes only the specified bug_ids
@@ -160,437 +150,528 @@ def create_labeled_samples(project_name, language, bug_metadata_db, blob_embeddi
             # Create Labeled pairs
             for blob_sha in candidate_shas:
                 label = 1 if blob_sha in ground_truth_shas else 0
-                project_type = 'target' if project_name == TARGET_PROJECT else 'source'
+                project_type = 'target' if project_name == project_name else 'source'
                 labeled_samples.append((bug_id, blob_sha, label, project_type))
 
     return labeled_samples
 
-def get_all_unique_blobs_code(raw_samples_list, repos):
-    '''Fetches code for all unique blobs from a list of raw_samples.'''
-    all_unique_blobs = set()
-    for samples in raw_samples_list:
-        all_unique_blobs.update(sha for _, sha, _, _ in samples)
-
-    code_map = {}
-    for blob_sha in tqdm(all_unique_blobs, desc="Fetching unique blob code"):
-        for repo_name, repo_data in repos.items():
-            try:
-                lang = repo_data['lang']
-                source_content = Blob(repo_data['repo'], hex_to_bin(blob_sha)).data_stream.read().decode('utf-8', 'ignore')
-                code_map[blob_sha] = (source_content, lang)
-                break
-            except Exception:
-                continue # Try next repo
-    return code_map
-
-# 2. Preprocessing & caching 
-def preprocess_and_cache_samples_cooba(raw_samples_list, bug_reports_df, repos, parsers):
-    '''
-    Parses all unique blobs into graphs and saves them to a single cache file. Saves metadata and tokenized
-    bug reports.
-    '''
-    print("Starting COOBA preprocessing....")
-    os.makedirs(GRAPH_CACHE_DIR, exist_ok=True)
-
-    # 1. Get code for all unique blobs
-    all_code_map = get_all_unique_blobs_code(raw_samples_list, repos)
-
-    # 2. Build Vocabulary and Embedding Matrix
-    if not os.path.exists(PREPROCESSOR_PATH):
-        vocabulary = build_vocabulary(bug_reports_df, parsers, all_code_map)
-        embedding_matrix = load_glove_embeddings(GLOVE_FILE_PATH, vocabulary, EMBEDDING_DIM)
-        with open(PREPROCESSOR_PATH, 'wb') as f:
-            pickle.dump({'vocabulary': vocabulary, 'embedding_matrix': embedding_matrix}, f)
-        print("Saved preprocessors to {PREPROCESSOR_PATH}")
-    else:
-        print(f"Loading preprocessors from {PREPROCESSOR_PATH}")
-        with open(PREPROCESSOR_PATH, 'rb') as f:
-            data = pickle.load(f)
-        vocabulary = data['vocabulary']
-        embedding_matrix = data['embeddng_matrix']
-
-    # Re-initialize parsers with the final vocabulary
-    for lang in parsers:
-        parsers[lang].vocabulary = vocabulary
-
-    # 3. Create the single graph cache file
-    if not os.path.exists(GRAPH_CACHE_DIR):
-        print(f"Creating new graph cache at {GRAPH_CACHE_DIR}")
-        graph_cache = {}
-        for blob_sha, (code_string, lang) in tqdm(all_code_map.items(), desc="Parsing and caching ASTs"):
-            parser = parsers.get(lang)
-            if not parser: continue
-
-            graph_data = parser.pase(code_string)
-            if graph_data:
-                # Add chunking logic here if needed, for now, we will rely on truncation in collate_fn
-                graph_cache[blob_sha] = graph_data
-
-        print(f"Saving graph cache with {len(graph_cache)} graphs...")
-        torch.save(graph_cache, GRAPH_CACHE_DIR)
-    else:
-        print(f"Graph cache {GRAPH_CACHE_DIR} already exists.")
-
-    # 4. Create and save metadata
-    print("Creating metadata...")
-    unk_id = vocabulary.get(UNK_TOKEN, 1)
-    bug_token_cache = {}
-    for bug_id, text in bug_reports_df['bug_report_text'].to_dict().items():
-        tokens = str(text).lower().split()[:MAX_BUG_LEN]
-        bug_token_cache[bug_id] = [vocabulary.get(t, unk_id) for t in tokens]
-
-    all_metadata = []
-    for samples in raw_samples_list:
-        for bug_id, blob_sha, label, project_type in tqdm(samples, desc="Building metadata"):
-            if blob_sha not in all_code_map: # skip blobs we couldn't read
-                continue
-            all_metadata.append({
-                'bug_id':bug_id,
-                'bug_token_ids': bug_token_cache.get(bug_id, []),
-                'blob_sha': blob_sha,
-                'label': label,
-                'project_type': project_type
-            })
-    
-    metadata_df = pd.DataFrame(all_metadata)
-    metadata_df.to_parquet(METADATA_CACHE_PATH, index=False)
-    print(f"Saved metadata to {METADATA_CACHE_PATH}")
-
-    return metadata_df, embedding_matrix
-
 # --- 3. PyTorch Dataset ---
 class CoobaBugLocalizationDataset(Dataset):
     '''
-    Loads preprocessed COOBA samples for DataLoader.
+    PyTorch Dataset for COOBA with BGE embeddings and AST graphs.
     '''
-    def __init__(self, metadata_df):
-        self.metadata = metadata_df.to_dict('records')
+    def __init__(self, samples, bug_reports_df, repo, language, bge_model, bge_tokenizer, ast_parser, cache_dir):
+        """
+        Args:
+            samples: List of (bug_id, blob_sha, label) tuples
+            bug_metadata_db: Pre-computed bug embeddings
+            blob_embedding_db: Pre-computed code embeddings
+            repo: Git repository object
+            language: Programming language
+            project_type: 'source' or 'target'
+            cache_dir: Directory for caching AST graphs
+        """
+        self.samples = samples
+        self.bug_reports_df = bug_reports_df
+        self.repo = repo
+        self.language = language
+        self.bge_model = bge_model
+        self.bge_tokenizer = bge_tokenizer
+        self.ast_parser = ast_parser
+        self.cache_dir = cache_dir
+
+        os.makedirs(cache_dir, exist_ok=True)
+
+        # Initialize AST parser
+        if language.lower() == 'python':
+            self.ast_parser = PythonASTParser(max_nodes=MAX_AST_NODES)
+        else:  # Default to Java
+            self.ast_parser = JavaASTParser(max_nodes=MAX_AST_NODES)
+
+        # Create bug text lookup
+        self.bug_texts = pd.Series(
+            bug_reports_df['bug_report_text'].values,
+            index=bug_reports_df['bug_id']
+        ).to_dict()
 
     def __len__(self):
-        return len(self.metadata)
+        return len(self.samples)
+    
+    def _get_bge_embedding(self, text, max_length=512):
+        '''Get BGE embedding for text.'''
+        inputs = self.bge_tokenizer(
+            text,
+            padding=True,
+            truncation=True,
+            max_length=max_length,
+            return_tensors='pt'
+        )
+        
+        with torch.no_grad():
+            outputs = self.bge_model(**inputs)
+            # Use CLS token embedding or mean pooling
+            embeddings = outputs.last_hidden_state.mean(dim=1)
+        
+        return embeddings.squeeze(0)
+
+    def _get_code_content(self, blob_sha):
+        '''Fetch code content from blob SHA.'''
+        try:
+            blob = Blob(self.repo, hex_to_bin(blob_sha))
+            return blob.data_stream.read().decode('utf-8', 'ignore')
+        except:
+            return ""
+    
+    def _cache_key(self, blob_sha):
+        '''Generate cache key for blob.'''
+        return os.path.join(self.cache_dir, f"{blob_sha}.pt")
 
     def __getitem__(self, idx):
-        meta = self.metadata[idx]
-        graph_path = os.path.join(GRAPH_CACHE_DIR, f"{meta['blob_sha']}.pt")
-        try:
-            graph_data = torch.load(graph_path)
-        except FileNotFoundError:
-            return None # Skip if file is missing
+        bug_id, blob_sha, label, project_type = self.samples[idx]
+        
+        # Check cache first
+        cache_path = self._cache_key(blob_sha)
+
+        if os.path.exists(cache_path):
+            cached_data = torch.load(cache_path)
+            code_embeddings = cached_data['code_embeddings']
+            graph_data = cached_data['graph_data']
+        else:
+            # Get code content
+            code_content = self._get_code_content(blob_sha)
+
+            # Get BGE embeddings for code
+            if code_content:
+                # Split code into chunks for embedding
+                lines = code_content.splitlines()[:MAX_CODE_LEN]
+                code_text = '\n'.join(lines)
+                code_embedding = self._get_bge_embedding(code_text, MAX_CODE_LEN)
+
+                # Parse code to AST graph
+                graph_data = self.ast_parser.parse(code_content)
+
+                if graph_data is not None:
+                    # Add BGE embeddings as node features
+                    # For simplicity, use mean embedding for all nodes
+                    num_nodes = graph_data.x.shape[0] if hasattr(graph_data, 'x') else 1
+                    node_embeddings = code_embeddings.unsequeeze(0).expand(num_nodes, -1)
+                    graph_data.x = node_embeddings
+            else:
+                # Empty file handling
+                code_embeddings = torch.zeros(BGE_EMBEDDING_DIM)
+                graph_data =  Data(
+                    x=torch.zeros(1, BGE_EMBEDDING_DIM),
+                    edge_index=torch.tensor([[], []], dtype=torch.long)
+                )
+            
+            # Cache the processed data
+            torch.save({
+                'code_embeddings': code_embeddings,
+                'graph_data': graph_data
+            }, cache_path)
+
+        # Get bug report embedding
+        bug_text = self.bug_texts.get(bug_id, "")
+        bug_embeddings = self._get_bge_embedding(bug_text, MAX_BUG_LEN)
+
         return {
-            'bug_tokens_ids': torch.tensor(meta['bug_tokens_ids'], dtype=torch.long),
-            'bug_length': len(meta['bug_tokens_ids']),
+            'bug_embeddings': bug_embeddings,
+            'bug_length': min(len(bug_text.split()), MAX_BUG_LEN),
+            'code_embeddings': code_embeddings.unsqueeze(0), # Add sequence dimensions
             'graph_data': graph_data,
-            'label': torch.tensor(meta['label'], dtype=torch.long),
-            'project_type': meta['project_type']
+            'label': torch.tensor(label, dtype=torch.long),
+            'project_type': project_type,
+            'bug_id': bug_id,
+            'blob_sha': blob_sha
         }
 
 def cooba_collate_fn(batch):
     '''
-    Custom collate function to handle padding and graph batching.
+    Custom collate function for batching COOBA data.
     '''
-    batch = [b for b in batch if b is not None]  # Filter out None items
-    if not batch:
-        return None
-    
-    # Pad bug reports
-    bug_lengths = torch.tensor([b['bug_length'] for b in batch], dtype=torch.long)
-    bug_tokens = [b['bug_tokens_ids'] for b in batch]
-    padded_bugs = pad_sequence(bug_tokens, batch_first=True, padding_value=0)
+    # Separate components
+    bug_embeddings = torch.stack([item['bug_embeddings'] for item in batch])
+    bug_lengths = torch.tensor([item['bug_length'] for item in batch])
+    code_embeddings = torch.stack([item['code_embeddings'] for item in batch])
+    labels = torch.stack([torch.tensor(item['label']) for item in batch])
 
-    # Pad code token sequences (from graph data)
-    code_seqs = [b['graph_data'].code_token_sequence[:MAX_CODE_SEQ_LEN] for b in batch]
-    padded_code_seqs = pad_sequence(code_seqs, batch_first=True, padding_value=0)
-    
-    # Batch graphs
-    graph_list = [b['graph_data'] for b in batch]
+    # Batch graphs using PyG's Batch
+    graph_list = [item['graph_data'] for item in batch]
     batched_graph = Batch.from_data_list(graph_list)
 
-    labels = torch.stack([b['label'] for b in batch])
-    project_types = [b['project_type'] for b in batch]
-
+    project_types = [item['project_type'] for item in batch]
+    bug_ids =[item['bug_id'] for item in batch]
+    blob_shas = [item['blob_sha'] for item in batch]
+    
     return {
-        'bug_report': (padded_bugs, bug_lengths),
-        'code_graph': batched_graph,
-        'code_sequence': padded_code_seqs,
+        'bug_embeddings': bug_embeddings.unsqueeze(1), # Add sequence dimension
+        'bug_lengths': bug_lengths,
+        'code_embeddings': code_embeddings,
+        'graph_data': batched_graph,
         'labels': labels,
-        'project_types': project_types
+        'project_types': project_types,
+        'bug_ids': bug_ids,
+        'blob_shas': blob_shas
     }
 
 # --- 4. Training and Evaluation ---
-def train_cooba(model, discriminator, source_loader, target_loader, optimizer_main, optimizer_disc, epoch, device):
+def train_cooba(model, discriminator, source_loader, target_loader, optimizer_main, 
+                optimizer_disc, epoch, device, mode='cross-project'):
     '''
-    Main Training loop for COOBA in cross-project mode. Implements the adversarial training and 
-    margin ranking loss. 
+    Main Training loop for COOBA with adversarial learning. 
     '''
     model.train()
-    discriminator.train()
+    if discriminator:
+        discriminator.train()
 
     # Loss functions
     task_criterion = nn.MarginRankingLoss(margin=MARGIN).to(device)
     adv_criterion = nn.CrossEntropyLoss().to(device)
 
-    # Setup iterator
-    if target_loader is None:
-        print("Running in Within-Project mode. No target loader.")
-        iter_target = None
-        loaders = source_loader
+    # Setup iterators
+    if mode == 'within-project':
+        # Only use target loader
+        data_loader = target_loader if target_loader else source_loader
+        progress_bar = tqdm(data_loader, desc=f"Epoch {epoch + 1}/ {EPOCHS}")
     else:
+        # use both loader
         print("Running in Cross-Project mode.")
-        iter_target = iter(itertools.cycle(target_loader))
-        loaders = source_loader # Source loader dictates epoch length
-
-    progress_bar = tqdm(loaders, desc=f"Epoch {epoch + 1}/{EPOCHS}")
+        progress_bar = tqdm(source_loader, desc=f"Epoch {epoch+1}/{EPOCHS}")
+        target_iter = iter(itertools.cycle(target_loader)) if target_loader else None
+        
     total_task_loss = 0
     total_adv_loss = 0
     total_disc_loss = 0
+    batch_count = 0
 
     for batch in progress_bar:
-        if batch is None: continue
-
-        # --- Prepare data for Margin Loss ---
-        # We need (bug, positive_code, negative_code) triplets
-        # This implementation simplifies and uses (bug, code, label)
-        # Let's adapt to use MarginRankingLoss
-        
-        # This requires a different Dataset sampling...
-        # For simplicity, let's switch to CrossEntropyLoss like tranp_cnn
-        # and treat it as a classification. The paper's loss (Eq. 11) is
-        # a ranking loss.
-        
-        # Let's stick to the paper's MarginRankingLoss.
-        # This pipeline needs to be re-designed to provide triplets.
-        
-        # *** SIMPLIFICATION FOR THIS SCRIPT ***
-        # We will use BinaryCrossEntropyLoss on the cosine similarity score.
-        # This is a common simplification of ranking tasks.
-        # score = (score + 1) / 2 # Map from [-1, 1] to [0, 1]
-        # task_loss = F.binary_cross_entropy(score, labels.float())
-        # Let's use CrossEntropyLoss on logits, as in tranp_cnn
-        
-        # *** STICKING TO PAPER'S LOSS (Eq. 11) ***
-        # This requires a triplet-based dataset.
-        # Since this script is based on `tranp_cnn`'s (bug, file, label) pairs,
-        # we will use a classification loss (CrossEntropy) as a proxy.
-        # The `relevance_score` from `cooba_core` will be treated as a logit.
-        
-        # --- (Re-Implementing with CrossEntropyLoss for simplicity) ---
-        # 1. Update cooba_core.py: 
-        #    - `fusion` layer should output 2 features (logits)
-        #    - No cosine similarity. Return `code_vector` (fused)
-        #    - Add a final linear layer after bug/code vec dot product
-        #
-        # Let's assume `cooba_core` is modified to return a single score,
-        # and we use MarginRankingLoss. We need to find positive and negative
-        # pairs *within the batch*.
-
+        # Move data to device
+        bug_embeddings = batch['bug_embeddings'].to(device)
+        bug_lengths = batch['bug_lengths'].to(device)
+        code_embeddings = batch['code_embeddings'].to(device)
+        graph_data = batch['graph_data'].to(device)
         labels = batch['labels'].to(device)
+
+        # Determine project type
+        project_type = 'source' if mode == 'cross-project' else None
+
+        # Forward pass
+        scores, public_features = model(
+            bug_embeddings, bug_lengths, code_embeddings, graph_data, project_type
+        )
+
+        # Task loss (margin ranking)
         pos_mask = (labels == 1)
         neg_mask = (labels == 0)
 
-        # Skip batch if no positive or no negative samples
-        if not torch.any(pos_mask) or not torch.any(neg_mask):
-            continue
+        if torch.any(pos_mask) or torch.any(neg_mask):
+            pos_scores = scores[pos_mask]
+            neg_scores = scores[neg_mask]
 
-        # Move data to device
-        bug_report = (batch['bug_report'][0].to(device), batch['bug_report'][1])
-        code_graph = batch['code_graph'].to(device)
-        code_sequence = batch['code_sequence'].to(device)
+            n_pairs = min(len(pos_scores), len(neg_scores))
+            if n_pairs > 0:
+                pos_scores = pos_scores[:n_pairs]
+                neg_scores = neg_scores[:n_pairs]
 
-        # -- (A) Train Discriminator --
-        if MODE == 'cross-project' and iter_target:
-            target_batch = next(iter_target)
-            if target_batch is None: continue
+                target_rank = torch.ones(n_pairs, device=device)
+                task_loss = task_criterion(pos_scores, neg_scores, target_rank)
+            else:
+                task_loss = torch.tensor(0.0, device=device)
+        else:
+            task_loss = torch.tensor(0.0, device=device)
 
-            # Get target data
-            code_graph_t = target_batch['code_graph'].to(device)
-            code_seq_t = target_batch['code_sequence'].to(device)
-
+        # Adversarial training (only in cross-project mode)
+        if mode == 'cross-project' and discriminator and target_iter:
+            # Train discriminator
             optimizer_disc.zero_grad()
+            # Get target batch
+            target_batch = next(target_iter)
+            target_bug_embeddings = target_batch['bug_embeddings'].to(device)
+            target_bug_lengths = target_batch['bug_lengths'].to(device)
+            target_code_embeddings = target_batch['code_embeddings'].to(device)
+            target_graph_data = target_batch['graph_data'].to(device)
 
-            # Get public features for source
+            # Get features from both domains
             with torch.no_grad():
-                _, public_features_s = model(bug_report, code_graph, code_sequence, 'source')
-            
-            # Get public features for target
-            with torch.no_grad():
-                bug_report_t = (target_batch['bug_report'][0].to(device), target_batch['bug_report'][1])
-                _, public_features_t = model(bug_report_t, code_graph_t, code_seq_t, 'target')
+                _, source_public = model(bug_embeddings, bug_lengths, code_embeddings, graph_data, 'source')
+                _, target_public = model(target_bug_embeddings, target_bug_lengths, target_code_embeddings, target_graph_data, 'target')
 
-            # Concat and create labels
-            public_features = torch.cat((public_features_s, public_features_t), dim=0)
-            labels_s = torch.zeros(public_features_s.size(0), dtype=torch.long, device=device)
-            labels_t = torch.ones(public_features_t.size(0), dtype=torch.long, device=device)
-            disc_labels = torch.cat((labels_s, labels_t))
+            # Discriminator predictions
+            all_public = torch.cat([source_public, target_public], dim=0)
+            disc_labels = torch.cat([
+                torch.zeros(len(source_public), device=device, dtype=torch.long),
+                torch.ones(len(target_public), device=device, dtype=torch.long)
+            ])
 
-            disc_preds = discriminator(public_features.detach())
+            disc_preds = discriminator(all_public)
             disc_loss = adv_criterion(disc_preds, disc_labels)
             disc_loss.backward()
             optimizer_disc.step()
-            total_disc_loss += disc_loss.item()
 
-        # -- (B) Train Main Model (Generator) --
-        optimizer_main.zero_grad()
+            # Train generator (model) to fool discriminator
+            optimizer_main.zero_grad()
 
-        # Get scores for all samples in the batch
-        project_type = 'source' if MODE == 'cross-project' else None
-        scores, public_features = model(bug_report, code_graph, code_sequence, project_type)
+            # Re-compute features (with gradients this time)
+            _, source_public = model(bug_embeddings, bug_lengths, code_embeddings, graph_data, 'source')
 
-        # 1. Task Loss (Margin Ranking)
-        # Select one positive and one negative for each
-        pos_scores = scores[pos_mask]
-        neg_scores = scores[neg_mask]
+            # Reverse labels to fool discriminator
+            fool_labels = torch.ones(len(source_public), device=device, dtype=torch.long)
+            disc_preds = discriminator(source_public)
+            adv_loss = adv_criterion(disc_preds, fool_labels)
 
-        # Create pairs
-        n_pos = pos_scores.size(0)
-        n_neg = neg_scores.size(0)
-        n_pairs = min(n_pos, n_neg)
-
-        pos_scores = pos_scores[:n_pairs]
-        neg_scores = neg_scores[:n_pairs]
-
-        target = torch.ones(n_pairs, device=device)  # We want pos > neg
-        task_loss = task_criterion(pos_scores, neg_scores, target)
-
-        # 2. Adversarial Loss (if cross-project)
-        if MODE == 'cross-project':
-            disc_preds = discriminator(public_features)
-            # We want to fool the discriminator, so we flip the labels
-            # We train generator to predict "target" (1) for "source" (0) samples
-            adv_labels = torch.ones(public_features.size(0), dtype=torch.long, device=device)
-            adv_loss = adv_criterion(disc_preds, adv_labels)
-
-            total_loss = task_loss + (LAMBDA_ADV * adv_loss)
+            total_loss = task_loss + LAMBDA_ADV * adv_loss
             total_adv_loss += adv_loss.item()
+            total_disc_loss += disc_loss.item()
+        
         else:
+            # Within-project or no adversarial training
+            optimizer_main.zero_grad()
             total_loss = task_loss
-
+        
+        # Backward pass
         total_loss.backward()
         optimizer_main.step()
 
+        # Update statistics
         total_task_loss += task_loss.item()
+        batch_count += 1
+
+        # Update progress bar
         progress_bar.set_postfix({
-            'TaskL': f'{total_task_loss / (progress_bar.n+1):.4f}',
-            'AdvL': f'{total_adv_loss / (progress_bar.n+1):.4f}',
-            'DiscL': f'{total_disc_loss / (progress_bar.n+1):.4f}'
+            'Task': f'{total_task_loss/batch_count: .4f}',
+            'Adv': f'{total_adv_loss/batch_count:.4f}' if mode == 'cross-project' else 'N/A',
+            'Disc': f'{total_disc_loss/batch_count:.4f}' if mode == 'cross-project' else 'N/A'
         })
 
-# Main orchestrator
-
-def main():
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+def evaluate_cooba(model, test_loader, device):
+    """Evaluate COOBA model."""
+    model.eval()
     
+    # Collect predictions
+    predictions = {}
+    ground_truths = {}
+    
+    with torch.no_grad():
+        for batch in tqdm(test_loader, desc="Evaluating"):
+            bug_embeddings = batch['bug_embeddings'].to(device)
+            bug_lengths = batch['bug_lengths'].to(device)
+            code_embeddings = batch['code_embeddings'].to(device)
+            graph_data = batch['graph_data'].to(device)
+            labels = batch['labels']
+            bug_ids = batch['bug_ids']
+            blob_shas = batch['blob_shas']
+            
+            scores, _ = model(
+                bug_embeddings, bug_lengths,
+                code_embeddings, graph_data, 'target'
+            )
+            
+            # Store predictions
+            for i in range(len(bug_ids)):
+                bug_id = bug_ids[i]
+                if bug_id not in predictions:
+                    predictions[bug_id] = []
+                    ground_truths[bug_id] = []
+                
+                predictions[bug_id].append((blob_shas[i], scores[i].item()))
+                if labels[i] == 1:
+                    ground_truths[bug_id].append(blob_shas[i])
+    
+    # Calculate metrics
+    top_k_hits = {1: 0, 5: 0, 10: 0}
+    mrr_scores = []
+    map_scores = []
+    
+    for bug_id in predictions:
+        # Sort predictions by score
+        ranked = sorted(predictions[bug_id], key=lambda x: x[1], reverse=True)
+        ranked_shas = [sha for sha, _ in ranked]
+        true_shas = set(ground_truths[bug_id])
+        
+        # Top-K accuracy
+        for k in top_k_hits:
+            if len(set(ranked_shas[:k]) & true_shas) > 0:
+                top_k_hits[k] += 1
+        
+        # MRR
+        for i, sha in enumerate(ranked_shas):
+            if sha in true_shas:
+                mrr_scores.append(1.0 / (i + 1))
+                break
+        else:
+            mrr_scores.append(0.0)
+        
+        # MAP
+        precisions = []
+        hits = 0
+        for i, sha in enumerate(ranked_shas):
+            if sha in true_shas:
+                hits += 1
+                precisions.append(hits / (i + 1))
+        
+        if precisions:
+            map_scores.append(np.mean(precisions))
+        else:
+            map_scores.append(0.0)
+    
+    num_bugs = len(predictions)
+    metrics = {
+        'Top-1': top_k_hits[1] / num_bugs if num_bugs > 0 else 0,
+        'Top-5': top_k_hits[5] / num_bugs if num_bugs > 0 else 0,
+        'Top-10': top_k_hits[10] / num_bugs if num_bugs > 0 else 0,
+        'MRR': np.mean(mrr_scores) if mrr_scores else 0,
+        'MAP': np.mean(map_scores) if map_scores else 0
+    }
+    
+    return metrics
+
+def run_cooba_experiments(source_project, target_project, source_train_ids, target_train_ids, target_test_ids,
+                          scenario):
+    '''
+    Main entry point for COOBA experiments 
+    '''
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(f"Running COOBA experiment on {device}")
+    print(f"Scenario: {scenario}")
+    print(f"Source: {source_project}, Target: {target_project}")
+
+    # load metadata    
     df_meta = pd.read_parquet(PROJECTS_METADATA_PATH)
     df_bugs = pd.read_parquet(BUG_REPORTS_PATH)
 
-    # 1. Load/Build Preprocessors
-    if not os.path.exists(PREPROCESSOR_PATH):
-        # This is slow: requires loading all code files
-        print("Building vocabulary from scratch ... This may take a while.")
-        # This part needs to be implemented:
-        # all_code = load_all_code_files(...)
-        # vocabulary = build_vocabulary(df_bugs, parsers, all_code)
-        # embedding_matrix = load_glove_embeddings(GLOVE_FILE_PATH, vocabulary, PARAMS['embedding_dim])
-        # save_preprocessors(vocabulary, embedding_matrix, PREPROCESSOR_PATH)
-        print("Please run a separate script to build preprocessors.")
-        return
+    # Initialize BGE model
+    print("Loading BGE model....")
+    bge_tokenizer = AutoTokenizer.from_pretrained(BGE_MODEL_NAME)
+    bge_model = AutoModel.from_pretrained(BGE_MODEL_NAME).to(device)
+    bge_model.eval()
+    
+    # load databases
+    print("Loading project databases...")
+    source_bug_db, source_blob_db, source_language = load_project_databases(source_project, df_meta)
+    target_bug_db, target_blob_db, target_language = load_project_databases(target_project, df_meta)
 
-    vocabulary, embedding_matrix = load_preprocessors(PREPROCESSOR_PATH)
-    PARAMS['vocab_size'] = len(vocabulary)
-
-    # 2. Setup Parsers and Repos
+    # Initialize AST parsers
     parsers = {
-        'java': JavaASTParser(vocabulary),
-        'python': PythonASTParser(vocabulary)
-    }
-    repos = {
-        SOURCE_PROJECT: {
-            'repo': git.Repo(get_project_path(SOURCE_PROJECT, ...)), # Need lang
-            'lang': 'java' 
-        },
-        TARGET_PROJECT: {
-            'repo': git.Repo(get_project_path(TARGET_PROJECT, ...)), # Need lang
-            'lang': 'java'
-        }
+        'java': JavaASTParser(),
+        'python': PythonASTParser()
     }
 
-    # ... (Need to implement 'get_project_path' from tranp_cnn) ..
-    # ... (Need to load 'source_bug_db', 'target_bug_db', etc.. from tranp_cnn code)
+    # Get repos
+    source_repo = git.Repo(get_project_path(source_project, source_language))
+    target_repo = git.Repo(get_project_path(target_project, target_language))
 
-    # 3. Generate Raw Samples
-    print("Generating Raw Samples....")
-    if MODE == 'cross-project':
-        # ... (load bug_ids, split target_bug_ids) ...
-        # source_samples = create_labeled_samples(SOURCE_PROJECT, ...)
-        # target_train_samples = create_labeled_samples(TARGET_PROJECT, ..., bug_ids_to_process=target_train_bug_ids)
-        # test_samples = create_labeled_samples(TARGET_PROJECT, ..., bug_ids_to_process=target_test_bug_ids, is_training_data=False)
-        pass # Placeholder
-    else: # within-project
-        # ... (load target_bug_db only) ...
-        # ... (split target_bug_ids into train_ids (80%) and test_ids (20%)) ...
-        # train_samples = create_labeled_samples(TARGET_PROJECT, ..., bug_ids_to_process=train_ids)
-        # test_samples = create_labeled_samples(TARGET_PROJECT, ..., bug_ids_to_process=test_ids, is_training_data=False)
-        pass # Placeholder
-        
-    # --- This is a placeholder section ---
-    # The logic from `tranp_cnn_pipeline.py`'s `main` function for
-    # loading dbs, splitting bug_ids, and calling `create_labeled_samples`
-    # should be fully integrated here.
-    # For this example, we assume `train_samples`, `target_train_samples` (if CP)
-    # and `test_samples` exist.
+    # Create cache directories
+    source_cache = os.path.join(CACHE_DIR, f"{source_project.replace('/', '_')}_{scenario}")
+    target_cache = os.path.join(CACHE_DIR, f"{target_project.replace('/', '_')}_{scenario}")
+
+    # Generate samples
+    print("Generating training samples...")
+    source_samples = []
+    target_train_samples = []
+
+    if source_train_ids:
+        source_samples = create_labeled_samples(
+            source_project, source_language, source_bug_db, source_blob_db,
+            TOP_K_CANDIDATES, is_training_data=True, bug_ids_to_process=source_train_ids
+        )
+    if target_train_ids:
+        target_train_samples = create_labeled_samples(
+            target_project, target_language, target_bug_db, target_blob_db,
+            TOP_K_CANDIDATES, is_training_data=False, bug_ids_to_process=target_train_ids
+        )
     
-    # Preprocess and Cache
-    if MODE == 'cross-project':
-        train_meta = preprocess_and_cache_samples_cooba(train_samples, df_bugs, repos, parsers, vocabulary)
-        target_train_meta = preprocess_and_cache_samples_cooba(target_train_samples, df_bugs, repos, parsers, vocabulary)
-        test_meta = preprocess_and_cache_samples_cooba(test_samples, df_bugs, repos, parsers, vocabulary)
-        
-        train_dataset = CoobaBugLocalizationDataset(train_meta)
-        target_train_dataset = CoobaBugLocalizationDataset(target_train_meta)
-        
-        source_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=cooba_collate_fn)
-        target_loader = DataLoader(target_train_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=cooba_collate_fn)
-        
-    else: # 'within-project'
-        train_meta = preprocess_and_cache_samples_cooba(train_samples, df_bugs, repos, parsers, vocabulary)
-        test_meta = preprocess_and_cache_samples_cooba(test_samples, df_bugs, repos, parsers, vocabulary)
-        
-        train_dataset = CoobaBugLocalizationDataset(train_meta)
-        source_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=cooba_collate_fn)
-        target_loader = None # No target loader in WPBL mode
-        
-    test_dataset = CoobaBugLocalizationDataset(test_meta)
-    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, collate_fn=cooba_collate_fn)
-    
-    # 5. Initialize Models
-    model = COOBA(embedding_matrix, PARAMS['bug_encoder'], PARAMS['shared_extractor'],
-                  PARAMS['individual_extractor'], PARAMS['fusion'], mode=MODE).to(device)
-    
+    print("Generating test samples...")
+    target_test_samples = create_labeled_samples(
+        target_project, target_language, target_bug_db, target_blob_db,
+        TOP_K_CANDIDATES, is_training_data=True, bug_ids_to_process=target_test_ids
+    )
+
+    # Create datasets
+    source_dataset = None
+    target_train_dataset = None
+
+    if source_samples:
+        source_dataset = CoobaBugLocalizationDataset(
+            source_samples, df_bugs, source_repo, source_language,
+            bge_model, bge_tokenizer, parsers[source_language], source_cache
+        )
+    if target_train_samples:
+        target_train_dataset = CoobaBugLocalizationDataset(
+            target_train_samples, df_bugs, target_repo, target_language,
+            bge_model, bge_tokenizer, parsers[target_language], target_cache
+        )
+ 
+    target_test_dataset = CoobaBugLocalizationDataset(
+        target_test_samples, df_bugs, target_repo, target_language,
+        bge_model, bge_tokenizer, parsers[target_language], target_cache
+    )
+
+    # Create data loaders
+    source_loader = None
+    target_train_loader = None 
+
+    if source_dataset:
+        source_loader = DataLoader(
+            source_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=cooba_collate_fn, num_workers=0
+        )
+    if target_train_dataset:
+        target_train_loader = DataLoader(
+            target_train_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=cooba_collate_fn, num_workers=0
+        )    
+    target_test_loader = DataLoader(
+        target_test_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=cooba_collate_fn, num_workers=0
+    )
+
+    # Determine mode based on scenario
+    if 'WP' in scenario:
+        mode = 'within-project'
+    else:
+        mode = 'cross-project'
+
+    # Initialize model
+    print("Initializing COOBA model...")
+    model = COOBA(
+        bug_embedding_dim=BGE_EMBEDDING_DIM,
+        code_embedding_dim=BGE_EMBEDDING_DIM,
+        bug_encoder_params=PARAMS['bug_encoder'],
+        shared_extractor_params=PARAMS['shared_extractor'],
+        individual_extractor_params=PARAMS['individual_extractor'],
+        fusion_params=PARAMS['fusion'],
+        mode=mode
+    ).to(device)
+
+    # Initialize discriminator for cross-project
     discriminator = None
-    if MODE == 'cross-project':
+    optimizer_disc = None
+    if mode == 'cross-project':
         public_feat_dim = PARAMS['shared_extractor']['num_filters'] * len(PARAMS['shared_extractor']['kernel_sizes'])
-        discriminator = ProjectDiscriminator(public_feat_dim).to(device)
-        optimizer_disc = optim.Adam(discriminator.parameters(), lr=DISC_LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+        discriminator = ProjectDiscriminator(
+            input_dim=public_feat_dim,
+            hidden_dim=128,
+            dropout_prob=0.5
+            ).to(device)
+        optimizer_disc = optim.Adam(discriminator.parameters(), lr=DISC_LEARNING_RATE)
     
-    optimizer_main = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+    # Initialize optimizer
+    optimizer_main = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
-    # 6. Training Loop
-    print(f"\n--- Starting {MODE} Training ---")
+    # Training
+    print("Starting Training")
     for epoch in range(EPOCHS):
-        train_cooba(model, discriminator, source_loader, target_loader,
-                    optimizer_main, optimizer_disc if MODE == 'cross-project' else None,
-                    epoch, device)
+        # Use appropriate loader based on scenario
+        if mode == 'within-project':
+            train_loader = target_train_loader if target_train_loader else source_loader
+            train_cooba(model, None, train_loader, None,
+                    optimizer_main, None, epoch, device, mode)
+        else:
+            train_cooba(
+                model, discriminator, source_loader, target_train_loader, optimizer_main,
+                optimizer_disc, epoch, device, mode)
         
-    # 7. Final Evaluation
-    print("\n--- Starting Final Evaluation ---")
-    # ... (Evaluation logic needs to be implemented) ...
-    # This involves iterating through `test_loader`, getting scores,
-    # grouping by bug_id, and calculating Top-K, MAP, MRR,
-    # similar to `tranp_cnn_pipeline.py`'s `evaluate` function.
+    # Evaluation
+    print("\nEvaluating model...")
+    metrics = evaluate_cooba(model, target_test_loader, device)
+    print(f"Final metrics: {metrics}")
 
-if __name__ == '__main__':
-    print("This script is a template. You must:")
-    print("1. Fill in all CONFIG paths.")
-    print("2. Implement the `utils.py` vocabulary building helper functions.")
-    print("3. Fully integrate the data loading/splitting logic from `tranp_cnn_pipeline.py`'s main func.")
-    print("4. Implement the `evaluate` function.")
-    # main()
+    return metrics
+
