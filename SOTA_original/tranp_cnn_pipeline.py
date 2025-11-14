@@ -33,8 +33,8 @@ BUG_REPORTS_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/bug_rep
 BLOB_CACHE_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/cache"
 
 # Experiment Settings
-SOURCE_PROJECT = "pandas-dev/pandas" # Example source project
-TARGET_PROJECT = "huggingface/transformers" # Example target project
+SOURCE_PROJECT = "scipy/scipy" # Example source project
+TARGET_PROJECT = "dagster-io/dagster" # Example target project
 TOP_K_CANDIDATES = 300
 TARGET_TRAIN_SIZE = 0.10 # Use 10% of target data for training
 TEST_SET_SIZE = 0.2
@@ -59,7 +59,7 @@ PARAMS = {
     'dropout':0.5
 }
 # Training Hyperparameters
-EPOCHS = 10
+EPOCHS = 1
 BATCH_SIZE = 192
 LEARNING_RATE = 0.001
 WEIGHT_DECAY = 1e-5 # For regularization
@@ -425,87 +425,48 @@ def train(model, source_loader, target_loader, optimizer, criterion, epoch, devi
     model.train()
     progress_bar = tqdm(source_loader, desc=f'Epoch {epoch + 1}/ {EPOCHS}')
     iter_target = iter(itertools.cycle(target_loader))
-    batch_times = []
-    losses = []
-    first_batch = True
     times = {'data': 0, 'to_gpu': 0, 'forward': 0, 'backward': 0, 'optim': 0}
     batch_count = 0
+    total_loss = 0.0
 
-    for batch_idx, source_batch in enumerate(progress_bar):
-        t_batch_start = time.time()
-        
-        t0 = time.time()
+    for source_batch in progress_bar:
         target_batch = next(iter_target)
-        times['data'] += time.time() - t0
-        
-        t0 = time.time()
+
         bug_ids_s = source_batch['bug_ids'].to(device, non_blocking=True)
         code_ids_s = source_batch['code_ids'].to(device, non_blocking=True)
         labels_s = source_batch['label'].to(device, non_blocking=True)
+        
         bug_ids_t = target_batch['bug_ids'].to(device, non_blocking=True)
         code_ids_t = target_batch['code_ids'].to(device, non_blocking=True)
         labels_t = target_batch['label'].to(device, non_blocking=True)
-        # ensure accurate GPU timing
-        if device == 'cuda':
-            torch.cuda.synchronize()
-        times['to_gpu'] += time.time() - t0
         
         optimizer.zero_grad(set_to_none=True)
         
+        # Mixed precision forward + loss
         with autocast(device_type='cuda'):
-            t0 = time.time()
             outputs_s = model(bug_ids_s, code_ids_s, 'source')
             loss_s = criterion(outputs_s, labels_s)
             outputs_t = model(bug_ids_t, code_ids_t, 'target')
             loss_t = criterion(outputs_t, labels_t)
-            combined_loss = (loss_s + loss_t) / accumulation_steps
-        times['forward'] += time.time() - t0
-
+            combined_loss = loss_s + loss_t
         
-        
-        t0 = time.time()
+       # Backward + optimizer step
         scaler.scale(combined_loss).backward()
-        times['backward'] += time.time() - t0
+        scaler.step(optimizer)
+        scaler.update()
         
-        # step & zero-grad every accumulation_steps
-        if (batch_idx + 1) % accumulation_steps == 0:
-            t0 = time.time()
-            scaler.step(optimizer)
-            scaler.update()
-            optimizer.zero_grad(set_to_none=True)
-            if device == 'cuda':
-                torch.cuda.synchronize()
-            times['optim'] += time.time() - t0
-
-        batch_time = time.time() - t_batch_start
+        # Track loss
+        total_loss += combined_loss.item()
         batch_count += 1
-        losses.append(combined_loss.item() * accumulation_steps)  # record original scale
-        batch_times.append(batch_time)
-        # t0 = time.time()
-        # scaler.step(optimizer)
-        # scaler.update()
-        # times['optim'] += time.time() - t0
-        
-        # batch_time = time.time() - t_batch_start
-        # batch_count += 1
-        
-        # losses.append(combined_loss.item())
-        # batch_times.append(batch_time)
 
-        if batch_idx % 10 == 0:
-            total = sum(times.values())
-            progress_bar.set_postfix({
-                'loss': f'{combined_loss.item():.4f}',
-                'batch': f'{batch_time:.1f}s',
-                'fwd%': f'{100*times["forward"]/total:.0f}',
-                'bwd%': f'{100*times["backward"]/total:.0f}',
-                'data%': f'{100*times["data"]/total:.0f}'
-            })
-
+        # Update progress bar every 10 batches
+        if batch_count % 10 == 0:
+            avg_loss = total_loss / batch_count
+            progress_bar.set_postfix({'loss': f'{avg_loss:.4f}'})
+    
     # Epoch summary
-    avg_loss = sum(losses)/len(losses)
-    total_time = sum(batch_times) / 3600
-    print(f"Epoch {epoch + 1} Summary: Avg Loss={avg_loss:.4f}, Time={total_time:.2f}h")
+    avg_loss = total_loss / batch_count
+    print(f"Epoch {epoch + 1}: Avg Loss={avg_loss:.4f}")
 
 
 def evaluate(model, test_meta_path, test_code_ids_path, device):
@@ -726,13 +687,14 @@ def main():
     # source_loader = DataLoader(source_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True)
     # Optimized DataLoaders
     source_loader = DataLoader(
-        source_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True, 
-        persistent_workers=True, # Keep workers alive between epochs
-        prefetch_factor=2 # Prefetch 2 batches per worker
+        source_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, pin_memory=True 
+        # persistent_workers=True, # Keep workers alive between epochs
+        # prefetch_factor=2 # Prefetch 2 batches per worker
     )
     # target_train_loader = DataLoader(target_train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True)
-    target_train_loader = DataLoader(target_train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True,
-                                     persistent_workers=True, prefetch_factor=2)
+    target_train_loader = DataLoader(target_train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, pin_memory=True
+                                    #  persistent_workers=True, prefetch_factor=2
+                                     )
     print(f"Data loading complete.")
     print(f"  - Source samples: {len(source_dataset)}")
     print(f"  - Target train samples: {len(target_train_dataset)}")
@@ -740,6 +702,40 @@ def main():
 
     # 5. Initialize Model, Criterion, Optimizer
     model = TRANPCNN(PARAMS).to(device)
+
+    # --- START NEW CODE ---
+    # Calculate class weights to fix imbalance
+    # We read the label columns from the caches we just created.
+    print("Calculating class weights for loss function...")
+    try:
+        labels_s_df = pd.read_parquet(source_meta_path, columns=['label'])
+    except:
+        labels_s_df = pd.DataFrame(columns=['label']) # Handle empty source
+
+    try:
+        labels_t_df = pd.read_parquet(target_train_meta_path, columns=['label'])
+    except:
+        labels_t_df = pd.DataFrame(columns=['label']) # Handle empty target
+
+    all_train_labels = pd.concat([labels_s_df['label'], labels_t_df['label']])
+    
+    # Calculate counts
+    counts = all_train_labels.value_counts()
+    count_0 = counts.get(0, 1) # Get count for label 0, default to 1
+    count_1 = counts.get(1, 1) # Get count for label 1
+    total_samples = count_0 + count_1
+    
+    # Calculate balanced weights: weight = total_samples / (num_classes * class_count)
+    weight_0 = total_samples / (2.0 * count_0)
+    weight_1 = total_samples / (2.0 * count_1)
+
+    # Create the weight tensor and send to GPU
+    class_weights = torch.tensor([weight_0, weight_1], dtype=torch.float32).to(device)
+    
+    print(f"  - Total Samples: {total_samples}")
+    print(f"  - Labels 0 (neg): {count_0} (Weight: {weight_0:.2f})")
+    print(f"  - Labels 1 (pos): {count_1} (Weight: {weight_1:.2f})")
+    # --- END NEW CODE ---
 
     # Compile model for 10-30% speedup
     # if hasattr(torch, 'compile'):
@@ -752,7 +748,8 @@ def main():
     # Enable cuDNN autotuner for potential speedups on fixed-size inputs
     torch.backends.cudnn.benchmark = True
 
-    criterion = nn.CrossEntropyLoss()
+    # Pass the calculated weights to the loss function
+    criterion = nn.CrossEntropyLoss(weight=class_weights)
     # Use AdamW with fused=True for faster CUDA kernels
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY, fused=True)
     # Intialize mixed precision scaler

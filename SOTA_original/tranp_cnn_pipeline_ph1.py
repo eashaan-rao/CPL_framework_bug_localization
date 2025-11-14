@@ -3,7 +3,6 @@ import pandas as pd
 import git
 from git import Repo, Blob
 from git.util import hex_to_bin
-import pickle
 import numpy as np
 import faiss 
 import torch
@@ -18,23 +17,20 @@ from transformers import AutoTokenizer
 import torch.nn.functional as F
 from torch.amp import autocast, GradScaler
 import time 
+import copy
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 # Import the model definition from TRANPCNN model
 from tranp_cnn_model import TRANPCNN
+from tranp_cnn_data_prep import (
+    create_labeled_samples, preprocess_and_cache_samples, load_project_databases, get_project_path, 
+    REPO_BASE_PATH, BUG_METADATA_DIR, BLOB_DB_DIR, BUG_REPORTS_PATH, BLOB_CACHE_DIR, PROJECTS_METADATA_PATH
+)
 
 # Configuration
-REPO_BASE_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/repos"
-BUG_METADATA_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/embedding_dbs"
-BLOB_DB_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/embedding_dbs"
 RESULT_PATH = "/home/cs21d002_eashaan/PhD/Objective1/results"
-PROJECTS_METADATA_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/project_metadata.parquet"
-BUG_REPORTS_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/bug_reports_clean.parquet"
-BLOB_CACHE_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/cache"
 
-# Experiment Settings
-SOURCE_PROJECT = "apache/dolphinscheduler" # Example source project
-TARGET_PROJECT = "apache/dubbo" # Example target project
+
 TOP_K_CANDIDATES = 300
 TARGET_TRAIN_SIZE = 0.10 # Use 10% of target data for training
 TEST_SET_SIZE = 0.2
@@ -50,7 +46,7 @@ PARAMS = {
     'max_bug_len': 512, # Added: max length for bug report text
     'stmt_kernels': 100,
     'stmt_kernel_sizes': [3, 4, 5],
-    'max_lines': 512, # Max statements per file
+    'max_lines': 768, # Max statements per file
     'max_line_len': 21, # Max tokens per statement
     'file_kernels': 100,
     'file_kernel_sizes': [3, 5, 7],
@@ -59,280 +55,13 @@ PARAMS = {
     'dropout':0.5
 }
 # Training Hyperparameters
-EPOCHS = 10
+EPOCHS = 20
 BATCH_SIZE = 192
 LEARNING_RATE = 0.001
 WEIGHT_DECAY = 1e-5 # For regularization
 
-# Step 1: Data Preparation & Candidate Generation using Faiss
-def get_path_to_sha_map(repo, commit_sha):
-    '''
-    For a given commit, creates a dictionary mapping file paths to blob SHAs.
-    '''
-    try:
-        commit = repo.commit(commit_sha)
-        return {blob.path: blob.hexsha for blob in commit.tree.traverse() if blob.type == 'blob'}
-    except Exception:
-        return {}
 
-def create_labeled_samples(project_name, language, bug_metadata_db, blob_embedding_db, top_k, is_training_data=True, bug_ids_to_process=None):
-    '''
-    The main data preparation function. It generates candidates using Faiss, creates labeled pairs, and ensures
-    ground truth is included for training. It now processes only the specified bug_ids
-    '''
-    repo_path = os.path.join(REPO_BASE_PATH, language.lower(), project_name.replace('/', '_'))
-    repo = git.Repo(repo_path)
-
-    # if no specific bug IDs are given, process all bugs in the database
-    if bug_ids_to_process is None:
-        bug_ids_to_process = list(bug_metadata_db.keys())
-
-    # Create a filtered dictionary containing only the bugs we need to process
-    filtered_bug_db = {bug_id: bug_metadata_db[bug_id] for bug_id in bug_ids_to_process if bug_id in bug_metadata_db}
-
-    # Groupt bugs by commit for efficient FAISS indexing
-    bugs_by_commit = {}
-    for bug_id, meta in filtered_bug_db.items():
-        sha = meta['commit_sha']
-        if sha not in bugs_by_commit:
-            bugs_by_commit[sha] = []
-        bugs_by_commit[sha].append(bug_id)
-    
-    labeled_samples = []
-
-    for commit_sha, bug_ids in tqdm(bugs_by_commit.items(), desc=f"Processing commits for {project_name}"):
-        path_to_sha_map = get_path_to_sha_map(repo, commit_sha)
-
-        # Assemble snapshot embeddings for Faiss
-        snapshot_blobs = list(path_to_sha_map.values())
-        snapshot_embeddings = np.array([blob_embedding_db[sha] for sha in snapshot_blobs if sha in blob_embedding_db]).astype('float32')
-        if snapshot_embeddings.shape[0] == 0:
-            continue
-        
-        # Build Faiss index
-        faiss.normalize_L2(snapshot_embeddings)
-        index = faiss.IndexFlatIP(snapshot_embeddings.shape[1])
-        index.add(snapshot_embeddings)
-
-        for bug_id in bug_ids:
-            bug_info = bug_metadata_db[bug_id]
-            bug_embedding = bug_info['embedding'].astype('float32')
-
-            # Search for candidates
-            query_vec = np.expand_dims(bug_embedding, axis=0)
-            faiss.normalize_L2(query_vec)
-            k = min(top_k, len(snapshot_blobs))
-            _, result_indices = index.search(query_vec, k)
-            candidate_shas = {snapshot_blobs[i] for i in result_indices[0]}
-
-            # Get ground truth blob SHAs
-            ground_truth_shas = {
-                sha for candidate, sha in path_to_sha_map.items()
-                if any(candidate.endswith(gt_file) for gt_file in bug_info['ground_truth_files'])
-            }
-
-            # For training data, force-include the ground truth
-            if is_training_data:
-                candidate_shas.update(ground_truth_shas)
-
-            # Create Labeled pairs
-            for blob_sha in candidate_shas:
-                label = 1 if blob_sha in ground_truth_shas else 0
-                project_type = 'target' if project_name == TARGET_PROJECT else 'source'
-                labeled_samples.append((bug_id, blob_sha, label, project_type))
-
-    return labeled_samples
-
-# Pre-processing function
-def preprocess_and_cache_samples(raw_samples, bug_reports_df, repo, tokenizer, cache_meta_path, cache_code_ids_path, dtype=np.int32):
-    '''
-    Performs the slow pre-processing (reading files, tokenizing) and saves results into two files:
-    a) A Parquet file for metadata (labels, bug_ids, etc.)
-    b) A Numpy .npy file for the large code_ids tensors. 
-    Stores unique blobs only once, metadata references them by index
-    '''
-    # Check if dtype is sufficient
-    vocab_size = len(tokenizer)
-    max_token_id = vocab_size - 1
-    
-    if dtype == np.int16 and max_token_id > 32767:
-        print(f"WARNING: vocab_size={vocab_size} exceeds int16 range. Using int32.")
-        dtype = np.int32
-    elif dtype == np.int8 and max_token_id > 127:
-        print(f"WARNING: vocab_size={vocab_size} exceeds int8 range. Using int16.")
-        dtype = np.int16
-    
-    print(f"Using dtype: {dtype.__name__} (vocab_size: {vocab_size:,})")
-    metadata = []
-
-    # Create a dictionary for fast bug text lookup
-    bug_texts = pd.Series(
-        bug_reports_df['bug_report_text'].values,
-        index= bug_reports_df['bug_id']
-    ).to_dict()
-
-    # Get unique blobs
-    unique_blobs = list(set(blob_sha for _, blob_sha, _, _ in raw_samples))
-    unique_bugs = list(set(bug_id for bug_id, _, _, _ in raw_samples))
-    print(f"Total samples: {len(raw_samples)}")
-    print(f"Unique blobs: {len(unique_blobs)}")
-    print(f"Deduplication ratio: {len(raw_samples) / len(unique_blobs):.2f}x")
-
-    # === OPTIMIZATION 1: Tokenize bugs once ===
-    print("\nTokenizing unique bugs...")
-    bug_tokens = {}
-    for bug_id in tqdm(unique_bugs, desc="Tokenizing bugs"):
-        bug_text = bug_texts.get(bug_id, "")
-        tokenized_bug = tokenizer(
-            bug_text, padding='max_length', truncation=True,
-            max_length=PARAMS['max_bug_len'], return_tensors='pt'
-        )['input_ids'].squeeze(0).numpy()
-        bug_tokens[bug_id] = tokenized_bug.tolist()
-
-    # Create blob_sha -> index mapping
-    blob_to_idx = {sha: idx for idx, sha in enumerate(unique_blobs)}
-
-    # Process unique blobs only
-    num_blobs = len(unique_blobs)
-
-    # Set up memory-mapped file before the loop
-    # num_samples = len(raw_samples)
-    code_ids_shape = (num_blobs, PARAMS['max_lines'] * PARAMS['max_line_len'])
-
-    # This creates the large file on disk but doesn't load it into RAM
-    print(f"Creating memory-mapped file at {cache_code_ids_path} with shape {code_ids_shape} for {num_blobs} blobs...")
-    # Create an empty array and save it first to create proper .npy format
-    # This writes the header and allocates space
-    empty_array = np.empty(code_ids_shape, dtype=np.int32)
-    np.save(cache_code_ids_path, empty_array)
-    del empty_array  # Free memory immediately
-    # Now open it as a memory-mapped array in read-write mode
-    # This reads the .npy header and maps to the data portion
-    code_ids_mmap = np.load(cache_code_ids_path, mmap_mode='r+')
-
-    # Process each unique blob once
-    for blob_sha in tqdm(unique_blobs, desc=f"Preprocessing unqiue blobs"):
-        blob_idx = blob_to_idx[blob_sha] # Get index from mapping
-        # process source code
-        try:
-            source_content = Blob(repo, hex_to_bin(blob_sha)).data_stream.read().decode('utf-8', 'ignore')
-            lines = source_content.splitlines()[:PARAMS['max_lines']]
-        except Exception:
-            lines = [] # Handle cases where blob might be missing
-
-        if not lines:
-            # For empty files, create a tensor of zeros
-            padded_tensor = torch.zeros((PARAMS['max_lines'], PARAMS['max_line_len']), dtype=torch.long)
-        else:
-            # For non-empty files, tokenize and pad as before
-            tokenized_lines = tokenizer(
-                lines, padding='max_length', truncation=True, max_length=PARAMS['max_line_len'], return_tensors='pt'
-            )['input_ids']
-
-            padded_tensor = torch.zeros((PARAMS['max_lines'], PARAMS['max_line_len']), dtype=torch.long)
-            num_lines_to_copy = min(len(tokenized_lines), PARAMS['max_lines'])
-            padded_tensor[:num_lines_to_copy] = tokenized_lines[:num_lines_to_copy]
-        
-        # Write data directly to disk instead of appending to a list
-        code_ids_mmap[blob_idx] = padded_tensor.flatten().numpy()
-
-    code_ids_mmap.flush()
-    del code_ids_mmap
-
-     # === OPTIMIZATION 2: Create metadata WITHOUT re-tokenizing ===
-    print("\nCreating metadata (fast - no tokenization)...")
-    metadata = []
-    for bug_id, blob_sha, label, project_type in tqdm(raw_samples, desc="Building metadata"):
-        metadata.append({
-            'bug_ids': bug_tokens[bug_id],  # Lookup pre-tokenized bug
-            'blob_idx': blob_to_idx[blob_sha],
-            'label': label,
-            'project_type': project_type,
-            'bug_id': bug_id,
-            'blob_sha': blob_sha
-        })
-    
-    meta_df = pd.DataFrame(metadata)
-    meta_df.to_parquet(cache_meta_path, index=False)
-    
-    print(f"\n✓ Successfully cached:")
-    print(f"  - Metadata: {cache_meta_path}")
-    print(f"  - Code IDs: {cache_code_ids_path}")
-    print(f"  - Unique blobs: {num_blobs:,}")
-    print(f"  - Total samples: {len(raw_samples):,}")
-    print(f"  - File size: {num_blobs * PARAMS['max_lines'] * PARAMS['max_line_len'] * 4 / 1e9:.2f} GB")
-
-
-def analyze_and_set_padding(raw_samples, repo, tokenizer):
-    """
-    Analyzes the distribution of file and line lengths in the candidate samples
-    and dynamically sets the padding limits in the PARAMS dictionary.
-    """
-    print("\n--- Starting analysis of candidate files to determine optimal padding... ---")
-    line_lengths = []
-    tokens_per_line = []
-    
-    # Get unique blob SHAs to avoid analyzing the same file multiple times
-    unique_blobs = {sha for _, sha, _, _ in raw_samples}
-    
-    for blob_sha in tqdm(unique_blobs, desc="Analyzing file lengths"):
-        try:
-            source_content = Blob(repo, hex_to_bin(blob_sha)).data_stream.read().decode('utf-8', 'ignore')
-            lines = source_content.splitlines()
-            if not lines:
-                continue
-            
-            line_lengths.append(len(lines))
-            
-            # Tokenize without padding to get true lengths
-            tokenized_lines = tokenizer(lines, truncation=True, max_length=512)['input_ids'] # Use a high max_length for analysis
-            for line in tokenized_lines:
-                tokens_per_line.append(len(line))
-        except Exception:
-            continue # Skip files that can't be read
-
-    if not line_lengths or not tokens_per_line:
-        print("Could not analyze any files. Using default padding values.")
-        return
-
-    # --- Calculate and report statistics ---
-    max_lines_95th = int(np.percentile(line_lengths, 95))
-    max_line_len_95th = int(np.percentile(tokens_per_line, 95))
-    
-    print("\n--- Analysis Complete ---")
-    print(f"File Lines Distribution:")
-    # print(f"  - 90th Percentile: {int(np.percentile(line_lengths, 90))} lines")
-    # print(f"  - 95th Percentile: {max_lines_95th} lines")
-    # print(f"  - 99th Percentile: {int(np.percentile(line_lengths, 99))} lines")
-    # print(f"  - Max Found:       {np.max(line_lengths)} lines")
-    
-    # print(f"\nTokens per Line Distribution:")
-    # print(f"  - 90th Percentile: {int(np.percentile(tokens_per_line, 90))} tokens")
-    # print(f"  - 95th Percentile: {max_line_len_95th} tokens")
-    # print(f"  - 99th Percentile: {int(np.percentile(tokens_per_line, 99))} tokens")
-    # print(f"  - Max Found:       {np.max(tokens_per_line)} tokens")
-    # Calculate more percentiles
-    max_lines_75th = int(np.percentile(line_lengths, 75))
-    max_lines_85th = int(np.percentile(line_lengths, 85))
-    max_lines_90th = int(np.percentile(line_lengths, 90))
-
-    max_line_len_75th = int(np.percentile(tokens_per_line, 75))
-    max_line_len_85th = int(np.percentile(tokens_per_line, 85))
-    max_line_len_90th = int(np.percentile(tokens_per_line, 90))
-
-    print(f"\n--- Percentile Options ---")
-    print(f"75th: max_lines={max_lines_75th}, max_line_len={max_line_len_75th}")
-    print(f"85th: max_lines={max_lines_85th}, max_line_len={max_line_len_85th}")
-    print(f"90th: max_lines={max_lines_90th}, max_line_len={max_line_len_90th}")
-
-    # --- Dynamically update the global PARAMS ---
-    print("\nUpdating PARAMS with 90th percentile values to optimize performance and disk space.")
-    PARAMS['max_lines'] = max_lines_75th
-    PARAMS['max_line_len'] = max_line_len_75th
-    print(f"New 'max_lines': {PARAMS['max_lines']}")
-    print(f"New 'max_line_len': {PARAMS['max_line_len']}\n")
-   
-# Step 2: Data Preparation & Pytorch Dataset
+# Data Preparation & Pytorch Dataset
 class BugLocalizationDataset(Dataset):
     '''Custom PyTorch Dataset for the hybrid model.
     Loads pre-processed data from a metadata file and a memory-mapped NumPY file.
@@ -376,40 +105,6 @@ class BugLocalizationDataset(Dataset):
             PARAMS['max_lines'], PARAMS['max_line_len']
         )
 
-        # 
-        # bug_id, blob_sha, label, project_type = self.samples[idx]
-
-        # # 1. Get bug report text
-        # bug_text = self.bug_texts.get(bug_id, "") # Get text, default to empty strinf if not found
-
-        # # 2. Tokenize and pad bug report text
-        # tokenized_bug = self.tokenizer(
-        #     bug_text,
-        #     padding = 'max_length',
-        #     truncation=True,
-        #     max_length=self.max_bug_len,
-        #     return_tensors='pt'
-        # )['input_ids'].squeeze(0) # Squeeze to make it a 1D tensor
-
-        # # Instantiate a Blob object directly using the repo and the binary-formatted SHA
-        # blob_object = Blob(self.repo, hex_to_bin(blob_sha))
-        # source_content = blob_object.data_stream.read().decode('utf-8', 'ignore')
-        # lines = source_content.splitlines()[:self.max_lines]
-
-        # # Handle cases where the source file is empty
-        # if not lines:
-        #     # If the file is empty, the code is just a tensor of padding tokens (zeros)
-        #     padded_tokenized_lines = torch.zeros((self.max_lines, self.max_line_len), dtype=torch.long)
-        # else: 
-        #     tokenized_lines = self.tokenizer(
-        #         lines, padding='max_length', truncation=True, max_length=self.max_line_len, return_tensors='pt'
-        #     )['input_ids']
-
-            # # Pad the number of lines
-            # padded_tokenized_lines = torch.zeros((self.max_lines, self.max_line_len), dtype=torch.long)
-            # num_lines_to_copy = min(len(tokenized_lines), self.max_lines)
-            # padded_tokenized_lines[:num_lines_to_copy] = tokenized_lines[:num_lines_to_copy]
-
         # Convert pre-tokenized data (Stored as lists/value) back to tensors
         return {
             'bug_ids': torch.tensor(meta_sample['bug_ids'], dtype=torch.long),
@@ -417,7 +112,8 @@ class BugLocalizationDataset(Dataset):
             'label': torch.tensor(meta_sample['label'], dtype=torch.long),
             'project_type': meta_sample['project_type'],
             'bug_id': meta_sample['bug_id'],
-            'blob_sha': meta_sample['blob_sha']
+            'blob_sha': meta_sample['blob_sha'],
+            'faiss_score': torch.tensor(meta_sample['faiss_score'], dtype=torch.float32)
         }
 
 # Step 3: Training and Evaluation Functions
@@ -470,6 +166,7 @@ def train(model, source_loader, target_loader, optimizer, criterion, epoch, devi
         # Epoch summary
         avg_loss = total_loss / batch_count
         print(f"Epoch {epoch + 1}: Avg Loss={avg_loss:.4f}")
+        return avg_loss
 
     # Scenario 2: Source-Only Training (CP-cold-start)
     elif source_loader:
@@ -506,6 +203,7 @@ def train(model, source_loader, target_loader, optimizer, criterion, epoch, devi
         # Epoch summary
         avg_loss = total_loss / batch_count
         print(f"Epoch {epoch + 1}: Avg Loss={avg_loss:.4f}")
+        return avg_loss
 
     # Scenario 3: Target-Only Training (WP-small, WP-large)
     elif target_loader:
@@ -542,21 +240,23 @@ def train(model, source_loader, target_loader, optimizer, criterion, epoch, devi
         # Epoch summary
         avg_loss = total_loss / batch_count
         print(f"Epoch {epoch + 1}: Avg Loss={avg_loss:.4f}")
+        return avg_loss
 
     else:
         raise ValueError("At least one of source_loader or target_loader must be provided for training.")
         return # No data to train on at all
 
-def evaluate(model, test_meta_path, test_code_ids_path, device):
+def evaluate(model, test_meta_path, test_code_ids_path, device, source_project, target_project, scenario):
     '''
-    Evaluates the model on the pre-processed test set.
+    Evaluates the model on the pre-processed test set. Also performs diagnostic analysis comparing
+    Faiss rank vs Model rank.
     '''
     model.eval()
 
     print("Loading pre-processed test data for evaluation...")
     # Use the same fast Dataset, but on the test cache files
     eval_dataset = BugLocalizationDataset(test_meta_path, test_code_ids_path)
-    eval_loader = DataLoader(eval_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, pin_memory=True)
+    eval_loader = DataLoader(eval_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
 
     # Group samples by bug_id to evaluate each bug's ranked list
     # We can get this info from the loaded metadata
@@ -564,28 +264,50 @@ def evaluate(model, test_meta_path, test_code_ids_path, device):
     ground_truth_shas_df = eval_dataset.metadata[eval_dataset.metadata['label'] == 1]
     ground_truth_map = ground_truth_shas_df.groupby('bug_id')['blob_sha'].apply(set).to_dict()
 
-    # Get model predictions for all candidates
+    # Get model predictions for all candidates: {bug_id: [(blob_sha, model_score, faiss_score)]}
     predictions = {}
     with torch.no_grad():
         for batch in tqdm(eval_loader, desc="Scoring Test Candidates"):
             outputs = model(batch['bug_ids'].to(device), batch['code_ids'].to(device), 'target')
             scores = F.softmax(outputs, dim=1)[:, 1] # Get probability of being 'buggy'
 
+            faiss_scores_batch = batch['faiss_score'] # Get faiss scores from batch
+
             for i in range(len(batch['bug_id'])):
                 bug_id = batch['bug_id'][i]
                 if bug_id not in predictions:
                     predictions[bug_id] = []
-                predictions[bug_id].append((batch['blob_sha'][i], scores[i].item()))
+                
+                # Appenf all three pieces of info
+                predictions[bug_id].append((batch['blob_sha'][i], scores[i].item(), faiss_scores_batch[i].item()))
 
     # 4. Calculate metrics
     top_k_hits = {k: 0 for k in [1, 5, 10]}
     average_precisions = [] 
     reciprocal_ranks = [] 
 
+    diagnostic_results = [] # Store detailed ranking info
+
     for bug_id in bugs_to_evaluate:
-        ranked_preds = sorted(predictions.get(bug_id, []), key=lambda x: x[1], reverse=True)
-        ranked_shas = [sha for sha, score in ranked_preds]
+        # Get all candidates for this bug
+        preds = predictions.get(bug_id, [])
+        if not preds:
+            continue    # No predictions for this bug
+
+        # Get the set of correct answers for this bug
         ground_truth = ground_truth_map.get(bug_id, set())
+        if not ground_truth:
+            continue    # No ground truth for this bug
+
+        # RANKING ANALYSIS
+        # 1. "Before" rank: Sort by Faiss score
+        faiss_ranked_list = sorted(preds, key=lambda x: x[2], reverse=True) # Sort by faiss score
+
+        # 2. "After" rank: Sort by Model score
+        model_ranked_list = sorted(preds, key=lambda x: x[1], reverse=True) # Sort by model_score
+
+        # --- STANDARD METRICS CALCULATION (uses model_ranked_list) ---
+        ranked_shas = [sha for sha, _, _ in model_ranked_list]
 
         # Calculate Top-K
         for k in top_k_hits:
@@ -615,49 +337,178 @@ def evaluate(model, test_meta_path, test_code_ids_path, device):
         else:
             average_precisions.append(0)
 
+        # --- DIAGNOSTIC CSV CALCULATION ---
+        # Find the rank of *every* ground truth file in both lists
+        for gt_sha in ground_truth:
+            faiss_rank = -1
+            model_rank = -1
+            faiss_score = -1.0
+            model_score = -1.0
+
+            # Find in Faiss list
+            for r, (sha, m_score, f_score) in enumerate(faiss_ranked_list):
+                if sha == gt_sha:
+                    faiss_rank = r + 1
+                    faiss_score = f_score
+                    model_score = m_score # Get model score for this sha
+                    break
+            
+            # Find in Model list
+            for r, (sha, m_score, f_score) in enumerate(model_ranked_list):
+                if sha == gt_sha:
+                    model_rank = r + 1
+                    model_score = m_score # This should be the same
+                    # If not found in faiss list (e.g. score was -1), get score from here
+                    if faiss_rank == -1: 
+                        faiss_score = f_score
+                    break
+            
+            # Handle case where GT was not retrieved by Faiss at all
+            if faiss_rank == -1:
+                # Check if it was in the original 'preds' list at all
+                # If it's not, it means it wasn't even in the top-K
+                found_in_preds = False
+                for (sha, m_score, f_score) in preds:
+                     if sha == gt_sha:
+                        faiss_score = f_score
+                        model_score = m_score
+                        found_in_preds = True
+                        break
+                # If still not found, it means it wasn't in the Top-K candidates
+                # (This should not happen if is_training_data=False logic is correct,
+                # but good to be safe)
+                
+            
+            rank_displacement = -1
+            if faiss_rank != -1 and model_rank != -1:
+                rank_displacement = faiss_rank - model_rank # Positive = improved
+            
+            diagnostic_results.append({
+                'bug_id': bug_id,
+                'gt_blob_sha': gt_sha,
+                'faiss_rank': faiss_rank,
+                'model_rank': model_rank,
+                'rank_displacement': rank_displacement,
+                'faiss_score': faiss_score,
+                'model_score': model_score
+            })
+
+    # --- SAVE DIAGNOSTIC FILE ---
+    if diagnostic_results:
+        diag_df = pd.DataFrame(diagnostic_results)
+        # Create a unique, safe filename
+        src_safe = source_project.replace('/', '_')
+        tgt_safe = target_project.replace('/', '_')
+        diag_filename = os.path.join(RESULT_PATH, f"{src_safe}_{tgt_safe}_{scenario}_diagnostics.csv")
+        try:
+            diag_df.to_csv(diag_filename, index=False)
+            print(f"✓ Saved ranking diagnostics to {diag_filename}")
+        except Exception as e:
+            print(f"Error saving diagnostics: {e}")
+
 
     num_bugs = len(bugs_to_evaluate)
+    if num_bugs == 0:
+        print("Warning: num_bugs is 0. No metrics to calculate.")
+        return {"Top-1": 0, "Top-5": 0, "Top-10": 0, "MAP": 0, "MRR": 0}
+
     final_metrics = {
-        "Top-1": top_k_hits[1] / num_bugs,
-        "Top-5": top_k_hits[5] / num_bugs,
-        "Top-10": top_k_hits[10] / num_bugs,
-        "MAP": np.mean(average_precisions),
-        "MRR": np.mean(reciprocal_ranks)
+        "Top-1": round(top_k_hits[1] / num_bugs, 4),
+        "Top-5": round(top_k_hits[5] / num_bugs, 4),
+        "Top-10": round(top_k_hits[10] / num_bugs, 4),
+        "MAP": round(np.mean(average_precisions), 4),
+        "MRR": round(np.mean(reciprocal_ranks), 4)
     }
     
     return final_metrics
 
-def get_project_path(repo_name, language):
-    """
-    Constructs the local path to a project repository based on its name and language.
 
-    Args:
-        repo_name (str): The repository name, e.g., 'apache/commons-lang'.
-        language (str): The programming language, e.g., 'java', 'c++'.
-
-    Returns:
-        str: The full path to the repository directory.
-    """
-    return os.path.join(REPO_BASE_PATH, language.lower(), repo_name.replace('/', '_'))
-
-# Helper function for loading data
-def load_project_databases(project_name, meta_df):
+def evaluate_validation(model, source_val_loader, target_val_loader, criterion, device):
     '''
-    Loads the bug and blob databases for a given project.
+    Calculates the validation loss for early stopping.
     '''
-    language = meta_df[meta_df['repo_name'] == project_name]['language'].iloc[0]
-    blob_db_path = os.path.join(BLOB_DB_DIR, project_name.replace('/', '_') + '_blob_embeddings32.pkl')
-    bug_db_path = os.path.join(BUG_METADATA_DIR, project_name.replace('/', '_') + '_bug_metadata32.pkl')
+    model.eval() # Set model to evaluation mode
+    total_val_loss = 0.0
+    val_batch_count = 0
 
-    with open(blob_db_path, 'rb') as f:
-        blob_db = pickle.load(f)
-    with open(bug_db_path, 'rb') as f:
-        bug_db = pickle.load(f)
+    with torch.no_grad():  # No gradients needed for validation
+        # Scenario 1: Joint Validation (if both loaders exist)
+        if source_val_loader and target_val_loader:
+            # Determine the number of batches to run (use the longer loader)
+            num_batches = max(len(source_val_loader), len(target_val_loader))
+            iter_source = iter(itertools.cycle(source_val_loader))
+            iter_target = iter(itertools.cycle(target_val_loader))
 
-    return bug_db, blob_db, language
- 
+            print(f" -> Evaluating on joing validation set ({num_batches} steps)...")
+            progress_bar = tqdm(range(num_batches), desc="Validation", leave=False)
+
+            for _ in progress_bar:
+                source_batch = next(iter_source)
+                target_batch = next(iter_target)
+
+                bug_ids_s = source_batch['bug_ids'].to(device, non_blocking=True)
+                code_ids_s = source_batch['code_ids'].to(device, non_blocking=True)
+                labels_s = source_batch['label'].to(device, non_blocking=True)
+
+                bug_ids_t = target_batch['bug_ids'].to(device, non_blocking=True)
+                code_ids_t = target_batch['code_ids'].to(device, non_blocking=True)
+                labels_t = target_batch['label'].to(device, non_blocking=True)
+
+                # No autocast needed unless evaluation speed is critical
+                outputs_s = model(bug_ids_s, code_ids_s, 'source')
+                loss_s = criterion(outputs_s, labels_s)
+                outputs_t = model(bug_ids_t, code_ids_t, 'target')
+                loss_t = criterion(outputs_t, labels_t)
+                combined_loss = loss_s + loss_t
+
+                total_val_loss += combined_loss.item()
+                val_batch_count += 1
+
+        # Scenario 2: Source-Only Validation
+        elif source_val_loader:
+            print(f" -> Evaluating on source validation set ({len(source_val_loader)} steps)...")
+            progress_bar = tqdm(source_val_loader, desc="Validation", leave=False)
+
+            for source_batch in progress_bar:
+                bug_ids_s = source_batch['bug_ids'].to(device, non_blocking=True)
+                code_ids_s = source_batch['code_ids'].to(device, non_blocking=True)
+                labels_s = source_batch['label'].to(device, non_blocking=True)
+
+                outputs_s = model(bug_ids_s, code_ids_s, 'source')
+                loss_s = criterion(outputs_s, labels_s)
+                total_val_loss += loss_s.item()
+                val_batch_count += 1
+        
+        # Scenario 3: Target-Only Validation
+        elif target_val_loader:
+            print(f" -> Evaluating on target validation set ({len(target_val_loader)} steps)...")
+            progress_bar = tqdm(target_val_loader, desc="Validation", leave=False)
+
+            for target_batch in progress_bar:
+                bug_ids_t = target_batch['bug_ids'].to(device, non_blocking=True)
+                code_ids_t = target_batch['code_ids'].to(device, non_blocking=True)
+                labels_t = target_batch['label'].to(device, non_blocking=True)
+
+                outputs_t = model(bug_ids_t, code_ids_t, 'target')
+                loss_t = criterion(outputs_t, labels_t)
+                total_val_loss += loss_t.item()
+                val_batch_count += 1
+
+        else:
+            # No validation loaders provided
+            print(" -> No validation data loaders found. SKippng validation.")
+            return float('inf') # Return infinity if no validation possible
+
+    if val_batch_count == 0:
+        return float('inf')
+
+    avg_val_loss = total_val_loss / val_batch_count
+    print(f" -> Avg validation loss: {avg_val_loss:.4f}")
+    return avg_val_loss
+
+
 # Step 4: Main Orchestrator
-def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, target_train_ids, target_test_ids, scenario):
+def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, target_train_ids, target_test_ids, scenario, validation_split_ratio=0.2):
     '''
     This is the new entry point for the TRANP-CNN pipeline, refactored from the old main() function.
     '''
@@ -672,119 +523,184 @@ def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, t
 
     # 1. Load Databases
     print("Loading databases")
-    source_bug_db, source_blob_db, source_language = load_project_databases(SOURCE_PROJECT, df_meta)
-    target_bug_db, target_blob_db, target_language = load_project_databases(TARGET_PROJECT, df_meta)
+    source_bug_db, source_blob_db, source_language = load_project_databases(source_project, df_meta)
+    target_bug_db, target_blob_db, target_language = load_project_databases(target_project, df_meta)
 
-    # Define cache paths
-    os.makedirs(BLOB_CACHE_DIR, exist_ok=True)
-    source_meta_path = os.path.join(BLOB_CACHE_DIR, f'{SOURCE_PROJECT.replace("/", "_")}_{scenario}_source_train_meta.parquet')
-    source_code_ids_path = os.path.join(BLOB_CACHE_DIR, f'{SOURCE_PROJECT.replace("/", "_")}_{scenario}_source_code_ids.npy')
-    
-    target_train_meta_path = os.path.join(BLOB_CACHE_DIR, f'{TARGET_PROJECT.replace("/", "_")}_{scenario}_target_train_meta.parquet')
-    target_train_code_ids_path = os.path.join(BLOB_CACHE_DIR, f'{TARGET_PROJECT.replace("/", "_")}_{scenario}_target_train_code_ids.npy')
+    # Adding validation split
+    print(f"\n Splitting training data using {validation_split_ratio*100:.0f}% for validation...")
 
-    target_test_meta_path = os.path.join(BLOB_CACHE_DIR, f'{TARGET_PROJECT.replace("/", "_")}_{scenario}_target_test_meta.parquet')
-    target_test_code_ids_path = os.path.join(BLOB_CACHE_DIR, f'{TARGET_PROJECT.replace("/", "_")}_{scenario}_target_test_code_ids.npy')
-
-    # --- Generate RAW samples first ---
-    print("Generating raw source samples...")
-    source_samples = create_labeled_samples(SOURCE_PROJECT, source_language, source_bug_db, source_blob_db, 
-                                            TOP_K_CANDIDATES, is_training_data=True, bug_ids_to_process=source_train_ids)
-    
-    # ... (logic for target train/test split) ...
-    print("Generating raw target train samples...")
-    # 3b. Create training samples using ONLY the bug IDs from the training split
-    target_train_samples = create_labeled_samples(
-        TARGET_PROJECT, target_language, target_bug_db, target_blob_db, 
-        TOP_K_CANDIDATES, is_training_data=True, bug_ids_to_process=target_train_ids #Pass the specific IDs to process
-    )
-    # 3b. Create training samples using ONLY the bug IDs from the training split
-    target_test_samples = create_labeled_samples(
-        TARGET_PROJECT, target_language, target_bug_db, target_blob_db, 
-        TOP_K_CANDIDATES, is_training_data=False, bug_ids_to_process=target_test_ids #Pass the specific IDs to process
-    )
-    
-    source_repo = git.Repo(get_project_path(SOURCE_PROJECT, source_language))
-    # --- NEW: Run analysis and dynamically set padding before caching ---
-    # We analyze on the source project's candidates as it's typically the largest dataset
-    # analyze_and_set_padding(source_samples, source_repo, tokenizer)
-    target_repo = git.Repo(get_project_path(TARGET_PROJECT, target_language))
-    
-    
-    # 4. Preprocess source data (with caching) and Create FAST Datasets and DataLoaders
+    source_train_final_ids, source_val_ids = [], []
     if source_train_ids:
-        if not os.path.exists(source_meta_path) or not os.path.exists(source_code_ids_path):
-            print("Source cache not found. Generating samples and preprocessing..")
-            preprocess_and_cache_samples(source_samples, df_bugs, source_repo, tokenizer, source_meta_path, source_code_ids_path)
+        if len(source_train_ids) * validation_split_ratio < 1:
+            print("Warning: Not enough source train data for validation split. Using all for training.")
+            source_train_final_ids = source_train_ids
         else:
-            print(f"Loading preprocessed source data from cache")
-        source_dataset = BugLocalizationDataset(source_meta_path, source_code_ids_path)
-        print(f"  - Source samples: {len(source_dataset)}")
-        source_loader = DataLoader(
-            source_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, pin_memory=True)
+            source_train_final_ids, source_val_ids = train_test_split(
+                source_train_ids, test_size=validation_split_ratio, random_state=42
+            )
+        print(f" - Source: {len(source_train_final_ids)} train, {len(source_val_ids)} validation bugs")
+    
+    target_train_final_ids, target_val_ids = [], []
+    if target_train_ids:
+        if len(target_train_ids) * validation_split_ratio < 1:
+            print("Warning: Not enough target train data for validation split. Using all for training.")
+            target_train_final_ids = target_train_ids
+        else:
+            target_train_final_ids, target_val_ids = train_test_split(
+                target_train_ids, test_size=validation_split_ratio, random_state=42
+            )
+        print(f" - Target: {len(target_train_final_ids)} train, {len(target_val_ids)} validation bugs")
+
+    # Define all cache paths (train, val, test)
+    os.makedirs(BLOB_CACHE_DIR, exist_ok=True)
+    src_proj_safe = source_project.replace("/", "_")
+    tgt_proj_safe = target_project.replace("/", "_")
+
+    # Training Cache Paths
+    source_train_meta_path = os.path.join(BLOB_CACHE_DIR, f'{src_proj_safe}_{scenario}_source_train_meta.parquet')
+    source_train_code_ids_path = os.path.join(BLOB_CACHE_DIR, f'{src_proj_safe}_{scenario}_source_train_code_ids.npy')
+    target_train_meta_path = os.path.join(BLOB_CACHE_DIR, f'{tgt_proj_safe}_{scenario}_target_train_meta.parquet')
+    target_train_code_ids_path = os.path.join(BLOB_CACHE_DIR, f'{tgt_proj_safe}_{scenario}_target_train_code_ids.npy')
+
+    # Validation Cache Paths
+    source_val_meta_path = os.path.join(BLOB_CACHE_DIR, f'{src_proj_safe}_{scenario}_source_val_meta.parquet')
+    source_val_code_ids_path = os.path.join(BLOB_CACHE_DIR, f'{src_proj_safe}_{scenario}_source_val_code_ids.npy')
+    target_val_meta_path = os.path.join(BLOB_CACHE_DIR, f'{tgt_proj_safe}_{scenario}_target_val_meta.parquet')
+    target_val_code_ids_path = os.path.join(BLOB_CACHE_DIR, f'{tgt_proj_safe}_{scenario}_target_val_code_ids.npy')
+
+    # Test Cache Paths (remain the same)
+    target_test_meta_path = os.path.join(BLOB_CACHE_DIR, f'{tgt_proj_safe}_{scenario}_target_test_meta.parquet')
+    target_test_code_ids_path = os.path.join(BLOB_CACHE_DIR, f'{tgt_proj_safe}_{scenario}_target_test_code_ids.npy')
+    
+    # --- Generate RAW samples (train, val, test) ---
+    print("\nGenerating raw samples...")
+    # Source Train
+    source_train_samples = create_labeled_samples(source_project, target_project, source_language, source_bug_db, source_blob_db, 
+                                            TOP_K_CANDIDATES, is_training_data=True, bug_ids_to_process=source_train_final_ids) # Use final train ids
+    # Source Validation
+    source_val_samples = create_labeled_samples(source_project, target_project, source_language, source_bug_db, source_blob_db, 
+                                            TOP_K_CANDIDATES, is_training_data=False, bug_ids_to_process=source_val_ids) # Use val ids, is_training_data=False
+    
+    # Target Train
+    target_train_samples = create_labeled_samples(
+        target_project, target_project, target_language, target_bug_db, target_blob_db, 
+        TOP_K_CANDIDATES, is_training_data=True, bug_ids_to_process=target_train_final_ids # Use final train ids
+    )
+    # Target Validation
+    target_val_samples = create_labeled_samples(
+        target_project, target_project, target_language, target_bug_db, target_blob_db, 
+        TOP_K_CANDIDATES, is_training_data=False, bug_ids_to_process=target_val_ids # Use val ids, is_training_data=False
+    )
+    # Target Test (remains the same)
+    target_test_samples = create_labeled_samples(
+        target_project, target_project, target_language, target_bug_db, target_blob_db, 
+        TOP_K_CANDIDATES, is_training_data=False, bug_ids_to_process=target_test_ids 
+    )
+    
+    source_repo = git.Repo(get_project_path(source_project, source_language))
+    target_repo = git.Repo(get_project_path(target_project, target_language))
+    
+    
+    # Process and Load Data (Train, Val)
+    # 4. Source Train
+    print("\nProcessing Source Train data...")
+    if source_train_final_ids: # Use final ids
+        if not os.path.exists(source_train_meta_path) or not os.path.exists(source_train_code_ids_path):
+            print("Source train cache not found. Preprocessing...")
+            preprocess_and_cache_samples(source_train_samples, df_bugs, source_repo, tokenizer, source_train_meta_path, source_train_code_ids_path)
+        source_train_dataset = BugLocalizationDataset(source_train_meta_path, source_train_code_ids_path)
+        print(f"  - Source train samples: {len(source_train_dataset)}")
+        source_loader = DataLoader(source_train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, pin_memory=True)
     else:
         print("  - No source training samples.")
-        source_loader = [] # Use an empty list as a flag
+        source_loader = None # Use None instead of [] for clarity
 
+    # 4a. Source Validation
+    print("Processing Source Validation data...")
+    if source_val_ids:
+        if not os.path.exists(source_val_meta_path) or not os.path.exists(source_val_code_ids_path):
+            print("Source validation cache not found. Preprocessing...")
+            preprocess_and_cache_samples(source_val_samples, df_bugs, source_repo, tokenizer, source_val_meta_path, source_val_code_ids_path)
+        source_val_dataset = BugLocalizationDataset(source_val_meta_path, source_val_code_ids_path)
+        print(f"  - Source validation samples: {len(source_val_dataset)}")
+        # No shuffle for validation
+        source_val_loader = DataLoader(source_val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True) 
+    else:
+        print("  - No source validation samples.")
+        source_val_loader = None
 
-
-    # 4a. Pre-process target training data (with caching)
-    if target_train_ids:
+    # 4b. Target Train
+    print("Processing Target Train data...")
+    if target_train_final_ids: # Use final ids
         if not os.path.exists(target_train_meta_path) or not os.path.exists(target_train_code_ids_path):
-            print("Target train cache not found. Generating samples and preprocessing..")
-            preprocess_and_cache_samples(target_train_samples, df_bugs, target_repo, tokenizer, target_train_meta_path, 
-                                     target_train_code_ids_path)
-        else:
-            print(f"Loading preprocessed target train data from cache")
-
+            print("Target train cache not found. Preprocessing...")
+            preprocess_and_cache_samples(target_train_samples, df_bugs, target_repo, tokenizer, target_train_meta_path, target_train_code_ids_path)
         target_train_dataset = BugLocalizationDataset(target_train_meta_path, target_train_code_ids_path)
         print(f"  - Target train samples: {len(target_train_dataset)}")
-        target_train_loader = DataLoader(target_train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, 
-                                         pin_memory=True)
+        target_train_loader = DataLoader(target_train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, pin_memory=True)
     else:
         print("  - No target training samples.")
-        target_train_loader = [] # Use an empty list as a flag
+        target_train_loader = None
+
+    # 4c. Target Validation
+    print("Processing Target Validation data...")
+    if target_val_ids:
+        if not os.path.exists(target_val_meta_path) or not os.path.exists(target_val_code_ids_path):
+            print("Target validation cache not found. Preprocessing...")
+            preprocess_and_cache_samples(target_val_samples, df_bugs, target_repo, tokenizer, target_val_meta_path, target_val_code_ids_path)
+        target_val_dataset = BugLocalizationDataset(target_val_meta_path, target_val_code_ids_path)
+        print(f"  - Target validation samples: {len(target_val_dataset)}")
+        target_val_loader = DataLoader(target_val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
+    else:
+        print("  - No target validation samples.")
+        target_val_loader = None
+        
+    print("\nData loading and processing complete.")
     
     print("Data loading checks complete.") # <-- New print statement
     
     # 5. Initialize Model, Criterion, Optimizer
     model = TRANPCNN(PARAMS).to(device)
 
-    # Calculate class weights to fix imbalance
-    # We read the label columns from the caches we just created.
-    print("Calculating class weights for loss function...")
+    # Calculate class weights (using ONLY final training data)
+    print("\nCalculating class weights for loss function...")
+    labels_s_df = pd.DataFrame(columns=['label']) 
+    labels_t_df = pd.DataFrame(columns=['label']) 
     try:
-        labels_s_df = pd.read_parquet(source_meta_path, columns=['label'])
-    except:
-        labels_s_df = pd.DataFrame(columns=['label']) # Handle empty source
-
+        if os.path.exists(source_train_meta_path) and os.path.getsize(source_train_meta_path) > 0:
+             labels_s_df = pd.read_parquet(source_train_meta_path, columns=['label'])
+    except Exception as e:
+        print(f"Warning: could not read source train parquet: {e}")
     try:
-        labels_t_df = pd.read_parquet(target_train_meta_path, columns=['label'])
-    except:
-        labels_t_df = pd.DataFrame(columns=['label']) # Handle empty target
+        if os.path.exists(target_train_meta_path) and os.path.getsize(target_train_meta_path) > 0:
+            labels_t_df = pd.read_parquet(target_train_meta_path, columns=['label'])
+    except Exception as e:
+        print(f"Warning: could not read target train parquet: {e}")
 
     all_train_labels = pd.concat([labels_s_df['label'], labels_t_df['label']])
+    # ... (rest of weight calculation remains the same) ...
+    if all_train_labels.empty:
+        print("Warning: No training labels found. Using default weights [1.0, 1.0]")
+        count_0 = 1
+        count_1 = 1
+    else:
+        counts = all_train_labels.value_counts()
+        count_0 = counts.get(0, 1) # Get count for label 0, default to 1
+        count_1 = counts.get(1, 1) # Get count for label 1
     
-    # Calculate counts
-    counts = all_train_labels.value_counts()
-    count_0 = counts.get(0, 1) # Get count for label 0, default to 1
-    count_1 = counts.get(1, 1) # Get count for label 1
     total_samples = count_0 + count_1
     
-    # Calculate balanced weights: weight = total_samples / (num_classes * class_count)
     weight_0 = total_samples / (2.0 * count_0)
     weight_1 = total_samples / (2.0 * count_1)
 
-    # Create the weight tensor and send to GPU
     class_weights = torch.tensor([weight_0, weight_1], dtype=torch.float32).to(device)
     
-    print(f"  - Total Samples: {total_samples}")
+    print(f"  - Total Train Samples (for weights): {total_samples}")
     print(f"  - Labels 0 (neg): {count_0} (Weight: {weight_0:.2f})")
     print(f"  - Labels 1 (pos): {count_1} (Weight: {weight_1:.2f})")
 
     # Enable cuDNN autotuner for potential speedups on fixed-size inputs
     torch.backends.cudnn.benchmark = True
-
     # Pass the calculated weights to the loss function
     criterion = nn.CrossEntropyLoss(weight=class_weights)
     # Use AdamW with fused=True for faster CUDA kernels
@@ -792,14 +708,50 @@ def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, t
     # Intialize mixed precision scaler
     scaler = GradScaler("cuda")
 
-    # 6. Joint Training Loop
-    print("\n--- Starting Joint Training ---")
-    for epoch in range(EPOCHS):
-        # Call the standalone train function
-        train(model, source_loader, target_train_loader, optimizer, criterion, epoch, device, scaler)
+    # --- Early Stopping Variables (use validation loss) ---
+    best_val_loss = float('inf') # Now track validation loss
+    patience_counter = 0
+    patience_limit = 3 # Stop after 3 epochs with no improvement in validation loss
+    best_model_state = None 
+    best_epoch = -1
 
-    # 7. Final Evaluation
-    # Note: The test set should ALWAYS have data
+    # 6. Training Loop with Validation and Early Stopping
+    print(f"\n--- Starting Training (Max {EPOCHS} Epochs) ---")
+    for epoch in range(EPOCHS):
+        
+        # --- Run Training Epoch ---
+        # Pass the FINAL training loaders
+        _ = train(model, source_loader, target_train_loader, optimizer, criterion, epoch, device, scaler) 
+        
+        # --- Run Validation Epoch ---
+        # Pass the validation loaders
+        current_val_loss = evaluate_validation(model, source_val_loader, target_val_loader, criterion, device)
+        
+        # --- EARLY STOPPING LOGIC (use validation loss) ---
+        if current_val_loss < best_val_loss:
+            best_val_loss = current_val_loss
+            patience_counter = 0 
+            print(f"  -> Validation loss improved to {best_val_loss:.4f}.")
+            best_model_state = copy.deepcopy(model.state_dict()) # Use deepcopy for safety
+            best_epoch = epoch + 1
+            # Optional: Save best model state to disk here
+            # torch.save(model.state_dict(), f'best_model_{scenario}.pth')
+        else:
+            patience_counter += 1
+            print(f"  -> Validation loss did not improve for {patience_counter} epoch(s).")
+
+        if patience_counter >= patience_limit:
+            print(f"\nEarly stopping triggered after epoch {epoch + 1}.")
+            break
+
+    # Load the best model state before final evaluation
+    if best_model_state is not None:
+        print(f"\nLoading model from best epoch: {best_epoch} with validation loss {best_val_loss:.4f}")
+        model.load_state_dict(best_model_state)
+    else:
+        print("\nWarning: No improvement in validation loss observed. Using model from the last epoch.")
+    
+    # 7. Final Evaluation on TEST set
     if not target_test_ids:
         print("WARNING: No test bugs found. Skipping evaluation.")
         final_metrics = {"Top-1": 0, "Top-5": 0, "Top-10": 0, "MAP": 0, "MRR": 0}
@@ -811,7 +763,8 @@ def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, t
                                         target_test_code_ids_path)
         else:
             print(f"Loading preprocessed target test data from cache")
-        final_metrics = evaluate(model, target_test_meta_path, target_test_code_ids_path, device)
+        final_metrics = evaluate(model, target_test_meta_path, target_test_code_ids_path, device,
+                                 source_project, target_project, scenario)
     
     print(f"\n Final Metrics on Target Project: \n {final_metrics}\n")
     

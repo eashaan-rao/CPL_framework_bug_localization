@@ -161,8 +161,8 @@ class P_CNN(nn.Module):
         x input shape: (batch_size, num_statements, statement_length)
         '''
         batch_size, num_stmts, stmt_len= x.shape
-        print(f"\nP_CNN Input: batch={batch_size}, statements={num_stmts}, tokens={stmt_len}")
-        print(f"Total sub-batches to process: {batch_size * num_stmts}")
+        # print(f"\nP_CNN Input: batch={batch_size}, statements={num_stmts}, tokens={stmt_len}")
+        # print(f"Total sub-batches to process: {batch_size * num_stmts}")
 
         # To process efficiently, flatten all statements into a single large batch
         x_embed = self.embedding(x) # Shape: (batch_size, num_stmts, stmt_len, embed_dim)
