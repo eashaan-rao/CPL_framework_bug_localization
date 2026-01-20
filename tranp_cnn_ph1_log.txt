@@ -1,0 +1,2027 @@
+  - Total Train Samples (for weights): 2416
+  - Labels 0 (neg): 2394 (Weight: 0.50)
+  - Labels 1 (pos): 22 (Weight: 54.91)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Training on Target Data Only ---
+Epoch 1/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=4.3519]
+Epoch 1: Avg Loss=3.9735
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 0.7406
+  -> Validation loss improved to 0.7406.
+
+--- Epoch 2: Training on Target Data Only ---
+Epoch 2/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=0.8111]
+Epoch 2: Avg Loss=0.8948
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 0.8508
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 3: Training on Target Data Only ---
+Epoch 3/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=0.6734]
+Epoch 3: Avg Loss=0.6493
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 0.6591
+  -> Validation loss improved to 0.6591.
+
+--- Epoch 4: Training on Target Data Only ---
+Epoch 4/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=0.5178]
+Epoch 4: Avg Loss=0.4864
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 0.6256
+  -> Validation loss improved to 0.6256.
+
+--- Epoch 5: Training on Target Data Only ---
+Epoch 5/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=0.5439]
+Epoch 5: Avg Loss=0.5318
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 0.6722
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 6: Training on Target Data Only ---
+Epoch 6/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=0.4009]
+Epoch 6: Avg Loss=0.4089
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 0.7703
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 7: Training on Target Data Only ---
+Epoch 7/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=0.3314]
+Epoch 7: Avg Loss=0.3183
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 0.9874
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 7.
+
+Loading model from best epoch: 4 with validation loss 0.6256
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from open-mmlab_mmdetection_WP-small_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.22 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 33/33 [00:09<00:00,  3.55it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/scikit-learn_scikit-learn_open-mmlab_mmdetection_WP-small_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.0, 'Top-5': 0.0476, 'Top-10': 0.0952, 'MAP': np.float64(0.0822), 'MRR': np.float64(0.0841)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair scikit-learn/scikit-learn -> open-mmlab/mmdetection completed in 0.26 hrs
+
+ -- Running Model: TRANP-CNN | Scenario: WP-large --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Target: 65 train, 17 validation bugs
+
+Generating raw samples...
+Processing commits for scikit-learn/scikit-learn: 0it [00:00, ?it/s]
+Processing commits for scikit-learn/scikit-learn: 0it [00:00, ?it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 64/64 [00:01<00:00, 56.01it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 17/17 [00:00<00:00, 68.23it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 21/21 [00:00<00:00, 57.26it/s]
+
+Processing Source Train data...
+  - No source training samples.
+Processing Source Validation data...
+  - No source validation samples.
+Processing Target Train data...
+Loading code_ids data from open-mmlab_mmdetection_WP-large_target_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.36 GB into RAM
+Data loading complete.
+  - Target train samples: 19767
+Processing Target Validation data...
+Loading code_ids data from open-mmlab_mmdetection_WP-large_target_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.19 GB into RAM
+Data loading complete.
+  - Target validation samples: 5094
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+/home/cs21d002_eashaan/PhD/Objective1/SOTA_original/tranp_cnn_pipeline_ph1.py:680: FutureWarning: The behavior of array concatenation with empty entries is deprecated. In a future version, this will no longer exclude empty items
+ when determining the result dtype. To retain the old behavior, exclude the empty entries before the concat operation.
+  all_train_labels = pd.concat([labels_s_df['label'], labels_t_df['label']])
+  - Total Train Samples (for weights): 19767
+  - Labels 0 (neg): 19329 (Weight: 0.51)
+  - Labels 1 (pos): 438 (Weight: 22.57)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Training on Target Data Only ---
+Epoch 1/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.36s/it, loss=0.6028]
+Epoch 1: Avg Loss=0.5909
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.2399
+  -> Validation loss improved to 0.2399.
+
+--- Epoch 2: Training on Target Data Only ---
+Epoch 2/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.36s/it, loss=0.3224]
+Epoch 2: Avg Loss=0.3171
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.2793
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 3: Training on Target Data Only ---
+Epoch 3/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.36s/it, loss=0.2727]
+Epoch 3: Avg Loss=0.2731
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.2604
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 4: Training on Target Data Only ---
+Epoch 4/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.36s/it, loss=0.2269]
+Epoch 4: Avg Loss=0.2254
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.2137
+  -> Validation loss improved to 0.2137.
+
+--- Epoch 5: Training on Target Data Only ---
+Epoch 5/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.36s/it, loss=0.2070]
+Epoch 5: Avg Loss=0.2069
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.1746
+  -> Validation loss improved to 0.1746.
+
+--- Epoch 6: Training on Target Data Only ---
+Epoch 6/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.36s/it, loss=0.1934]
+Epoch 6: Avg Loss=0.1925
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.1984
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 7: Training on Target Data Only ---
+Epoch 7/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.36s/it, loss=0.1779]
+Epoch 7: Avg Loss=0.1769
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.2306
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 8: Training on Target Data Only ---
+Epoch 8/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.36s/it, loss=0.1729]
+Epoch 8: Avg Loss=0.1732
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.2110
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 8.
+
+Loading model from best epoch: 5 with validation loss 0.1746
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from open-mmlab_mmdetection_WP-large_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.22 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 33/33 [00:09<00:00,  3.56it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/scikit-learn_scikit-learn_open-mmlab_mmdetection_WP-large_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.0476, 'Top-5': 0.1429, 'Top-10': 0.1905, 'MAP': np.float64(0.1835), 'MRR': np.float64(0.2004)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair scikit-learn/scikit-learn -> open-mmlab/mmdetection completed in 2.65 hrs
+
+ -- Running Model: TRANP-CNN | Scenario: CP-cold-start --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Source: 182 train, 46 validation bugs
+
+Generating raw samples...
+Processing commits for scikit-learn/scikit-learn: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 166/166 [00:03<00:00, 50.23it/s]
+Processing commits for scikit-learn/scikit-learn: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 44/44 [00:00<00:00, 50.32it/s]
+Processing commits for open-mmlab/mmdetection: 0it [00:00, ?it/s]
+Processing commits for open-mmlab/mmdetection: 0it [00:00, ?it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 21/21 [00:00<00:00, 57.19it/s]
+
+Processing Source Train data...
+Loading code_ids data from scikit-learn_scikit-learn_CP-cold-start_source_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.47 GB into RAM
+Data loading complete.
+  - Source train samples: 53558
+Processing Source Validation data...
+Loading code_ids data from scikit-learn_scikit-learn_CP-cold-start_source_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.28 GB into RAM
+Data loading complete.
+  - Source validation samples: 13446
+Processing Target Train data...
+  - No target training samples.
+Processing Target Validation data...
+  - No target validation samples.
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+/home/cs21d002_eashaan/PhD/Objective1/SOTA_original/tranp_cnn_pipeline_ph1.py:680: FutureWarning: The behavior of array concatenation with empty entries is deprecated. In a future version, this will no longer exclude empty items
+ when determining the result dtype. To retain the old behavior, exclude the empty entries before the concat operation.
+  all_train_labels = pd.concat([labels_s_df['label'], labels_t_df['label']])
+  - Total Train Samples (for weights): 53558
+  - Labels 0 (neg): 53240 (Weight: 0.50)
+  - Labels 1 (pos): 318 (Weight: 84.21)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Training on Source Data Only ---
+Epoch 1/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 279/279 [48:11<00:00, 10.36s/it, loss=1.0056]
+Epoch 1: Avg Loss=0.9896
+ -> Evaluating on source validation set (71 steps)...
+ -> Avg validation loss: 0.6485
+  -> Validation loss improved to 0.6485.
+
+--- Epoch 2: Training on Source Data Only ---
+Epoch 2/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 279/279 [48:11<00:00, 10.36s/it, loss=0.4188]
+Epoch 2: Avg Loss=0.4211
+ -> Evaluating on source validation set (71 steps)...
+ -> Avg validation loss: 0.3661
+  -> Validation loss improved to 0.3661.
+
+--- Epoch 3: Training on Source Data Only ---
+Epoch 3/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 279/279 [48:11<00:00, 10.36s/it, loss=0.3342]
+Epoch 3: Avg Loss=0.3372
+ -> Evaluating on source validation set (71 steps)...
+ -> Avg validation loss: 0.2073
+  -> Validation loss improved to 0.2073.
+
+--- Epoch 4: Training on Source Data Only ---
+Epoch 4/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 279/279 [48:10<00:00, 10.36s/it, loss=0.3914]
+Epoch 4: Avg Loss=0.3876
+ -> Evaluating on source validation set (71 steps)...
+ -> Avg validation loss: 0.1195
+  -> Validation loss improved to 0.1195.
+
+--- Epoch 5: Training on Source Data Only ---
+Epoch 5/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 279/279 [48:10<00:00, 10.36s/it, loss=0.3407]
+Epoch 5: Avg Loss=0.3372
+ -> Evaluating on source validation set (71 steps)...
+ -> Avg validation loss: 0.1481
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 6: Training on Source Data Only ---
+Epoch 6/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 279/279 [48:10<00:00, 10.36s/it, loss=0.2987]
+Epoch 6: Avg Loss=0.2959
+ -> Evaluating on source validation set (71 steps)...
+ -> Avg validation loss: 0.2278
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 7: Training on Source Data Only ---
+Epoch 7/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 279/279 [48:10<00:00, 10.36s/it, loss=0.2527]
+Epoch 7: Avg Loss=0.2563
+ -> Evaluating on source validation set (71 steps)...
+ -> Avg validation loss: 0.2649
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 7.
+
+Loading model from best epoch: 4 with validation loss 0.1195
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from open-mmlab_mmdetection_CP-cold-start_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.22 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 33/33 [00:09<00:00,  3.55it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/scikit-learn_scikit-learn_open-mmlab_mmdetection_CP-cold-start_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.0, 'Top-5': 0.0, 'Top-10': 0.0, 'MAP': np.float64(0.0166), 'MRR': np.float64(0.0158)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair scikit-learn/scikit-learn -> open-mmlab/mmdetection completed in 8.32 hrs
+
+ -- Running Model: TRANP-CNN | Scenario: CP-transfer --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Source: 182 train, 46 validation bugs
+ - Target: 16 train, 4 validation bugs
+
+Generating raw samples...
+Processing commits for scikit-learn/scikit-learn: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 166/166 [00:03<00:00, 50.14it/s]
+Processing commits for scikit-learn/scikit-learn: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 44/44 [00:00<00:00, 50.05it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 16/16 [00:00<00:00, 47.91it/s]
+Processing commits for open-mmlab/mmdetection: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [00:00<00:00, 44.93it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 21/21 [00:00<00:00, 58.18it/s]
+
+Processing Source Train data...
+Loading code_ids data from scikit-learn_scikit-learn_CP-transfer_source_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.47 GB into RAM
+Data loading complete.
+  - Source train samples: 53558
+Processing Source Validation data...
+Loading code_ids data from scikit-learn_scikit-learn_CP-transfer_source_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.28 GB into RAM
+Data loading complete.
+  - Source validation samples: 13446
+Processing Target Train data...
+Loading code_ids data from open-mmlab_mmdetection_CP-transfer_target_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.15 GB into RAM
+Data loading complete.
+  - Target train samples: 4999
+Processing Target Validation data...
+Loading code_ids data from open-mmlab_mmdetection_CP-transfer_target_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.07 GB into RAM
+Data loading complete.
+  - Target validation samples: 1199
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+  - Total Train Samples (for weights): 58557
+  - Labels 0 (neg): 57936 (Weight: 0.51)
+  - Labels 1 (pos): 621 (Weight: 47.15)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Joint Training on Source and Target Data ---
+Epoch 1/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 279/279 [1:34:31<00:00, 20.33s/it, loss=1.1115]
+Epoch 1: Avg Loss=1.0902
+ -> Evaluating on joing validation set (71 steps)...
+ -> Avg validation loss: 0.5003
+  -> Validation loss improved to 0.5003.
+
+--- Epoch 2: Joint Training on Source and Target Data ---
+Epoch 2/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 279/279 [1:34:31<00:00, 20.33s/it, loss=0.5548]
+Epoch 2: Avg Loss=0.5570
+ -> Evaluating on joing validation set (71 steps)...
+ -> Avg validation loss: 0.2055
+  -> Validation loss improved to 0.2055.
+
+--- Epoch 3: Joint Training on Source and Target Data ---
+Epoch 3/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 279/279 [1:34:31<00:00, 20.33s/it, loss=0.4994]
+Epoch 3: Avg Loss=0.4957
+ -> Evaluating on joing validation set (71 steps)...
+ -> Avg validation loss: 0.3321
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 4: Joint Training on Source and Target Data ---
+Epoch 4/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 279/279 [1:34:30<00:00, 20.33s/it, loss=0.3753]
+Epoch 4: Avg Loss=0.3808
+ -> Evaluating on joing validation set (71 steps)...
+ -> Avg validation loss: 0.3174
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 5: Joint Training on Source and Target Data ---
+Epoch 5/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 279/279 [1:34:30<00:00, 20.33s/it, loss=0.3311]
+Epoch 5: Avg Loss=0.3333
+ -> Evaluating on joing validation set (71 steps)...
+ -> Avg validation loss: 0.2741
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 5.
+
+Loading model from best epoch: 2 with validation loss 0.2055
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from open-mmlab_mmdetection_CP-transfer_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.22 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 33/33 [00:09<00:00,  3.54it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/scikit-learn_scikit-learn_open-mmlab_mmdetection_CP-transfer_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.0, 'Top-5': 0.0, 'Top-10': 0.1429, 'MAP': np.float64(0.045), 'MRR': np.float64(0.0526)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair scikit-learn/scikit-learn -> open-mmlab/mmdetection completed in 16.25 hrs
+
+==================== Setting up experiments for open-mmlab/mmdetection -> google/jax ====================
+Loaded 103 total bugs IDs for project open-mmlab/mmdetection
+Loaded 568 total bugs IDs for project google/jax
+
+ -- Running Model: TRANP-CNN | Scenario: WP-small --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Target: 44 train, 12 validation bugs
+
+Generating raw samples...
+Processing commits for open-mmlab/mmdetection: 0it [00:00, ?it/s]
+Processing commits for open-mmlab/mmdetection: 0it [00:00, ?it/s]
+Processing commits for google/jax: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 44/44 [00:00<00:00, 187.69it/s]
+Processing commits for google/jax: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 12/12 [00:00<00:00, 176.20it/s]
+Processing commits for google/jax: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 106/106 [00:00<00:00, 189.77it/s]
+
+Processing Source Train data...
+  - No source training samples.
+Processing Source Validation data...
+  - No source validation samples.
+Processing Target Train data...
+Loading code_ids data from google_jax_WP-small_target_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.27 GB into RAM
+Data loading complete.
+  - Target train samples: 9246
+Processing Target Validation data...
+Loading code_ids data from google_jax_WP-small_target_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.13 GB into RAM
+Data loading complete.
+  - Target validation samples: 2638
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+/home/cs21d002_eashaan/PhD/Objective1/SOTA_original/tranp_cnn_pipeline_ph1.py:680: FutureWarning: The behavior of array concatenation with empty entries is deprecated. In a future version, this will no longer exclude empty items
+ when determining the result dtype. To retain the old behavior, exclude the empty entries before the concat operation.
+  all_train_labels = pd.concat([labels_s_df['label'], labels_t_df['label']])
+  - Total Train Samples (for weights): 9246
+  - Labels 0 (neg): 9164 (Weight: 0.50)
+  - Labels 1 (pos): 82 (Weight: 56.38)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Training on Target Data Only ---
+Epoch 1/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 49/49 [08:19<00:00, 10.19s/it, loss=1.3185]
+Epoch 1: Avg Loss=1.2961
+ -> Evaluating on target validation set (14 steps)...
+ -> Avg validation loss: 1.4771
+  -> Validation loss improved to 1.4771.
+
+--- Epoch 2: Training on Target Data Only ---
+Epoch 2/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 49/49 [08:19<00:00, 10.18s/it, loss=1.2216]
+Epoch 2: Avg Loss=1.1321
+ -> Evaluating on target validation set (14 steps)...
+ -> Avg validation loss: 0.5724
+  -> Validation loss improved to 0.5724.
+
+--- Epoch 3: Training on Target Data Only ---
+Epoch 3/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 49/49 [08:18<00:00, 10.18s/it, loss=0.7506]
+Epoch 3: Avg Loss=0.7051
+ -> Evaluating on target validation set (14 steps)...
+ -> Avg validation loss: 0.4921
+  -> Validation loss improved to 0.4921.
+
+--- Epoch 4: Training on Target Data Only ---
+Epoch 4/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 49/49 [08:19<00:00, 10.19s/it, loss=0.6416]
+Epoch 4: Avg Loss=0.6182
+ -> Evaluating on target validation set (14 steps)...
+ -> Avg validation loss: 0.6259
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 5: Training on Target Data Only ---
+Epoch 5/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 49/49 [08:19<00:00, 10.18s/it, loss=0.4872]
+Epoch 5: Avg Loss=0.4818
+ -> Evaluating on target validation set (14 steps)...
+ -> Avg validation loss: 0.4890
+  -> Validation loss improved to 0.4890.
+
+--- Epoch 6: Training on Target Data Only ---
+Epoch 6/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 49/49 [08:19<00:00, 10.19s/it, loss=0.3788]
+Epoch 6: Avg Loss=0.3790
+ -> Evaluating on target validation set (14 steps)...
+ -> Avg validation loss: 0.5661
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 7: Training on Target Data Only ---
+Epoch 7/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 49/49 [08:19<00:00, 10.18s/it, loss=0.3631]
+Epoch 7: Avg Loss=0.3840
+ -> Evaluating on target validation set (14 steps)...
+ -> Avg validation loss: 0.6080
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 8: Training on Target Data Only ---
+Epoch 8/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 49/49 [08:18<00:00, 10.18s/it, loss=0.3335]
+Epoch 8: Avg Loss=0.3257
+ -> Evaluating on target validation set (14 steps)...
+ -> Avg validation loss: 0.5405
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 8.
+
+Loading model from best epoch: 5 with validation loss 0.4890
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from google_jax_WP-small_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.44 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 115/115 [00:33<00:00,  3.39it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/open-mmlab_mmdetection_google_jax_WP-small_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.2018, 'Top-5': 0.5526, 'Top-10': 0.6491, 'MAP': np.float64(0.2962), 'MRR': np.float64(0.3702)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair open-mmlab/mmdetection -> google/jax completed in 1.13 hrs
+
+ -- Running Model: TRANP-CNN | Scenario: WP-large --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Target: 363 train, 91 validation bugs
+
+Generating raw samples...
+Processing commits for open-mmlab/mmdetection: 0it [00:00, ?it/s]
+Processing commits for open-mmlab/mmdetection: 0it [00:00, ?it/s]
+Processing commits for google/jax: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 332/332 [00:01<00:00, 180.74it/s]
+Processing commits for google/jax: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 90/90 [00:00<00:00, 178.51it/s]
+Processing commits for google/jax: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 106/106 [00:00<00:00, 188.14it/s]
+
+Processing Source Train data...
+  - No source training samples.
+Processing Source Validation data...
+  - No source validation samples.
+Processing Target Train data...
+Loading code_ids data from google_jax_WP-large_target_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.74 GB into RAM
+Data loading complete.
+  - Target train samples: 75373
+Processing Target Validation data...
+Loading code_ids data from google_jax_WP-large_target_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.39 GB into RAM
+Data loading complete.
+  - Target validation samples: 18634
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+/home/cs21d002_eashaan/PhD/Objective1/SOTA_original/tranp_cnn_pipeline_ph1.py:680: FutureWarning: The behavior of array concatenation with empty entries is deprecated. In a future version, this will no longer exclude empty items
+ when determining the result dtype. To retain the old behavior, exclude the empty entries before the concat operation.
+  all_train_labels = pd.concat([labels_s_df['label'], labels_t_df['label']])
+  - Total Train Samples (for weights): 75373
+  - Labels 0 (neg): 74668 (Weight: 0.50)
+  - Labels 1 (pos): 705 (Weight: 53.46)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Training on Target Data Only ---
+Epoch 1/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 393/393 [1:07:48<00:00, 10.35s/it, loss=0.7569]
+Epoch 1: Avg Loss=0.7548
+ -> Evaluating on target validation set (98 steps)...
+ -> Avg validation loss: 0.4698
+  -> Validation loss improved to 0.4698.
+
+--- Epoch 2: Training on Target Data Only ---
+Epoch 2/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 393/393 [1:07:48<00:00, 10.35s/it, loss=0.5218]
+Epoch 2: Avg Loss=0.5220
+ -> Evaluating on target validation set (98 steps)...
+ -> Avg validation loss: 0.5784
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 3: Training on Target Data Only ---
+Epoch 3/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 393/393 [1:07:48<00:00, 10.35s/it, loss=0.5250]
+Epoch 3: Avg Loss=0.5259
+ -> Evaluating on target validation set (98 steps)...
+ -> Avg validation loss: 0.4707
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 4: Training on Target Data Only ---
+Epoch 4/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 393/393 [1:07:48<00:00, 10.35s/it, loss=0.4573]
+Epoch 4: Avg Loss=0.4564
+ -> Evaluating on target validation set (98 steps)...
+ -> Avg validation loss: 0.6240
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 4.
+
+Loading model from best epoch: 1 with validation loss 0.4698
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from google_jax_WP-large_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.44 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 115/115 [00:34<00:00,  3.38it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/open-mmlab_mmdetection_google_jax_WP-large_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.2719, 'Top-5': 0.5965, 'Top-10': 0.7105, 'MAP': np.float64(0.3572), 'MRR': np.float64(0.4311)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair open-mmlab/mmdetection -> google/jax completed in 5.69 hrs
+
+ -- Running Model: TRANP-CNN | Scenario: CP-cold-start --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Source: 82 train, 21 validation bugs
+
+Generating raw samples...
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 77/77 [00:01<00:00, 57.75it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 21/21 [00:00<00:00, 57.25it/s]
+Processing commits for google/jax: 0it [00:00, ?it/s]
+Processing commits for google/jax: 0it [00:00, ?it/s]
+Processing commits for google/jax: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 106/106 [00:00<00:00, 188.12it/s]
+
+Processing Source Train data...
+Loading code_ids data from open-mmlab_mmdetection_CP-cold-start_source_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.40 GB into RAM
+Data loading complete.
+  - Source train samples: 24875
+Processing Source Validation data...
+Loading code_ids data from open-mmlab_mmdetection_CP-cold-start_source_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.22 GB into RAM
+Data loading complete.
+  - Source validation samples: 6291
+Processing Target Train data...
+  - No target training samples.
+Processing Target Validation data...
+  - No target validation samples.
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+/home/cs21d002_eashaan/PhD/Objective1/SOTA_original/tranp_cnn_pipeline_ph1.py:680: FutureWarning: The behavior of array concatenation with empty entries is deprecated. In a future version, this will no longer exclude empty items
+ when determining the result dtype. To retain the old behavior, exclude the empty entries before the concat operation.
+  all_train_labels = pd.concat([labels_s_df['label'], labels_t_df['label']])
+  - Total Train Samples (for weights): 24875
+  - Labels 0 (neg): 24415 (Weight: 0.51)
+  - Labels 1 (pos): 460 (Weight: 27.04)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Training on Source Data Only ---
+Epoch 1/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 130/130 [22:23<00:00, 10.33s/it, loss=0.5744]
+Epoch 1: Avg Loss=0.5744
+ -> Evaluating on source validation set (33 steps)...
+ -> Avg validation loss: 0.3409
+  -> Validation loss improved to 0.3409.
+
+--- Epoch 2: Training on Source Data Only ---
+Epoch 2/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 130/130 [22:23<00:00, 10.33s/it, loss=0.3007]
+Epoch 2: Avg Loss=0.3007
+ -> Evaluating on source validation set (33 steps)...
+ -> Avg validation loss: 0.3438
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 3: Training on Source Data Only ---
+Epoch 3/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 130/130 [22:23<00:00, 10.33s/it, loss=0.2699]
+Epoch 3: Avg Loss=0.2699
+ -> Evaluating on source validation set (33 steps)...
+ -> Avg validation loss: 0.5044
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 4: Training on Source Data Only ---
+Epoch 4/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 130/130 [22:23<00:00, 10.33s/it, loss=0.2301]
+Epoch 4: Avg Loss=0.2301
+ -> Evaluating on source validation set (33 steps)...
+ -> Avg validation loss: 0.3713
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 4.
+
+Loading model from best epoch: 1 with validation loss 0.3409
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from google_jax_CP-cold-start_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.44 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 115/115 [00:33<00:00,  3.39it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/open-mmlab_mmdetection_google_jax_CP-cold-start_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.0, 'Top-5': 0.0088, 'Top-10': 0.0088, 'MAP': np.float64(0.0151), 'MRR': np.float64(0.0137)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair open-mmlab/mmdetection -> google/jax completed in 7.21 hrs
+
+ -- Running Model: TRANP-CNN | Scenario: CP-transfer --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Source: 82 train, 21 validation bugs
+ - Target: 90 train, 23 validation bugs
+
+Generating raw samples...
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 77/77 [00:01<00:00, 57.67it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 21/21 [00:00<00:00, 57.46it/s]
+Processing commits for google/jax: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 89/89 [00:00<00:00, 193.45it/s]
+Processing commits for google/jax: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 23/23 [00:00<00:00, 184.45it/s]
+Processing commits for google/jax: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 106/106 [00:00<00:00, 192.30it/s]
+
+Processing Source Train data...
+Loading code_ids data from open-mmlab_mmdetection_CP-transfer_source_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.40 GB into RAM
+Data loading complete.
+  - Source train samples: 24875
+Processing Source Validation data...
+Loading code_ids data from open-mmlab_mmdetection_CP-transfer_source_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.22 GB into RAM
+Data loading complete.
+  - Source validation samples: 6291
+Processing Target Train data...
+Loading code_ids data from google_jax_CP-transfer_target_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.41 GB into RAM
+Data loading complete.
+  - Target train samples: 18653
+Processing Target Validation data...
+Loading code_ids data from google_jax_CP-transfer_target_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.18 GB into RAM
+Data loading complete.
+  - Target validation samples: 4880
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+  - Total Train Samples (for weights): 43528
+  - Labels 0 (neg): 42901 (Weight: 0.51)
+  - Labels 1 (pos): 627 (Weight: 34.71)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Joint Training on Source and Target Data ---
+Epoch 1/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 130/130 [44:39<00:00, 20.61s/it, loss=1.4006]
+Epoch 1: Avg Loss=1.4006
+ -> Evaluating on joing validation set (33 steps)...
+ -> Avg validation loss: 1.0808
+  -> Validation loss improved to 1.0808.
+
+--- Epoch 2: Joint Training on Source and Target Data ---
+Epoch 2/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 130/130 [44:39<00:00, 20.61s/it, loss=0.8758]
+Epoch 2: Avg Loss=0.8758
+ -> Evaluating on joing validation set (33 steps)...
+ -> Avg validation loss: 0.7801
+  -> Validation loss improved to 0.7801.
+
+--- Epoch 3: Joint Training on Source and Target Data ---
+Epoch 3/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 130/130 [44:39<00:00, 20.61s/it, loss=0.7526]
+Epoch 3: Avg Loss=0.7526
+ -> Evaluating on joing validation set (33 steps)...
+ -> Avg validation loss: 0.8184
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 4: Joint Training on Source and Target Data ---
+Epoch 4/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 130/130 [44:39<00:00, 20.61s/it, loss=0.6276]
+Epoch 4: Avg Loss=0.6276
+ -> Evaluating on joing validation set (33 steps)...
+ -> Avg validation loss: 0.9033
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 5: Joint Training on Source and Target Data ---
+Epoch 5/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 130/130 [44:39<00:00, 20.61s/it, loss=0.5428]
+Epoch 5: Avg Loss=0.5428
+ -> Evaluating on joing validation set (33 steps)...
+ -> Avg validation loss: 1.4139
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 5.
+
+Loading model from best epoch: 2 with validation loss 0.7801
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from google_jax_CP-transfer_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.44 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 115/115 [00:33<00:00,  3.38it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/open-mmlab_mmdetection_google_jax_CP-transfer_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.2632, 'Top-5': 0.5263, 'Top-10': 0.6754, 'MAP': np.float64(0.3308), 'MRR': np.float64(0.4024)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair open-mmlab/mmdetection -> google/jax completed in 10.97 hrs
+
+==================== Setting up experiments for google/jax -> open-mmlab/mmdetection ====================
+Loaded 568 total bugs IDs for project google/jax
+Loaded 103 total bugs IDs for project open-mmlab/mmdetection
+
+ -- Running Model: TRANP-CNN | Scenario: WP-small --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Target: 8 train, 2 validation bugs
+
+Generating raw samples...
+Processing commits for google/jax: 0it [00:00, ?it/s]
+Processing commits for google/jax: 0it [00:00, ?it/s]
+Processing commits for open-mmlab/mmdetection: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 8/8 [00:00<00:00, 49.70it/s]
+Processing commits for open-mmlab/mmdetection: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:00<00:00, 28.74it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 21/21 [00:00<00:00, 58.08it/s]
+
+Processing Source Train data...
+  - No source training samples.
+Processing Source Validation data...
+  - No source validation samples.
+Processing Target Train data...
+Loading code_ids data from open-mmlab_mmdetection_WP-small_target_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.09 GB into RAM
+Data loading complete.
+  - Target train samples: 2416
+Processing Target Validation data...
+Loading code_ids data from open-mmlab_mmdetection_WP-small_target_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.04 GB into RAM
+Data loading complete.
+  - Target validation samples: 599
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+/home/cs21d002_eashaan/PhD/Objective1/SOTA_original/tranp_cnn_pipeline_ph1.py:680: FutureWarning: The behavior of array concatenation with empty entries is deprecated. In a future version, this will no longer exclude empty items
+ when determining the result dtype. To retain the old behavior, exclude the empty entries before the concat operation.
+  all_train_labels = pd.concat([labels_s_df['label'], labels_t_df['label']])
+  - Total Train Samples (for weights): 2416
+  - Labels 0 (neg): 2394 (Weight: 0.50)
+  - Labels 1 (pos): 22 (Weight: 54.91)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Training on Target Data Only ---
+Epoch 1/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=0.7113]
+Epoch 1: Avg Loss=1.3308
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 3.0693
+  -> Validation loss improved to 3.0693.
+
+--- Epoch 2: Training on Target Data Only ---
+Epoch 2/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=1.6969]
+Epoch 2: Avg Loss=1.8230
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 1.4819
+  -> Validation loss improved to 1.4819.
+
+--- Epoch 3: Training on Target Data Only ---
+Epoch 3/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=1.0170]
+Epoch 3: Avg Loss=1.4514
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 0.9353
+  -> Validation loss improved to 0.9353.
+
+--- Epoch 4: Training on Target Data Only ---
+Epoch 4/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=1.0372]
+Epoch 4: Avg Loss=1.0601
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 1.2870
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 5: Training on Target Data Only ---
+Epoch 5/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=1.1674]
+Epoch 5: Avg Loss=0.9871
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 1.7066
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 6: Training on Target Data Only ---
+Epoch 6/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=0.5651]
+Epoch 6: Avg Loss=0.4767
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 2.2932
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 6.
+
+Loading model from best epoch: 3 with validation loss 0.9353
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from open-mmlab_mmdetection_WP-small_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.22 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 33/33 [00:09<00:00,  3.55it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/google_jax_open-mmlab_mmdetection_WP-small_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.0, 'Top-5': 0.0, 'Top-10': 0.0952, 'MAP': np.float64(0.0498), 'MRR': np.float64(0.0475)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair google/jax -> open-mmlab/mmdetection completed in 0.22 hrs
+
+ -- Running Model: TRANP-CNN | Scenario: WP-large --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Target: 65 train, 17 validation bugs
+
+Generating raw samples...
+Processing commits for google/jax: 0it [00:00, ?it/s]
+Processing commits for google/jax: 0it [00:00, ?it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 64/64 [00:01<00:00, 56.06it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 17/17 [00:00<00:00, 69.25it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 21/21 [00:00<00:00, 57.42it/s]
+
+Processing Source Train data...
+  - No source training samples.
+Processing Source Validation data...
+  - No source validation samples.
+Processing Target Train data...
+Loading code_ids data from open-mmlab_mmdetection_WP-large_target_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.36 GB into RAM
+Data loading complete.
+  - Target train samples: 19767
+Processing Target Validation data...
+Loading code_ids data from open-mmlab_mmdetection_WP-large_target_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.19 GB into RAM
+Data loading complete.
+  - Target validation samples: 5094
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+/home/cs21d002_eashaan/PhD/Objective1/SOTA_original/tranp_cnn_pipeline_ph1.py:680: FutureWarning: The behavior of array concatenation with empty entries is deprecated. In a future version, this will no longer exclude empty items
+ when determining the result dtype. To retain the old behavior, exclude the empty entries before the concat operation.
+  all_train_labels = pd.concat([labels_s_df['label'], labels_t_df['label']])
+  - Total Train Samples (for weights): 19767
+  - Labels 0 (neg): 19329 (Weight: 0.51)
+  - Labels 1 (pos): 438 (Weight: 22.57)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Training on Target Data Only ---
+Epoch 1/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.37s/it, loss=0.5695]
+Epoch 1: Avg Loss=0.5665
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.2946
+  -> Validation loss improved to 0.2946.
+
+--- Epoch 2: Training on Target Data Only ---
+Epoch 2/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.36s/it, loss=0.3116]
+Epoch 2: Avg Loss=0.3116
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.2380
+  -> Validation loss improved to 0.2380.
+
+--- Epoch 3: Training on Target Data Only ---
+Epoch 3/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.36s/it, loss=0.2638]
+Epoch 3: Avg Loss=0.2686
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.3057
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 4: Training on Target Data Only ---
+Epoch 4/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.36s/it, loss=0.2138]
+Epoch 4: Avg Loss=0.2156
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.2924
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 5: Training on Target Data Only ---
+Epoch 5/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.36s/it, loss=0.2168]
+Epoch 5: Avg Loss=0.2159
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.2223
+  -> Validation loss improved to 0.2223.
+
+--- Epoch 6: Training on Target Data Only ---
+Epoch 6/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.36s/it, loss=0.1817]
+Epoch 6: Avg Loss=0.1818
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.2730
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 7: Training on Target Data Only ---
+Epoch 7/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.36s/it, loss=0.1759]
+Epoch 7: Avg Loss=0.1755
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.3064
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 8: Training on Target Data Only ---
+Epoch 8/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.36s/it, loss=0.2040]
+Epoch 8: Avg Loss=0.2142
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.4232
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 8.
+
+Loading model from best epoch: 5 with validation loss 0.2223
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from open-mmlab_mmdetection_WP-large_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.22 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 33/33 [00:09<00:00,  3.55it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/google_jax_open-mmlab_mmdetection_WP-large_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.0, 'Top-5': 0.0476, 'Top-10': 0.1905, 'MAP': np.float64(0.1004), 'MRR': np.float64(0.1026)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair google/jax -> open-mmlab/mmdetection completed in 2.62 hrs
+
+ -- Running Model: TRANP-CNN | Scenario: CP-cold-start --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Source: 454 train, 114 validation bugs
+
+Generating raw samples...
+Processing commits for google/jax: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 409/409 [00:02<00:00, 179.40it/s]
+Processing commits for google/jax: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 106/106 [00:00<00:00, 188.27it/s]
+Processing commits for open-mmlab/mmdetection: 0it [00:00, ?it/s]
+Processing commits for open-mmlab/mmdetection: 0it [00:00, ?it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 21/21 [00:00<00:00, 56.77it/s]
+
+Processing Source Train data...
+Loading code_ids data from google_jax_CP-cold-start_source_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.80 GB into RAM
+Data loading complete.
+  - Source train samples: 94033
+Processing Source Validation data...
+Loading code_ids data from google_jax_CP-cold-start_source_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.44 GB into RAM
+Data loading complete.
+  - Source validation samples: 22037
+Processing Target Train data...
+  - No target training samples.
+Processing Target Validation data...
+  - No target validation samples.
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+/home/cs21d002_eashaan/PhD/Objective1/SOTA_original/tranp_cnn_pipeline_ph1.py:680: FutureWarning: The behavior of array concatenation with empty entries is deprecated. In a future version, this will no longer exclude empty items
+ when determining the result dtype. To retain the old behavior, exclude the empty entries before the concat operation.
+  all_train_labels = pd.concat([labels_s_df['label'], labels_t_df['label']])
+  - Total Train Samples (for weights): 94033
+  - Labels 0 (neg): 93154 (Weight: 0.50)
+  - Labels 1 (pos): 879 (Weight: 53.49)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Training on Source Data Only ---
+Epoch 1/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 490/490 [1:24:36<00:00, 10.36s/it, loss=0.7075]
+Epoch 1: Avg Loss=0.7075
+ -> Evaluating on source validation set (115 steps)...
+ -> Avg validation loss: 0.4112
+  -> Validation loss improved to 0.4112.
+
+--- Epoch 2: Training on Source Data Only ---
+Epoch 2/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 490/490 [1:24:36<00:00, 10.36s/it, loss=0.5250]
+Epoch 2: Avg Loss=0.5250
+ -> Evaluating on source validation set (115 steps)...
+ -> Avg validation loss: 0.4259
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 3: Training on Source Data Only ---
+Epoch 3/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 490/490 [1:24:36<00:00, 10.36s/it, loss=0.4540]
+Epoch 3: Avg Loss=0.4540
+ -> Evaluating on source validation set (115 steps)...
+ -> Avg validation loss: 0.4054
+  -> Validation loss improved to 0.4054.
+
+--- Epoch 4: Training on Source Data Only ---
+Epoch 4/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 490/490 [1:24:35<00:00, 10.36s/it, loss=0.4809]
+Epoch 4: Avg Loss=0.4809
+ -> Evaluating on source validation set (115 steps)...
+ -> Avg validation loss: 0.4292
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 5: Training on Source Data Only ---
+Epoch 5/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 490/490 [1:24:35<00:00, 10.36s/it, loss=0.5214]
+Epoch 5: Avg Loss=0.5214
+ -> Evaluating on source validation set (115 steps)...
+ -> Avg validation loss: 0.4461
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 6: Training on Source Data Only ---
+Epoch 6/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 490/490 [1:24:35<00:00, 10.36s/it, loss=0.5016]
+Epoch 6: Avg Loss=0.5016
+ -> Evaluating on source validation set (115 steps)...
+ -> Avg validation loss: 0.4689
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 6.
+
+Loading model from best epoch: 3 with validation loss 0.4054
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from open-mmlab_mmdetection_CP-cold-start_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.22 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 33/33 [00:09<00:00,  3.54it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/google_jax_open-mmlab_mmdetection_CP-cold-start_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.0, 'Top-5': 0.0, 'Top-10': 0.0, 'MAP': np.float64(0.0111), 'MRR': np.float64(0.0099)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair google/jax -> open-mmlab/mmdetection completed in 11.14 hrs
+
+ -- Running Model: TRANP-CNN | Scenario: CP-transfer --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Source: 454 train, 114 validation bugs
+ - Target: 16 train, 4 validation bugs
+
+Generating raw samples...
+Processing commits for google/jax: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 409/409 [00:02<00:00, 180.37it/s]
+Processing commits for google/jax: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 106/106 [00:00<00:00, 190.02it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 16/16 [00:00<00:00, 47.74it/s]
+Processing commits for open-mmlab/mmdetection: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [00:00<00:00, 44.88it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 21/21 [00:00<00:00, 57.48it/s]
+
+Processing Source Train data...
+Loading code_ids data from google_jax_CP-transfer_source_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.80 GB into RAM
+Data loading complete.
+  - Source train samples: 94033
+Processing Source Validation data...
+Loading code_ids data from google_jax_CP-transfer_source_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.44 GB into RAM
+Data loading complete.
+  - Source validation samples: 22037
+Processing Target Train data...
+Loading code_ids data from open-mmlab_mmdetection_CP-transfer_target_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.15 GB into RAM
+Data loading complete.
+  - Target train samples: 4999
+Processing Target Validation data...
+Loading code_ids data from open-mmlab_mmdetection_CP-transfer_target_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.07 GB into RAM
+Data loading complete.
+  - Target validation samples: 1199
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+  - Total Train Samples (for weights): 99032
+  - Labels 0 (neg): 97850 (Weight: 0.51)
+  - Labels 1 (pos): 1182 (Weight: 41.89)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Joint Training on Source and Target Data ---
+Epoch 1/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 490/490 [2:45:55<00:00, 20.32s/it, loss=0.7956]
+Epoch 1: Avg Loss=0.7956
+ -> Evaluating on joing validation set (115 steps)...
+ -> Avg validation loss: 0.6390
+  -> Validation loss improved to 0.6390.
+
+--- Epoch 2: Joint Training on Source and Target Data ---
+Epoch 2/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 490/490 [2:45:55<00:00, 20.32s/it, loss=0.5608]
+Epoch 2: Avg Loss=0.5608
+ -> Evaluating on joing validation set (115 steps)...
+ -> Avg validation loss: 0.5234
+  -> Validation loss improved to 0.5234.
+
+--- Epoch 3: Joint Training on Source and Target Data ---
+Epoch 3/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 490/490 [2:45:54<00:00, 20.31s/it, loss=0.4781]
+Epoch 3: Avg Loss=0.4781
+ -> Evaluating on joing validation set (115 steps)...
+ -> Avg validation loss: 0.6959
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 4: Joint Training on Source and Target Data ---
+Epoch 4/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 490/490 [2:45:54<00:00, 20.31s/it, loss=0.4907]
+Epoch 4: Avg Loss=0.4907
+ -> Evaluating on joing validation set (115 steps)...
+ -> Avg validation loss: 0.4764
+  -> Validation loss improved to 0.4764.
+
+--- Epoch 5: Joint Training on Source and Target Data ---
+Epoch 5/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 490/490 [2:45:54<00:00, 20.31s/it, loss=0.5032]
+Epoch 5: Avg Loss=0.5032
+ -> Evaluating on joing validation set (115 steps)...
+ -> Avg validation loss: 0.4824
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 6: Joint Training on Source and Target Data ---
+Epoch 6/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 490/490 [2:45:53<00:00, 20.31s/it, loss=0.4349]
+Epoch 6: Avg Loss=0.4349
+ -> Evaluating on joing validation set (115 steps)...
+ -> Avg validation loss: 0.7597
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 7: Joint Training on Source and Target Data ---
+Epoch 7/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 490/490 [2:45:53<00:00, 20.31s/it, loss=0.4271]
+Epoch 7: Avg Loss=0.4271
+ -> Evaluating on joing validation set (115 steps)...
+ -> Avg validation loss: 0.5076
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 7.
+
+Loading model from best epoch: 4 with validation loss 0.4764
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from open-mmlab_mmdetection_CP-transfer_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.22 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 33/33 [00:09<00:00,  3.54it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/google_jax_open-mmlab_mmdetection_CP-transfer_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.0, 'Top-5': 0.0952, 'Top-10': 0.1429, 'MAP': np.float64(0.0818), 'MRR': np.float64(0.1209)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair google/jax -> open-mmlab/mmdetection completed in 30.62 hrs
+
+==================== Setting up experiments for open-mmlab/mmdetection -> jupyterlab/jupyterlab ====================
+Loaded 103 total bugs IDs for project open-mmlab/mmdetection
+Loaded 200 total bugs IDs for project jupyterlab/jupyterlab
+
+ -- Running Model: TRANP-CNN | Scenario: WP-small --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Target: 16 train, 4 validation bugs
+
+Generating raw samples...
+Processing commits for open-mmlab/mmdetection: 0it [00:00, ?it/s]
+Processing commits for open-mmlab/mmdetection: 0it [00:00, ?it/s]
+Processing commits for jupyterlab/jupyterlab: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 16/16 [00:00<00:00, 32.61it/s]
+Processing commits for jupyterlab/jupyterlab: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [00:00<00:00, 63.29it/s]
+Processing commits for jupyterlab/jupyterlab: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [00:01<00:00, 34.77it/s]
+
+Processing Source Train data...
+  - No source training samples.
+Processing Source Validation data...
+  - No source validation samples.
+Processing Target Train data...
+Loading code_ids data from jupyterlab_jupyterlab_WP-small_target_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.19 GB into RAM
+Data loading complete.
+  - Target train samples: 4465
+Processing Target Validation data...
+Loading code_ids data from jupyterlab_jupyterlab_WP-small_target_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.06 GB into RAM
+Data loading complete.
+  - Target validation samples: 971
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+/home/cs21d002_eashaan/PhD/Objective1/SOTA_original/tranp_cnn_pipeline_ph1.py:680: FutureWarning: The behavior of array concatenation with empty entries is deprecated. In a future version, this will no longer exclude empty items
+ when determining the result dtype. To retain the old behavior, exclude the empty entries before the concat operation.
+  all_train_labels = pd.concat([labels_s_df['label'], labels_t_df['label']])
+  - Total Train Samples (for weights): 4465
+  - Labels 0 (neg): 4424 (Weight: 0.50)
+  - Labels 1 (pos): 41 (Weight: 54.45)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Training on Target Data Only ---
+Epoch 1/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 24/24 [04:00<00:00, 10.04s/it, loss=1.7468]
+Epoch 1: Avg Loss=1.7109
+ -> Evaluating on target validation set (6 steps)...
+ -> Avg validation loss: 0.3368
+  -> Validation loss improved to 0.3368.
+
+--- Epoch 2: Training on Target Data Only ---
+Epoch 2/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 24/24 [04:00<00:00, 10.04s/it, loss=1.0286]
+Epoch 2: Avg Loss=1.0168
+ -> Evaluating on target validation set (6 steps)...
+ -> Avg validation loss: 0.1765
+  -> Validation loss improved to 0.1765.
+
+--- Epoch 3: Training on Target Data Only ---
+Epoch 3/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 24/24 [04:00<00:00, 10.04s/it, loss=0.2965]
+Epoch 3: Avg Loss=0.2643
+ -> Evaluating on target validation set (6 steps)...
+ -> Avg validation loss: 0.1994
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 4: Training on Target Data Only ---
+Epoch 4/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 24/24 [04:00<00:00, 10.04s/it, loss=0.3990]
+Epoch 4: Avg Loss=0.3669
+ -> Evaluating on target validation set (6 steps)...
+ -> Avg validation loss: 0.1070
+  -> Validation loss improved to 0.1070.
+
+--- Epoch 5: Training on Target Data Only ---
+Epoch 5/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 24/24 [04:00<00:00, 10.04s/it, loss=0.2246]
+Epoch 5: Avg Loss=0.3318
+ -> Evaluating on target validation set (6 steps)...
+ -> Avg validation loss: 0.3118
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 6: Training on Target Data Only ---
+Epoch 6/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 24/24 [04:00<00:00, 10.04s/it, loss=0.2898]
+Epoch 6: Avg Loss=0.2507
+ -> Evaluating on target validation set (6 steps)...
+ -> Avg validation loss: 0.1266
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 7: Training on Target Data Only ---
+Epoch 7/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 24/24 [04:00<00:00, 10.04s/it, loss=0.2468]
+Epoch 7: Avg Loss=0.2390
+ -> Evaluating on target validation set (6 steps)...
+ -> Avg validation loss: 0.3436
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 7.
+
+Loading model from best epoch: 4 with validation loss 0.1070
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from jupyterlab_jupyterlab_WP-small_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.35 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 58/58 [00:16<00:00,  3.58it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/open-mmlab_mmdetection_jupyterlab_jupyterlab_WP-small_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.2, 'Top-5': 0.475, 'Top-10': 0.5, 'MAP': np.float64(0.5689), 'MRR': np.float64(0.5904)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair open-mmlab/mmdetection -> jupyterlab/jupyterlab completed in 0.48 hrs
+
+ -- Running Model: TRANP-CNN | Scenario: WP-large --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Target: 128 train, 32 validation bugs
+
+Generating raw samples...
+Processing commits for open-mmlab/mmdetection: 0it [00:00, ?it/s]
+Processing commits for open-mmlab/mmdetection: 0it [00:00, ?it/s]
+Processing commits for jupyterlab/jupyterlab: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 125/125 [00:04<00:00, 31.02it/s]
+Processing commits for jupyterlab/jupyterlab: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 32/32 [00:01<00:00, 31.67it/s]
+Processing commits for jupyterlab/jupyterlab: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [00:01<00:00, 34.83it/s]
+
+Processing Source Train data...
+  - No source training samples.
+Processing Source Validation data...
+  - No source validation samples.
+Processing Target Train data...
+Loading code_ids data from jupyterlab_jupyterlab_WP-large_target_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.78 GB into RAM
+Data loading complete.
+  - Target train samples: 35119
+Processing Target Validation data...
+Loading code_ids data from jupyterlab_jupyterlab_WP-large_target_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.33 GB into RAM
+Data loading complete.
+  - Target validation samples: 8758
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+/home/cs21d002_eashaan/PhD/Objective1/SOTA_original/tranp_cnn_pipeline_ph1.py:680: FutureWarning: The behavior of array concatenation with empty entries is deprecated. In a future version, this will no longer exclude empty items
+ when determining the result dtype. To retain the old behavior, exclude the empty entries before the concat operation.
+  all_train_labels = pd.concat([labels_s_df['label'], labels_t_df['label']])
+  - Total Train Samples (for weights): 35119
+  - Labels 0 (neg): 34872 (Weight: 0.50)
+  - Labels 1 (pos): 247 (Weight: 71.09)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Training on Target Data Only ---
+Epoch 1/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 183/183 [31:36<00:00, 10.36s/it, loss=1.0669]
+Epoch 1: Avg Loss=1.0505
+ -> Evaluating on target validation set (46 steps)...
+ -> Avg validation loss: 0.0972
+  -> Validation loss improved to 0.0972.
+
+--- Epoch 2: Training on Target Data Only ---
+Epoch 2/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 183/183 [31:36<00:00, 10.36s/it, loss=0.1352]
+Epoch 2: Avg Loss=0.1346
+ -> Evaluating on target validation set (46 steps)...
+ -> Avg validation loss: 0.1223
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 3: Training on Target Data Only ---
+Epoch 3/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 183/183 [31:36<00:00, 10.36s/it, loss=0.1474]
+Epoch 3: Avg Loss=0.1463
+ -> Evaluating on target validation set (46 steps)...
+ -> Avg validation loss: 0.0542
+  -> Validation loss improved to 0.0542.
+
+--- Epoch 4: Training on Target Data Only ---
+Epoch 4/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 183/183 [31:35<00:00, 10.36s/it, loss=0.0727]
+Epoch 4: Avg Loss=0.0725
+ -> Evaluating on target validation set (46 steps)...
+ -> Avg validation loss: 0.0621
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 5: Training on Target Data Only ---
+Epoch 5/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 183/183 [31:35<00:00, 10.36s/it, loss=0.2130]
+Epoch 5: Avg Loss=0.2112
+ -> Evaluating on target validation set (46 steps)...
+ -> Avg validation loss: 0.0822
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 6: Training on Target Data Only ---
+Epoch 6/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 183/183 [31:36<00:00, 10.36s/it, loss=0.1457]
+Epoch 6: Avg Loss=0.1446
+ -> Evaluating on target validation set (46 steps)...
+ -> Avg validation loss: 0.0548
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 6.
+
+Loading model from best epoch: 3 with validation loss 0.0542
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from jupyterlab_jupyterlab_WP-large_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.35 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 58/58 [00:16<00:00,  3.57it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/open-mmlab_mmdetection_jupyterlab_jupyterlab_WP-large_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.25, 'Top-5': 0.475, 'Top-10': 0.5, 'MAP': np.float64(0.6826), 'MRR': np.float64(0.7104)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair open-mmlab/mmdetection -> jupyterlab/jupyterlab completed in 3.67 hrs
+
+ -- Running Model: TRANP-CNN | Scenario: CP-cold-start --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Source: 82 train, 21 validation bugs
+
+Generating raw samples...
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 77/77 [00:01<00:00, 58.08it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 21/21 [00:00<00:00, 64.66it/s]
+Processing commits for jupyterlab/jupyterlab: 0it [00:00, ?it/s]
+Processing commits for jupyterlab/jupyterlab: 0it [00:00, ?it/s]
+Processing commits for jupyterlab/jupyterlab: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [00:01<00:00, 35.99it/s]
+
+Processing Source Train data...
+Loading code_ids data from open-mmlab_mmdetection_CP-cold-start_source_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.40 GB into RAM
+Data loading complete.
+  - Source train samples: 24875
+Processing Source Validation data...
+Loading code_ids data from open-mmlab_mmdetection_CP-cold-start_source_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.22 GB into RAM
+Data loading complete.
+  - Source validation samples: 6291
+Processing Target Train data...
+  - No target training samples.
+Processing Target Validation data...
+  - No target validation samples.
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+/home/cs21d002_eashaan/PhD/Objective1/SOTA_original/tranp_cnn_pipeline_ph1.py:680: FutureWarning: The behavior of array concatenation with empty entries is deprecated. In a future version, this will no longer exclude empty items
+ when determining the result dtype. To retain the old behavior, exclude the empty entries before the concat operation.
+  all_train_labels = pd.concat([labels_s_df['label'], labels_t_df['label']])
+  - Total Train Samples (for weights): 24875
+  - Labels 0 (neg): 24415 (Weight: 0.51)
+  - Labels 1 (pos): 460 (Weight: 27.04)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Training on Source Data Only ---
+Epoch 1/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 130/130 [22:22<00:00, 10.33s/it, loss=0.6282]
+Epoch 1: Avg Loss=0.6282
+ -> Evaluating on source validation set (33 steps)...
+ -> Avg validation loss: 0.3435
+  -> Validation loss improved to 0.3435.
+
+--- Epoch 2: Training on Source Data Only ---
+Epoch 2/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 130/130 [22:23<00:00, 10.33s/it, loss=0.3248]
+Epoch 2: Avg Loss=0.3248
+ -> Evaluating on source validation set (33 steps)...
+ -> Avg validation loss: 0.4639
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 3: Training on Source Data Only ---
+Epoch 3/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 130/130 [22:23<00:00, 10.33s/it, loss=0.2952]
+Epoch 3: Avg Loss=0.2952
+ -> Evaluating on source validation set (33 steps)...
+ -> Avg validation loss: 0.4029
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 4: Training on Source Data Only ---
+Epoch 4/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 130/130 [22:22<00:00, 10.33s/it, loss=0.2650]
+Epoch 4: Avg Loss=0.2650
+ -> Evaluating on source validation set (33 steps)...
+ -> Avg validation loss: 0.5098
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 4.
+
+Loading model from best epoch: 1 with validation loss 0.3435
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from jupyterlab_jupyterlab_CP-cold-start_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.35 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 58/58 [00:16<00:00,  3.56it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/open-mmlab_mmdetection_jupyterlab_jupyterlab_CP-cold-start_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.0, 'Top-5': 0.0, 'Top-10': 0.05, 'MAP': np.float64(0.0245), 'MRR': np.float64(0.0293)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair open-mmlab/mmdetection -> jupyterlab/jupyterlab completed in 5.18 hrs
+
+ -- Running Model: TRANP-CNN | Scenario: CP-transfer --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Source: 82 train, 21 validation bugs
+ - Target: 32 train, 8 validation bugs
+
+Generating raw samples...
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 77/77 [00:01<00:00, 57.88it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 21/21 [00:00<00:00, 57.85it/s]
+Processing commits for jupyterlab/jupyterlab: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 32/32 [00:01<00:00, 28.28it/s]
+Processing commits for jupyterlab/jupyterlab: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 8/8 [00:00<00:00, 35.59it/s]
+Processing commits for jupyterlab/jupyterlab: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [00:01<00:00, 34.57it/s]
+
+Processing Source Train data...
+Loading code_ids data from open-mmlab_mmdetection_CP-transfer_source_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.40 GB into RAM
+Data loading complete.
+  - Source train samples: 24875
+Processing Source Validation data...
+Loading code_ids data from open-mmlab_mmdetection_CP-transfer_source_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.22 GB into RAM
+Data loading complete.
+  - Source validation samples: 6291
+Processing Target Train data...
+Loading code_ids data from jupyterlab_jupyterlab_CP-transfer_target_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.30 GB into RAM
+Data loading complete.
+  - Target train samples: 8436
+Processing Target Validation data...
+Loading code_ids data from jupyterlab_jupyterlab_CP-transfer_target_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.12 GB into RAM
+Data loading complete.
+  - Target validation samples: 2245
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+  - Total Train Samples (for weights): 33311
+  - Labels 0 (neg): 32777 (Weight: 0.51)
+  - Labels 1 (pos): 534 (Weight: 31.19)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Joint Training on Source and Target Data ---
+Epoch 1/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 130/130 [44:46<00:00, 20.66s/it, loss=1.0174]
+Epoch 1: Avg Loss=1.0174
+ -> Evaluating on joing validation set (33 steps)...
+ -> Avg validation loss: 0.4041
+  -> Validation loss improved to 0.4041.
+
+--- Epoch 2: Joint Training on Source and Target Data ---
+Epoch 2/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 130/130 [44:46<00:00, 20.66s/it, loss=0.4651]
+Epoch 2: Avg Loss=0.4651
+ -> Evaluating on joing validation set (33 steps)...
+ -> Avg validation loss: 0.4055
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 3: Joint Training on Source and Target Data ---
+Epoch 3/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 130/130 [44:46<00:00, 20.66s/it, loss=0.3845]
+Epoch 3: Avg Loss=0.3845
+ -> Evaluating on joing validation set (33 steps)...
+ -> Avg validation loss: 0.4543
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 4: Joint Training on Source and Target Data ---
+Epoch 4/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 130/130 [44:46<00:00, 20.66s/it, loss=0.2910]
+Epoch 4: Avg Loss=0.2910
+ -> Evaluating on joing validation set (33 steps)...
+ -> Avg validation loss: 0.4784
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 4.
+
+Loading model from best epoch: 1 with validation loss 0.4041
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from jupyterlab_jupyterlab_CP-transfer_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.35 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 58/58 [00:16<00:00,  3.57it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/open-mmlab_mmdetection_jupyterlab_jupyterlab_CP-transfer_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.225, 'Top-5': 0.475, 'Top-10': 0.5, 'MAP': np.float64(0.6188), 'MRR': np.float64(0.6458)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair open-mmlab/mmdetection -> jupyterlab/jupyterlab completed in 8.19 hrs
+
+==================== Setting up experiments for jupyterlab/jupyterlab -> open-mmlab/mmdetection ====================
+Loaded 200 total bugs IDs for project jupyterlab/jupyterlab
+Loaded 103 total bugs IDs for project open-mmlab/mmdetection
+
+ -- Running Model: TRANP-CNN | Scenario: WP-small --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Target: 8 train, 2 validation bugs
+
+Generating raw samples...
+Processing commits for jupyterlab/jupyterlab: 0it [00:00, ?it/s]
+Processing commits for jupyterlab/jupyterlab: 0it [00:00, ?it/s]
+Processing commits for open-mmlab/mmdetection: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 8/8 [00:00<00:00, 50.55it/s]
+Processing commits for open-mmlab/mmdetection: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:00<00:00, 29.44it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 21/21 [00:00<00:00, 58.73it/s]
+
+Processing Source Train data...
+  - No source training samples.
+Processing Source Validation data...
+  - No source validation samples.
+Processing Target Train data...
+Loading code_ids data from open-mmlab_mmdetection_WP-small_target_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.09 GB into RAM
+Data loading complete.
+  - Target train samples: 2416
+Processing Target Validation data...
+Loading code_ids data from open-mmlab_mmdetection_WP-small_target_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.04 GB into RAM
+Data loading complete.
+  - Target validation samples: 599
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+/home/cs21d002_eashaan/PhD/Objective1/SOTA_original/tranp_cnn_pipeline_ph1.py:680: FutureWarning: The behavior of array concatenation with empty entries is deprecated. In a future version, this will no longer exclude empty items
+ when determining the result dtype. To retain the old behavior, exclude the empty entries before the concat operation.
+  all_train_labels = pd.concat([labels_s_df['label'], labels_t_df['label']])
+  - Total Train Samples (for weights): 2416
+  - Labels 0 (neg): 2394 (Weight: 0.50)
+  - Labels 1 (pos): 22 (Weight: 54.91)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Training on Target Data Only ---
+Epoch 1/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=5.7438]
+Epoch 1: Avg Loss=6.2781
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 3.3019
+  -> Validation loss improved to 3.3019.
+
+--- Epoch 2: Training on Target Data Only ---
+Epoch 2/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=1.4532]
+Epoch 2: Avg Loss=1.2579
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 0.8913
+  -> Validation loss improved to 0.8913.
+
+--- Epoch 3: Training on Target Data Only ---
+Epoch 3/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=0.8988]
+Epoch 3: Avg Loss=0.9289
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 0.7446
+  -> Validation loss improved to 0.7446.
+
+--- Epoch 4: Training on Target Data Only ---
+Epoch 4/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=0.7369]
+Epoch 4: Avg Loss=0.7958
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 0.7520
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 5: Training on Target Data Only ---
+Epoch 5/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=0.6130]
+Epoch 5: Avg Loss=0.5441
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 1.0968
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 6: Training on Target Data Only ---
+Epoch 6/ 20: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [02:10<00:00, 10.02s/it, loss=0.5839]
+Epoch 6: Avg Loss=0.5447
+ -> Evaluating on target validation set (4 steps)...
+ -> Avg validation loss: 1.1051
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 6.
+
+Loading model from best epoch: 3 with validation loss 0.7446
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from open-mmlab_mmdetection_WP-small_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.22 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 33/33 [00:09<00:00,  3.50it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/jupyterlab_jupyterlab_open-mmlab_mmdetection_WP-small_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.0476, 'Top-5': 0.0952, 'Top-10': 0.0952, 'MAP': np.float64(0.144), 'MRR': np.float64(0.1416)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair jupyterlab/jupyterlab -> open-mmlab/mmdetection completed in 0.22 hrs
+
+ -- Running Model: TRANP-CNN | Scenario: WP-large --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Target: 65 train, 17 validation bugs
+
+Generating raw samples...
+Processing commits for jupyterlab/jupyterlab: 0it [00:00, ?it/s]
+Processing commits for jupyterlab/jupyterlab: 0it [00:00, ?it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 64/64 [00:01<00:00, 56.35it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 17/17 [00:00<00:00, 68.32it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 21/21 [00:00<00:00, 57.73it/s]
+
+Processing Source Train data...
+  - No source training samples.
+Processing Source Validation data...
+  - No source validation samples.
+Processing Target Train data...
+Loading code_ids data from open-mmlab_mmdetection_WP-large_target_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.36 GB into RAM
+Data loading complete.
+  - Target train samples: 19767
+Processing Target Validation data...
+Loading code_ids data from open-mmlab_mmdetection_WP-large_target_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.19 GB into RAM
+Data loading complete.
+  - Target validation samples: 5094
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+/home/cs21d002_eashaan/PhD/Objective1/SOTA_original/tranp_cnn_pipeline_ph1.py:680: FutureWarning: The behavior of array concatenation with empty entries is deprecated. In a future version, this will no longer exclude empty items
+ when determining the result dtype. To retain the old behavior, exclude the empty entries before the concat operation.
+  all_train_labels = pd.concat([labels_s_df['label'], labels_t_df['label']])
+  - Total Train Samples (for weights): 19767
+  - Labels 0 (neg): 19329 (Weight: 0.51)
+  - Labels 1 (pos): 438 (Weight: 22.57)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Training on Target Data Only ---
+Epoch 1/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.37s/it, loss=0.5824]
+Epoch 1: Avg Loss=0.5728
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.1791
+  -> Validation loss improved to 0.1791.
+
+--- Epoch 2: Training on Target Data Only ---
+Epoch 2/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.36s/it, loss=0.3094]
+Epoch 2: Avg Loss=0.3077
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.2280
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 3: Training on Target Data Only ---
+Epoch 3/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.36s/it, loss=0.2653]
+Epoch 3: Avg Loss=0.2649
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.3502
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 4: Training on Target Data Only ---
+Epoch 4/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 103/103 [17:47<00:00, 10.36s/it, loss=0.2393]
+Epoch 4: Avg Loss=0.2381
+ -> Evaluating on target validation set (27 steps)...
+ -> Avg validation loss: 0.2607
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 4.
+
+Loading model from best epoch: 1 with validation loss 0.1791
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from open-mmlab_mmdetection_WP-large_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.22 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 33/33 [00:09<00:00,  3.55it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/jupyterlab_jupyterlab_open-mmlab_mmdetection_WP-large_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.0476, 'Top-5': 0.1429, 'Top-10': 0.1905, 'MAP': np.float64(0.1574), 'MRR': np.float64(0.1806)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair jupyterlab/jupyterlab -> open-mmlab/mmdetection completed in 1.42 hrs
+
+ -- Running Model: TRANP-CNN | Scenario: CP-cold-start --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Source: 160 train, 40 validation bugs
+
+Generating raw samples...
+Processing commits for jupyterlab/jupyterlab: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 157/157 [00:04<00:00, 32.25it/s]
+Processing commits for jupyterlab/jupyterlab: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [00:01<00:00, 34.59it/s]
+Processing commits for open-mmlab/mmdetection: 0it [00:00, ?it/s]
+Processing commits for open-mmlab/mmdetection: 0it [00:00, ?it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 21/21 [00:00<00:00, 41.26it/s]
+
+Processing Source Train data...
+Loading code_ids data from jupyterlab_jupyterlab_CP-cold-start_source_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.88 GB into RAM
+Data loading complete.
+  - Source train samples: 43914
+Processing Source Validation data...
+Loading code_ids data from jupyterlab_jupyterlab_CP-cold-start_source_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.35 GB into RAM
+Data loading complete.
+  - Source validation samples: 10946
+Processing Target Train data...
+  - No target training samples.
+Processing Target Validation data...
+  - No target validation samples.
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+/home/cs21d002_eashaan/PhD/Objective1/SOTA_original/tranp_cnn_pipeline_ph1.py:680: FutureWarning: The behavior of array concatenation with empty entries is deprecated. In a future version, this will no longer exclude empty items
+ when determining the result dtype. To retain the old behavior, exclude the empty entries before the concat operation.
+  all_train_labels = pd.concat([labels_s_df['label'], labels_t_df['label']])
+  - Total Train Samples (for weights): 43914
+  - Labels 0 (neg): 43606 (Weight: 0.50)
+  - Labels 1 (pos): 308 (Weight: 71.29)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Training on Source Data Only ---
+Epoch 1/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 229/229 [39:31<00:00, 10.36s/it, loss=0.6975]
+Epoch 1: Avg Loss=0.6809
+ -> Evaluating on source validation set (58 steps)...
+ -> Avg validation loss: 0.1394
+  -> Validation loss improved to 0.1394.
+
+--- Epoch 2: Training on Source Data Only ---
+Epoch 2/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 229/229 [39:31<00:00, 10.35s/it, loss=0.1960]
+Epoch 2: Avg Loss=0.1986
+ -> Evaluating on source validation set (58 steps)...
+ -> Avg validation loss: 0.2845
+  -> Validation loss did not improve for 1 epoch(s).
+
+--- Epoch 3: Training on Source Data Only ---
+Epoch 3/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 229/229 [39:31<00:00, 10.35s/it, loss=0.1844]
+Epoch 3: Avg Loss=0.1838
+ -> Evaluating on source validation set (58 steps)...
+ -> Avg validation loss: 0.1448
+  -> Validation loss did not improve for 2 epoch(s).
+
+--- Epoch 4: Training on Source Data Only ---
+Epoch 4/ 20: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 229/229 [39:30<00:00, 10.35s/it, loss=0.1356]
+Epoch 4: Avg Loss=0.1404
+ -> Evaluating on source validation set (58 steps)...
+ -> Avg validation loss: 0.1492
+  -> Validation loss did not improve for 3 epoch(s).
+
+Early stopping triggered after epoch 4.
+
+Loading model from best epoch: 1 with validation loss 0.1394
+Loading preprocessed target test data from cache
+Loading pre-processed test data for evaluation...
+Loading code_ids data from open-mmlab_mmdetection_CP-cold-start_target_test_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.22 GB into RAM
+Data loading complete.
+Scoring Test Candidates: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 33/33 [00:09<00:00,  3.55it/s]
+✓ Saved ranking diagnostics to /home/cs21d002_eashaan/PhD/Objective1/results/jupyterlab_jupyterlab_open-mmlab_mmdetection_CP-cold-start_diagnostics.csv
+
+ Final Metrics on Target Project:
+ {'Top-1': 0.0, 'Top-5': 0.0, 'Top-10': 0.0, 'MAP': np.float64(0.0064), 'MRR': np.float64(0.0049)}
+
+ -> Results logged to phase1_experimental_results.csv
+
+All experiments for pair jupyterlab/jupyterlab -> open-mmlab/mmdetection completed in 4.08 hrs
+
+ -- Running Model: TRANP-CNN | Scenario: CP-transfer --
+Loading databases
+
+ Splitting training data using 20% for validation...
+ - Source: 160 train, 40 validation bugs
+ - Target: 16 train, 4 validation bugs
+
+Generating raw samples...
+Processing commits for jupyterlab/jupyterlab: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 157/157 [00:05<00:00, 31.35it/s]
+Processing commits for jupyterlab/jupyterlab: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [00:01<00:00, 34.52it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 16/16 [00:00<00:00, 48.17it/s]
+Processing commits for open-mmlab/mmdetection: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [00:00<00:00, 45.21it/s]
+Processing commits for open-mmlab/mmdetection: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 21/21 [00:00<00:00, 57.75it/s]
+
+Processing Source Train data...
+Loading code_ids data from jupyterlab_jupyterlab_CP-transfer_source_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.88 GB into RAM
+Data loading complete.
+  - Source train samples: 43914
+Processing Source Validation data...
+Loading code_ids data from jupyterlab_jupyterlab_CP-transfer_source_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.35 GB into RAM
+Data loading complete.
+  - Source validation samples: 10946
+Processing Target Train data...
+Loading code_ids data from open-mmlab_mmdetection_CP-transfer_target_train_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.15 GB into RAM
+Data loading complete.
+  - Target train samples: 4999
+Processing Target Validation data...
+Loading code_ids data from open-mmlab_mmdetection_CP-transfer_target_val_code_ids.npy...
+Attempting to load full array into RAM...
+Successfully loaded 0.07 GB into RAM
+Data loading complete.
+  - Target validation samples: 1199
+
+Data loading and processing complete.
+Data loading checks complete.
+
+Calculating class weights for loss function...
+  - Total Train Samples (for weights): 48913
+  - Labels 0 (neg): 48302 (Weight: 0.51)
+  - Labels 1 (pos): 611 (Weight: 40.03)
+
+--- Starting Training (Max 20 Epochs) ---
+
+--- Epoch 1: Joint Training on Source and Target Data ---
+Epoch 1/ 20:  59%|████████████████████████████████████████████████████████████████████████████████████████████████                                                                   | 135/229 [45:44<27:36, 17.62s/it, loss=1.2499]
+Epoch 1/ 20:  59%|████████████████████████████████████████████████████████████████████████████████████████████████                                                                   | 135/229 [45:55<31:58, 20.41s/it, loss=1.2499]
+Traceback (most recent call last):
+  File "/home/cs21d002_eashaan/PhD/Objective1/SOTA_original/run_expts_ph1.py", line 208, in <module>
+    main()
+  File "/home/cs21d002_eashaan/PhD/Objective1/SOTA_original/run_expts_ph1.py", line 176, in main
+    metrics = model_function(
+              ^^^^^^^^^^^^^^^
+  File "/home/cs21d002_eashaan/PhD/Objective1/SOTA_original/tranp_cnn_pipeline_ph1.py", line 724, in run_tranp_cnn_experiment
+    _ = train(model, source_loader, target_train_loader, optimizer, criterion, epoch, device, scaler)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cs21d002_eashaan/PhD/Objective1/SOTA_original/tranp_cnn_pipeline_ph1.py", line 153, in train
+    scaler.scale(combined_loss).backward()
+  File "/home/cs21d002_eashaan/PhD/Objective1/obj1/lib/python3.12/site-packages/torch/_tensor.py", line 647, in backward
+    torch.autograd.backward(
+  File "/home/cs21d002_eashaan/PhD/Objective1/obj1/lib/python3.12/site-packages/torch/autograd/__init__.py", line 354, in backward
+    _engine_run_backward(
+  File "/home/cs21d002_eashaan/PhD/Objective1/obj1/lib/python3.12/site-packages/torch/autograd/graph.py", line 829, in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+
+(obj1) cs21d002_eashaan@rishalab:~/PhD/Objective1$ tmux capture-pane -S - -t <run_ph1>
+-bash: syntax error near unexpected token `newline'
+(obj1) cs21d002_eashaan@rishalab:~/PhD/Objective1$ tmux capture-pane -S - -t run_ph1
+

@@ -525,7 +525,7 @@ def evaluate_cooba(model, test_loader, device):
     
     return metrics
 
-def run_cooba_experiments(source_project, target_project, source_train_ids, target_train_ids, target_test_ids,
+def run_cooba_experiment(source_project, target_project, source_train_ids, target_train_ids, target_test_ids,
                           scenario):
     '''
     Main entry point for COOBA experiments 
@@ -548,7 +548,9 @@ def run_cooba_experiments(source_project, target_project, source_train_ids, targ
     # load databases
     print("Loading project databases...")
     source_bug_db, source_blob_db, source_language = load_project_databases(source_project, df_meta)
+    source_language = source_language.strip().lower()
     target_bug_db, target_blob_db, target_language = load_project_databases(target_project, df_meta)
+    target_language = target_language.strip().lower()
 
     # Initialize AST parsers
     parsers = {

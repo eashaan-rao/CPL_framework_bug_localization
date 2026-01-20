@@ -6,8 +6,8 @@ import time
 import itertools
 
 # Placeholder for the actual training pipelines
-from tranp_cnn_pipeline_ph1 import run_tranp_cnn_experiment
-# from cooba_pipeline_import run_cooba_experiment
+# from tranp_cnn_pipeline_ph1 import run_tranp_cnn_experiment
+from cooba_pipeline import run_cooba_experiment
 # from blaze_pipeline_import run_cooba_experiment
 
 # def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, target_train_ids, target_test_ids, scenario):
@@ -63,8 +63,8 @@ PROJECTS = [
 
 # Define the models to be evaluated
 MODELS_TO_RUN = {
-    'TRANP-CNN': run_tranp_cnn_experiment
-    # 'COOBA': run_cooba_experiment,
+    # 'TRANP-CNN': run_tranp_cnn_experiment
+    'COOBA': run_cooba_experiment,
     # 'BLAZE': run_blaze_experiment
 }
 
