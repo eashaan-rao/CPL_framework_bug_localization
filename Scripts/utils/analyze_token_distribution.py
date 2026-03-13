@@ -233,27 +233,17 @@ def main():
 
     # Specify projects to analyze (or None for default)
     projects = [
-        "apache/camel",
-        "apache/hbase",
-        "apache/hive",
-        "wildfly/wildfly",
-        "wildfly/wildfly-core",
-        "apache/commons-math",
-        "spring-projects/spring-batch",
-        "spring-projects/spring-roo",
-        "spring-projects/spring-security",
-        "apache/commons-compress",
-        "apache/commons-configuration",
-        "apache/commons-lang",
-        "spring-projects/spring-amqp",
-        "spring-projects/spring-data-commons",
-        "spring-projects/spring-data-gemfire",
-        "spring-projects/spring-data-jpa",
-        "spring-projects/spring-data-mongodb",
-        "spring-projects/spring-data-rest",
-        "spring-projects/spring-security-oauth",
-        "spring-projects/spring-webflow",
-        "spring-projects/spring-ws"
+        "scipy/scipy",
+        "sympy/sympy",
+        "matplotlib/matplotlib",
+        "open-mmlab/mmdetection",
+        "ray-project/ray",
+        "scikit-learn/scikit-learn",
+        "google/jax",
+        "jupyterlab/jupyterlab",
+        "lightning-ai/lightning",
+        "prefecthq/prefect",
+        "pydata/xarray"
     ]
 
     # Analyze code files

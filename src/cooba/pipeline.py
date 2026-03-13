@@ -20,9 +20,9 @@ from transformers import AutoModel, AutoTokenizer
 import time
 
 # Local imports
-from cooba_model import COOBA, ProjectDiscriminator
-from cooba_ast_parsers import PythonASTParser, JavaASTParser
-from cooba_utils import preprocess_code_to_ast_embeddings, prepare_bug_embeddings
+from .model import COOBA, ProjectDiscriminator
+from .ast_parsers import PythonASTParser, JavaASTParser
+from .utils import preprocess_code_to_ast_embeddings, prepare_bug_embeddings
 
 
 REPO_BASE_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/repos"
@@ -43,12 +43,12 @@ MAX_BUG_LEN = 512
 MAX_CODE_LEN = 1024
 MAX_AST_NODES = 500 # Maximum nodes in AST graph
 
-# Model Hyperparameters
+# Model Hyperparameters - FIXED: Use 'hidden_size' instead of 'hidden_dim'
 PARAMS = {
-    'bug_encoder': {'hidden_dim': 256, 'num_layers': 2, 'dropout_prob':0.5},
-    'shared_extractor': {'num_filters': 128, 'kernel_sizes': [3, 4, 5], 'dropout_prob':0.5},
-    'individual_extractor': {'hidden_dim': 256, 'output_dim': 256, 'num_layers': 2, 'dropout_prob':0.5},
-    'fusion': {'output_dim': 256, 'hidden_dim':384, 'dropout_prob':0.5}
+    'bug_encoder': {'hidden_size': 256, 'num_layers': 2, 'dropout_prob': 0.5},
+    'shared_extractor': {'num_filters': 128, 'kernel_sizes': [3, 4, 5], 'dropout_prob': 0.5},
+    'individual_extractor': {'hidden_dim': 256, 'output_dim': 256, 'num_layers': 2, 'dropout_prob': 0.5},
+    'fusion': {'output_dim': 256, 'hidden_dim': 384, 'dropout_prob': 0.5}
 }
 
 # Training Hyperparameters
@@ -147,11 +147,10 @@ def create_labeled_samples(project_name, language, bug_metadata_db, blob_embeddi
             if is_training_data:
                 candidate_shas.update(ground_truth_shas)
 
-            # Create Labeled pairs
+            # Create Labeled pairs - FIXED: Don't hardcode project_type
             for blob_sha in candidate_shas:
                 label = 1 if blob_sha in ground_truth_shas else 0
-                project_type = 'target' if project_name == project_name else 'source'
-                labeled_samples.append((bug_id, blob_sha, label, project_type))
+                labeled_samples.append((bug_id, blob_sha, label, 'unknown'))  # Will be set by dataset
 
     return labeled_samples
 
@@ -160,16 +159,18 @@ class CoobaBugLocalizationDataset(Dataset):
     '''
     PyTorch Dataset for COOBA with BGE embeddings and AST graphs.
     '''
-    def __init__(self, samples, bug_reports_df, repo, language, bge_model, bge_tokenizer, ast_parser, cache_dir):
+    def __init__(self, samples, bug_reports_df, repo, language, bge_model, bge_tokenizer, ast_parser, cache_dir, project_type='target'):
         """
         Args:
             samples: List of (bug_id, blob_sha, label) tuples
-            bug_metadata_db: Pre-computed bug embeddings
-            blob_embedding_db: Pre-computed code embeddings
+            bug_reports_df: Bug reports dataframe
             repo: Git repository object
             language: Programming language
-            project_type: 'source' or 'target'
+            bge_model: BGE model
+            bge_tokenizer: BGE tokenizer
+            ast_parser: AST parser
             cache_dir: Directory for caching AST graphs
+            project_type: 'source' or 'target'
         """
         self.samples = samples
         self.bug_reports_df = bug_reports_df
@@ -179,14 +180,9 @@ class CoobaBugLocalizationDataset(Dataset):
         self.bge_tokenizer = bge_tokenizer
         self.ast_parser = ast_parser
         self.cache_dir = cache_dir
+        self.project_type = project_type  # Store project type
 
         os.makedirs(cache_dir, exist_ok=True)
-
-        # Initialize AST parser
-        if language.lower() == 'python':
-            self.ast_parser = PythonASTParser(max_nodes=MAX_AST_NODES)
-        else:  # Default to Java
-            self.ast_parser = JavaASTParser(max_nodes=MAX_AST_NODES)
 
         # Create bug text lookup
         self.bug_texts = pd.Series(
@@ -206,13 +202,15 @@ class CoobaBugLocalizationDataset(Dataset):
             max_length=max_length,
             return_tensors='pt'
         )
+        # ADD THIS LINE - move inputs to the same device as the model
+        inputs = {k: v.to(self.bge_model.device) for k, v in inputs.items()}
         
         with torch.no_grad():
             outputs = self.bge_model(**inputs)
             # Use CLS token embedding or mean pooling
             embeddings = outputs.last_hidden_state.mean(dim=1)
-        
-        return embeddings.squeeze(0)
+        # print(f"BGE embedding shape: {embeddings.shape}")  
+        return embeddings.squeeze(0).cpu()
 
     def _get_code_content(self, blob_sha):
         '''Fetch code content from blob SHA.'''
@@ -227,13 +225,13 @@ class CoobaBugLocalizationDataset(Dataset):
         return os.path.join(self.cache_dir, f"{blob_sha}.pt")
 
     def __getitem__(self, idx):
-        bug_id, blob_sha, label, project_type = self.samples[idx]
+        bug_id, blob_sha, label, _ = self.samples[idx]  # Ignore stored project_type
         
         # Check cache first
         cache_path = self._cache_key(blob_sha)
 
         if os.path.exists(cache_path):
-            cached_data = torch.load(cache_path)
+            cached_data = torch.load(cache_path, weights_only=False)
             code_embeddings = cached_data['code_embeddings']
             graph_data = cached_data['graph_data']
         else:
@@ -245,21 +243,27 @@ class CoobaBugLocalizationDataset(Dataset):
                 # Split code into chunks for embedding
                 lines = code_content.splitlines()[:MAX_CODE_LEN]
                 code_text = '\n'.join(lines)
-                code_embedding = self._get_bge_embedding(code_text, MAX_CODE_LEN)
+                code_embeddings = self._get_bge_embedding(code_text, MAX_CODE_LEN)
 
                 # Parse code to AST graph
                 graph_data = self.ast_parser.parse(code_content)
 
-                if graph_data is not None:
+                if graph_data is not None and hasattr(graph_data, 'x'):
                     # Add BGE embeddings as node features
                     # For simplicity, use mean embedding for all nodes
-                    num_nodes = graph_data.x.shape[0] if hasattr(graph_data, 'x') else 1
-                    node_embeddings = code_embeddings.unsequeeze(0).expand(num_nodes, -1)
+                    num_nodes = graph_data.x.shape[0]
+                    node_embeddings = code_embeddings.unsqueeze(0).expand(num_nodes, -1)
                     graph_data.x = node_embeddings
+                else:
+                    # Fallback for invalid graph
+                    graph_data = Data(
+                        x=code_embeddings.unsqueeze(0),
+                        edge_index=torch.tensor([[], []], dtype=torch.long)
+                    )
             else:
                 # Empty file handling
                 code_embeddings = torch.zeros(BGE_EMBEDDING_DIM)
-                graph_data =  Data(
+                graph_data = Data(
                     x=torch.zeros(1, BGE_EMBEDDING_DIM),
                     edge_index=torch.tensor([[], []], dtype=torch.long)
                 )
@@ -276,11 +280,12 @@ class CoobaBugLocalizationDataset(Dataset):
 
         return {
             'bug_embeddings': bug_embeddings,
-            'bug_length': min(len(bug_text.split()), MAX_BUG_LEN),
-            'code_embeddings': code_embeddings.unsqueeze(0), # Add sequence dimensions
+            # 'bug_length': min(len(bug_text.split()), MAX_BUG_LEN),
+            'bug_length': 1,
+            'code_embeddings': code_embeddings.unsqueeze(0), # Add sequence dimension
             'graph_data': graph_data,
             'label': torch.tensor(label, dtype=torch.long),
-            'project_type': project_type,
+            'project_type': self.project_type,  # Use dataset's project_type
             'bug_id': bug_id,
             'blob_sha': blob_sha
         }
@@ -293,14 +298,15 @@ def cooba_collate_fn(batch):
     bug_embeddings = torch.stack([item['bug_embeddings'] for item in batch])
     bug_lengths = torch.tensor([item['bug_length'] for item in batch])
     code_embeddings = torch.stack([item['code_embeddings'] for item in batch])
-    labels = torch.stack([torch.tensor(item['label']) for item in batch])
+    # labels = torch.stack([torch.tensor(item['label']) for item in batch])
+    labels = torch.stack([item['label'] for item in batch])
 
     # Batch graphs using PyG's Batch
     graph_list = [item['graph_data'] for item in batch]
     batched_graph = Batch.from_data_list(graph_list)
 
     project_types = [item['project_type'] for item in batch]
-    bug_ids =[item['bug_id'] for item in batch]
+    bug_ids = [item['bug_id'] for item in batch]
     blob_shas = [item['blob_sha'] for item in batch]
     
     return {
@@ -332,9 +338,9 @@ def train_cooba(model, discriminator, source_loader, target_loader, optimizer_ma
     if mode == 'within-project':
         # Only use target loader
         data_loader = target_loader if target_loader else source_loader
-        progress_bar = tqdm(data_loader, desc=f"Epoch {epoch + 1}/ {EPOCHS}")
+        progress_bar = tqdm(data_loader, desc=f"Epoch {epoch + 1}/{EPOCHS}")
     else:
-        # use both loader
+        # use both loaders
         print("Running in Cross-Project mode.")
         progress_bar = tqdm(source_loader, desc=f"Epoch {epoch+1}/{EPOCHS}")
         target_iter = iter(itertools.cycle(target_loader)) if target_loader else None
@@ -351,9 +357,13 @@ def train_cooba(model, discriminator, source_loader, target_loader, optimizer_ma
         code_embeddings = batch['code_embeddings'].to(device)
         graph_data = batch['graph_data'].to(device)
         labels = batch['labels'].to(device)
+        
+        print(f"Bug embeddings shape: {bug_embeddings.shape}")
+        print(f"Bug lengths: {bug_lengths}")
+        print(f"Code embeddings shape: {code_embeddings.shape}")
 
-        # Determine project type
-        project_type = 'source' if mode == 'cross-project' else None
+        # Determine project type from batch
+        project_type = batch['project_types'][0] if mode == 'cross-project' else None
 
         # Forward pass
         scores, public_features = model(
@@ -364,7 +374,7 @@ def train_cooba(model, discriminator, source_loader, target_loader, optimizer_ma
         pos_mask = (labels == 1)
         neg_mask = (labels == 0)
 
-        if torch.any(pos_mask) or torch.any(neg_mask):
+        if torch.any(pos_mask) and torch.any(neg_mask):
             pos_scores = scores[pos_mask]
             neg_scores = scores[neg_mask]
 
@@ -437,11 +447,16 @@ def train_cooba(model, discriminator, source_loader, target_loader, optimizer_ma
         batch_count += 1
 
         # Update progress bar
-        progress_bar.set_postfix({
-            'Task': f'{total_task_loss/batch_count: .4f}',
-            'Adv': f'{total_adv_loss/batch_count:.4f}' if mode == 'cross-project' else 'N/A',
-            'Disc': f'{total_disc_loss/batch_count:.4f}' if mode == 'cross-project' else 'N/A'
-        })
+        if mode == 'cross-project':
+            progress_bar.set_postfix({
+                'Task': f'{total_task_loss/batch_count:.4f}',
+                'Adv': f'{total_adv_loss/batch_count:.4f}',
+                'Disc': f'{total_disc_loss/batch_count:.4f}'
+            })
+        else:
+            progress_bar.set_postfix({
+                'Task': f'{total_task_loss/batch_count:.4f}'
+            })
 
 def evaluate_cooba(model, test_loader, device):
     """Evaluate COOBA model."""
@@ -543,6 +558,7 @@ def run_cooba_experiment(source_project, target_project, source_train_ids, targe
     print("Loading BGE model....")
     bge_tokenizer = AutoTokenizer.from_pretrained(BGE_MODEL_NAME)
     bge_model = AutoModel.from_pretrained(BGE_MODEL_NAME).to(device)
+    print(bge_model.config.hidden_size) 
     bge_model.eval()
     
     # load databases
@@ -579,33 +595,36 @@ def run_cooba_experiment(source_project, target_project, source_train_ids, targe
     if target_train_ids:
         target_train_samples = create_labeled_samples(
             target_project, target_language, target_bug_db, target_blob_db,
-            TOP_K_CANDIDATES, is_training_data=False, bug_ids_to_process=target_train_ids
+            TOP_K_CANDIDATES, is_training_data=True, bug_ids_to_process=target_train_ids
         )
     
     print("Generating test samples...")
     target_test_samples = create_labeled_samples(
         target_project, target_language, target_bug_db, target_blob_db,
-        TOP_K_CANDIDATES, is_training_data=True, bug_ids_to_process=target_test_ids
+        TOP_K_CANDIDATES, is_training_data=False, bug_ids_to_process=target_test_ids
     )
 
-    # Create datasets
+    # Create datasets with proper project_type
     source_dataset = None
     target_train_dataset = None
 
     if source_samples:
         source_dataset = CoobaBugLocalizationDataset(
             source_samples, df_bugs, source_repo, source_language,
-            bge_model, bge_tokenizer, parsers[source_language], source_cache
+            bge_model, bge_tokenizer, parsers[source_language], source_cache,
+            project_type='source'  # FIXED: Add project_type
         )
     if target_train_samples:
         target_train_dataset = CoobaBugLocalizationDataset(
             target_train_samples, df_bugs, target_repo, target_language,
-            bge_model, bge_tokenizer, parsers[target_language], target_cache
+            bge_model, bge_tokenizer, parsers[target_language], target_cache,
+            project_type='target'  # FIXED: Add project_type
         )
  
     target_test_dataset = CoobaBugLocalizationDataset(
         target_test_samples, df_bugs, target_repo, target_language,
-        bge_model, bge_tokenizer, parsers[target_language], target_cache
+        bge_model, bge_tokenizer, parsers[target_language], target_cache,
+        project_type='target'  # FIXED: Add project_type
     )
 
     # Create data loaders
@@ -621,7 +640,7 @@ def run_cooba_experiment(source_project, target_project, source_train_ids, targe
             target_train_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=cooba_collate_fn, num_workers=0
         )    
     target_test_loader = DataLoader(
-        target_test_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=cooba_collate_fn, num_workers=0
+        target_test_dataset, batch_size=BATCH_SIZE, shuffle=False, collate_fn=cooba_collate_fn, num_workers=0
     )
 
     # Determine mode based on scenario
@@ -676,4 +695,3 @@ def run_cooba_experiment(source_project, target_project, source_train_ids, targe
     print(f"Final metrics: {metrics}")
 
     return metrics
-

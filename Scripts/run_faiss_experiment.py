@@ -193,6 +193,8 @@ def pre_run_check(repo_name, project_bugs, repo, blob_embedding_db):
 # Main experiment function
 def run_faiss_experiment():
     print("---Starting FAISS Experiment----")
+    os.makedirs(os.path.join(RESULT_PATH, 'faiss_recall_results'), exist_ok=True)
+    os.makedirs(os.path.join(RESULT_PATH, 'images'), exist_ok=True)
     semantic_manager = SemanticSearchManager(MODEL_NAME)
 
     df_meta = pd.read_parquet(PROJECTS_METADATA_PATH)
@@ -410,7 +412,7 @@ def run_faiss_experiment():
 
         # Save final results
         df_final_recall = pd.DataFrame([final_recall])
-        recall_path = os.path.join(RESULT_PATH, f'semantic_search_{repo_name.replace('/', '_')}_results.csv')
+        recall_path = os.path.join(RESULT_PATH, 'faiss_recall_results', f'semantic_search_{repo_name.replace("/", "_")}_results.csv')
         df_final_recall.to_csv(recall_path, index=False)
         print(f"\n Final recall results save to {recall_path}")
 
@@ -466,7 +468,7 @@ def run_faiss_experiment():
         'K': list(overall_recall.keys()),
         'Recall': list(overall_recall.values())
     })
-    recall_path = os.path.join(RESULT_PATH, 'semantic_search_SAMPLE_recall_results.csv')
+    recall_path = os.path.join(RESULT_PATH, 'faiss_recall_results', 'semantic_search_SAMPLE_recall_results.csv')
     df_overall_recall.to_csv(recall_path, index=False)
     print(f"\nOverall recall results saved to {recall_path}")
 

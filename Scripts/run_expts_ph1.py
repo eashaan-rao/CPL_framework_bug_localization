@@ -1,13 +1,17 @@
 import os
+import sys
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import numpy as np
-import time 
+import time
 import itertools
 
+# Add project root to path for src imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 # Placeholder for the actual training pipelines
-# from tranp_cnn_pipeline_ph1 import run_tranp_cnn_experiment
-from cooba_pipeline import run_cooba_experiment
+# from src.tranp_cnn.pipeline import run_tranp_cnn_experiment
+from src.cooba.pipeline import run_cooba_experiment
 # from blaze_pipeline_import run_cooba_experiment
 
 # def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, target_train_ids, target_test_ids, scenario):
@@ -69,14 +73,14 @@ MODELS_TO_RUN = {
 }
 
 # Define paths for output
-RESULTS_FILE = 'phase1_experimental_results.csv'
 REPO_BASE_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/repos"
 BUG_METADATA_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/embedding_dbs"
 BLOB_DB_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/embedding_dbs"
 RESULT_PATH = "/home/cs21d002_eashaan/PhD/Objective1/results"
+RESULTS_FILE = os.path.join(RESULT_PATH, 'phase1_experimental_results.csv')
 PROJECTS_METADATA_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/project_metadata.parquet"
 BUG_REPORTS_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/bug_reports_clean.parquet"
-BLOB_CACHE_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/cache"
+BLOB_CACHE_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/tranp_cnn_cache"
 
 # Helper Functions
 

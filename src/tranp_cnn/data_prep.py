@@ -18,7 +18,7 @@ BUG_METADATA_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/embeddi
 BLOB_DB_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/embedding_dbs"
 PROJECTS_METADATA_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/project_metadata.parquet"
 BUG_REPORTS_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/bug_reports_clean.parquet"
-BLOB_CACHE_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/cache"
+BLOB_CACHE_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/tranp_cnn_cache"
 PARAMS = {
     'nl_embedding_dim': 512, # Based on the BGE model
     'code_embedding_dim' : 512,

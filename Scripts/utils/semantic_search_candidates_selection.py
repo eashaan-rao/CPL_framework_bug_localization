@@ -220,7 +220,8 @@ def run_semantic_search_experiment():
 
     # Save final results
     df_final_recall = pd.DataFrame([final_recall])
-    recall_path = os.path.join(RESULT_PATH, 'semantic_search_recall_results.csv')
+    os.makedirs(os.path.join(RESULT_PATH, 'faiss_recall_results'), exist_ok=True)
+    recall_path = os.path.join(RESULT_PATH, 'faiss_recall_results', 'semantic_search_recall_results.csv')
     df_final_recall.to_csv(recall_path, index=False)
     print(f"\nFinal recall results saved to {recall_path}")            
 

@@ -29,7 +29,8 @@ class BugReportEncoder(nn.Module):
         Returns:
             Tensor: Bug Report representation. Shape: (batch_size, hidden_size * 2)
         '''
-        # Pack padded sequence to handle variable lenghts efficiently
+        # Pack padded sequence to handle variable lengths efficiently
+        self.lstm.flatten_parameters()
         packed_embedded = nn.utils.rnn.pack_padded_sequence(
             embedded_sequence, lengths.cpu(), batch_first=True, enforce_sorted=False
         )
@@ -56,9 +57,10 @@ class SharedExtractor(nn.Module):
     def __init__(self, embedding_dim, num_filters, kernel_sizes, dropout_prob=0.5):
         super(SharedExtractor, self).__init__()
         # For processing sequences of BGE embeddings
+        # FIXED: out_channels, not out_channel
         self.convs = nn.ModuleList([
-            nn.Conv2d(in_channels=1, out_channel=num_filters, 
-                      kernel_sizes=(k, embedding_dim), padding=(k//2, 0)) for k in kernel_sizes
+            nn.Conv2d(in_channels=1, out_channels=num_filters, 
+                      kernel_size=(k, embedding_dim), padding=(k//2, 0)) for k in kernel_sizes
         ])
         self.dropout = nn.Dropout(dropout_prob)
         self.output_dim = num_filters * len(kernel_sizes)
@@ -114,7 +116,8 @@ class IndividualExtractor(nn.Module):
         # Output layer
         if num_layers > 1:
             self.convs.append(GCNConv(hidden_dim, output_dim))
-            self.batch_norms.append(nn.BatchNorm1d(hidden_dim))
+            # FIXED: Don't add batch norm for output layer
+            # self.batch_norms.append(nn.BatchNorm1d(hidden_dim))
 
         self.dropout = nn.Dropout(dropout_prob)
         self.output_dim = output_dim
@@ -134,17 +137,16 @@ class IndividualExtractor(nn.Module):
         # implementation of GCN layers
         x, edge_index, batch = graph_data.x, graph_data.edge_index, graph_data.batch
         # Apply GCN layers with batch norm and dropout
-        for i, (conv, bn) in enumerate(zip(self.convs[:-1], self.batch_norms[:-1])):
-            x = self.conv(x, edge_index)
-            x = bn(x)
+        for i, conv in enumerate(self.convs[:-1]):
+            x = conv(x, edge_index)
+            if i < len(self.batch_norms):  # FIXED: Check bounds
+                x = self.batch_norms[i](x)
             x = F.relu(x)
             x = self.dropout(x)
         
         # Final layer (no activation)
         if len(self.convs) > 0:
             x = self.convs[-1](x, edge_index)
-            if len(self.batch_norms) >  len(self.convs) - 1:
-                x = self.batch_norms[-1](x)
 
         # Global mean pooling to get graph-level representation
         return global_mean_pool(x, batch)
@@ -165,7 +167,7 @@ class ProjectDiscriminator(nn.Module):
             nn.BatchNorm1d(hidden_dim // 2),
             nn.ReLU(),
             nn.Dropout(dropout_prob),
-            nn.LogSoftmax(hidden_dim // 2, 2) # 2 classes: source(0) vs target(1)
+            nn.Linear(hidden_dim // 2, 2)  # FIXED: Output 2 classes
         )
 
     def forward(self, public_features):
@@ -187,13 +189,14 @@ class FeatureFusion(nn.Module):
         if hidden_dim is None:
             hidden_dim = (input_dim + output_dim) // 2
         
+        # FIXED: Use correct dimensions throughout
         self.model = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.BatchNorm1d(hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout_prob),
-            nn.Linear(output_dim, output_dim),
-            nn.BatchNorm1d(hidden_dim),
+            nn.Linear(hidden_dim, output_dim),  # FIXED: hidden_dim -> output_dim
+            nn.BatchNorm1d(output_dim),
             nn.ReLU(),
             nn.Dropout(dropout_prob),
             nn.Linear(output_dim, output_dim)
@@ -228,7 +231,7 @@ class COOBA(nn.Module):
                 code_embedding_dim, **individual_extractor_params
             )
             self.individual_extractor_target = IndividualExtractor(
-                code_embedding_dim, ** individual_extractor_params
+                code_embedding_dim, **individual_extractor_params
             )
 
             # Calculate fusion input dimension
@@ -257,6 +260,10 @@ class COOBA(nn.Module):
         # Output dimension from bug encoder
         self.bug_output_dim = bug_encoder_params['hidden_size'] * 2 # bidirectional
         self.code_output_dim = fusion_params['output_dim']
+        
+        # FIXED: Add projection layers for dimension matching
+        self.bug_projection = nn.Linear(self.bug_output_dim, self.code_output_dim)
+        self.code_projection = nn.Linear(self.code_output_dim, self.code_output_dim)
 
     def forward(self, bug_report_embeddings, bug_lengths, code_embeddings,
                  code_graph, project_type=None):
@@ -271,7 +278,7 @@ class COOBA(nn.Module):
             code_graph: PyG Data object for code AST with BGE node features.
             project_type: 'source' or 'target' (required for cross-project mode)
         Returns:
-            scores = Relevance scores between bugs and code
+            scores: Relevance scores between bugs and code
             public_features: Public features (for adversarial training)
         '''
         # 1. Process Bug Report
@@ -285,9 +292,9 @@ class COOBA(nn.Module):
             if project_type == 'source':
                 private_features = self.individual_extractor_source(code_graph)
                 combined = torch.cat([public_features, private_features], dim=1)
-                code_vector = self.fusion_target(combined)
+                code_vector = self.fusion_source(combined)
             elif project_type == 'target':
-                private_features = self.individual_extractor_source(code_graph)
+                private_features = self.individual_extractor_target(code_graph)
                 combined = torch.cat([public_features, private_features], dim=1)
                 code_vector = self.fusion_target(combined)
             else:
@@ -299,15 +306,9 @@ class COOBA(nn.Module):
             code_vector = self.fusion(combined)
 
         # 4. Compute relevance score
-        # Ensure dimensions match for similarity computation
-        if bug_vector.shape[1] != code_vector.shape[1]:
-            # Project to common dimension if needed
-            min_dim = min(bug_vector.shape[1], code_vector.shape[1])
-            if not hasattr(self, 'bug_projection'):
-                self.bug_projection = nn.Linear(bug_vector.shape[1], min_dim).to(bug_vector.device)
-                self.code_projection = nn.Linear(code_vector.shape[1], min_dim).to(code_vector.device)
-            bug_vector = self.bug_projection(bug_vector)
-            code_vector = self.code_projection(code_vector)
+        # Project to common dimension
+        bug_vector = self.bug_projection(bug_vector)
+        code_vector = self.code_projection(code_vector)
         
         # Compute cosine similarity
         scores = F.cosine_similarity(bug_vector, code_vector, dim=1)

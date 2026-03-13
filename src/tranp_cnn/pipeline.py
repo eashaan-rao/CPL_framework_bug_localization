@@ -21,9 +21,9 @@ import copy
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 # Import the model definition from TRANPCNN model
-from tranp_cnn_model import TRANPCNN
-from tranp_cnn_data_prep import (
-    create_labeled_samples, preprocess_and_cache_samples, load_project_databases, get_project_path, 
+from .model import TRANPCNN
+from .data_prep import (
+    create_labeled_samples, preprocess_and_cache_samples, load_project_databases, get_project_path,
     REPO_BASE_PATH, BUG_METADATA_DIR, BLOB_DB_DIR, BUG_REPORTS_PATH, BLOB_CACHE_DIR, PROJECTS_METADATA_PATH
 )
 
@@ -399,7 +399,7 @@ def evaluate(model, test_meta_path, test_code_ids_path, device, source_project, 
         # Create a unique, safe filename
         src_safe = source_project.replace('/', '_')
         tgt_safe = target_project.replace('/', '_')
-        diag_filename = os.path.join(RESULT_PATH, f"{src_safe}_{tgt_safe}_{scenario}_diagnostics.csv")
+        diag_filename = os.path.join(RESULT_PATH, 'tranp_cnn_ph1_diagnostics', f"{src_safe}_{tgt_safe}_{scenario}_diagnostics.csv")
         try:
             diag_df.to_csv(diag_filename, index=False)
             print(f"✓ Saved ranking diagnostics to {diag_filename}")
@@ -553,6 +553,7 @@ def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, t
 
     # Define all cache paths (train, val, test)
     os.makedirs(BLOB_CACHE_DIR, exist_ok=True)
+    os.makedirs(os.path.join(RESULT_PATH, 'tranp_cnn_ph1_diagnostics'), exist_ok=True)
     src_proj_safe = source_project.replace("/", "_")
     tgt_proj_safe = target_project.replace("/", "_")
 
