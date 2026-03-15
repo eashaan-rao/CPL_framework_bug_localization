@@ -1,0 +1,12 @@
+project_A,project_B,lang_A,lang_B,num_bugs_A,num_bugs_B,domain_gap_accuracy
+scipy/scipy,sympy/sympy,Python,Python,100,384,0.985391981821133
+scipy/scipy,matplotlib/matplotlib,Python,Python,100,184,0.9808795411089866
+scipy/scipy,numpy/numpy,Python,Python,100,803,0.9340171887995564
+scipy/scipy,open-mmlab/mmdetection,Python,Python,100,103,0.9956855225311602
+scipy/scipy,ray-project/ray,Python,Python,100,340,0.9927689814237626
+scipy/scipy,scikit-learn/scikit-learn,Python,Python,100,228,0.968416269029766
+scipy/scipy,google/jax,Python,Python,100,568,0.9932769880906647
+scipy/scipy,lightning-ai/lightning,Python,Python,100,374,0.990632318501171
+scipy/scipy,jupyterlab/jupyterlab,Python,Python,100,200,0.9975303098338572
+scipy/scipy,prefecthq/prefect,Python,Python,100,406,0.9956772334293948
+scipy/scipy,pydata/xarray,Python,Python,100,122,0.988135593220339

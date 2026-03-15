@@ -10,8 +10,8 @@ import itertools
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Placeholder for the actual training pipelines
-# from src.tranp_cnn.pipeline import run_tranp_cnn_experiment
-from src.cooba.pipeline import run_cooba_experiment
+from src.tranp_cnn.pipeline import run_tranp_cnn_experiment
+# from src.cooba.pipeline import run_cooba_experiment
 # from blaze_pipeline_import run_cooba_experiment
 
 # def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, target_train_ids, target_test_ids, scenario):
