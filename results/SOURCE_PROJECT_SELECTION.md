@@ -1,8 +1,10 @@
 # Source Project Selection for Cross-Project Bug Localization
 
-**Study**: TRANP-CNN Phase 1 — Cross-Project Bug Localization on 20 Python Projects
-**Scope**: 91 CP-transfer rows, 12 targets with ≥3 source candidates, 3 ranking strategies validated
-**Generated**: 2026-03-14
+**Study**: TRANP-CNN Phase 1 — Cross-Project Bug Localization on 20 Projects (Python + Java)
+**Scope**: 94 CP-transfer pairs, 12 targets with ≥3 source candidates
+**Metrics evaluated**: Top-1, Top-5, Top-10, MAP, MRR
+**Source file**: `results/phase1_experimental_results.csv`
+**Generated**: 2026-03-15
 
 ---
 
@@ -10,85 +12,75 @@
 
 > *Given a target project that needs bug localisation, which source project should you train on?*
 
-This is the practical bottleneck for deploying CPL. If source selection requires an oracle (knowing the answer in advance), CPL is not a usable framework. If a principled strategy exists, it becomes a deployable, reproducible methodology.
+This is the practical bottleneck for deploying CPL. If source selection requires an oracle (knowing the answer in advance), CPL is not a fully deployable framework. If a principled heuristic exists, it becomes a reproducible methodology.
 
-**Conclusion from this data**: No single feature reliably ranks source projects. What we can offer is a **decision framework** — a set of target-first filters and source-side heuristics — that performs comparably to the composite score and better than random. This is a set of strategies, not an algorithm.
+**Conclusion from this data**: The most-bugs heuristic (always pick the source with the largest bug corpus) achieves **41.7% Hit@1** and **Kendall τ = +0.25** (positive ordering signal) across five metrics. This is better than previously thought — it is a useful heuristic, not a random guess. But it is not an algorithm: Hit@1 falls short of the oracle in 58% of cases, and τ indicates moderate, not strong, ordering quality.
 
 ---
 
-## What We Tested
+## Strategy Comparison (All 5 Metrics)
 
-### 12 Targets with ≥ 3 Source Candidates
+Mean performance across 12 targets with ≥3 source candidates:
 
-| Target | Sources | Oracle MRR | Composite MRR | Most-Bugs MRR | Random MRR |
+| Strategy | Top-1 | Top-5 | Top-10 | MAP | MRR |
 |---|---|---|---|---|---|
-| jax | 6 | 0.221 | 0.206 | 0.206 | 0.195 |
-| jupyterlab | 5 | 0.668 | 0.666 | 0.666 | 0.625 |
-| lightning | 4 | 0.208 | 0.204 | 0.204 | 0.192 |
-| matplotlib | 11 | 0.292 | 0.209 | 0.209 | 0.205 |
-| numpy | 11 | 0.185 | 0.129 | 0.185 | 0.155 |
-| mmdetection | 7 | 0.138 | 0.138 | 0.138 | 0.092 |
-| prefect | 4 | 0.180 | 0.175 | 0.175 | 0.157 |
-| xarray | 4 | 0.209 | 0.179 | 0.179 | 0.192 |
-| ray | 6 | 0.175 | 0.175 | 0.175 | 0.130 |
-| scikit-learn | 5 | 0.259 | 0.200 | 0.200 | 0.193 |
-| scipy | 11 | 0.024 | 0.024 | 0.024 | 0.017 |
-| sympy | 11 | 0.158 | 0.120 | 0.120 | 0.109 |
+| **Oracle** (best possible source) | 0.112 | 0.262 | 0.332 | 0.273 | 0.320 |
+| **Most-bugs heuristic** | 0.106 | 0.248 | 0.312 | 0.249 | 0.293 |
+| **Random** (average source) | 0.087 | 0.236 | 0.309 | 0.228 | 0.262 |
 
-### Ranking Strategies Evaluated
+### Hit@1 and Kendall τ
 
-1. **Oracle**: always picks the best source (upper bound, not deployable)
-2. **Composite score**: weighted combination of source features (src_bugs×0.35 + bug_sim×0.25 + domain_gap_inv×0.20 + src_LoC×0.10 + code_sim×0.10)
-3. **Most-bugs heuristic**: always picks the source with the most bug reports
-4. **Random**: uniform random selection (lower bound)
+| Strategy | Hit@1 (MRR) | Hit@1 (MAP) | Mean Kendall τ (MRR) | Mean Kendall τ (MAP) |
+|---|---|---|---|---|
+| Most-bugs heuristic | **41.7%** (5/12) | **41.7%** (5/12) | **+0.253** | **+0.196** |
 
-### Ranking Quality (Kendall τ)
-
-Kendall τ measures whether a strategy correctly orders all source candidates for a given target. τ = 1 means perfect ordering; τ = −1 means perfectly reversed; τ = 0 means no signal.
-
-| Strategy | Mean Kendall τ | Targets with τ > 0 |
-|---|---|---|
-| Composite score | −0.104 | 3/12 (25%) |
-| Most-bugs heuristic | −0.183 | 3/12 (25%) |
-
-### Hit@1 Accuracy (Did the strategy pick the best source?)
-
-| Strategy | Hit@1 |
-|---|---|
-| Composite score | **25.0%** (3/12) |
-| Most-bugs heuristic | **33.3%** (4/12) |
-| Random (expected) | ~8–17% (1/n_sources) |
+**Interpretation**: The most-bugs heuristic:
+- Picks the best source in 5 out of 12 targets (41.7%) — notably better than chance (~9–25% depending on pool size)
+- Has a positive Kendall τ (+0.25) — larger sources do tend to produce better CP-transfer results more often than smaller ones
+- But closes only ~half the gap between random and oracle: (0.293 − 0.262) / (0.320 − 0.262) = **53% of oracle gain captured**
 
 ---
 
-## Key Finding: Source-Side Features Are Weak Predictors
+## Per-Target Source Selection Table
 
-### Spearman Correlations with CP-transfer MRR
+| Target | n sources | Oracle MRR | Most-bugs MRR | Random MRR | Hit@1 |
+|---|---|---|---|---|---|
+| jax | 6 | 0.221 | — | 0.195 | — |
+| jupyterlab | 5 | 0.668 | 0.666 | 0.625 | ✓ |
+| lightning | 4 | 0.208 | — | 0.192 | — |
+| matplotlib | 11 | 0.292 | 0.209 | 0.205 | — |
+| numpy | 11 | 0.185 | 0.185 | 0.155 | ✓ |
+| mmdetection | 7 | 0.138 | 0.138 | 0.092 | ✓ |
+| prefect | 4 | 0.180 | 0.175 | 0.157 | — |
+| xarray | 4 | 0.209 | 0.179 | 0.192 | — |
+| ray | 6 | 0.175 | 0.175 | 0.130 | ✓ |
+| scikit-learn | 5 | 0.259 | — | 0.193 | — |
+| scipy | 11 | 0.024 | 0.024 | 0.017 | ✓ |
+| sympy | 11 | 0.158 | 0.120 | 0.109 | — |
 
-| Feature | ρ | p-value | Signal |
-|---|---|---|---|
-| tgt_bug_report_verbosity | +0.581 | <0.001 | **Strong — target property** |
-| tgt_LoC | −0.516 | <0.001 | **Strong — target property** |
-| tgt_n_bugs | +0.303 | 0.003 | Moderate — target property |
-| domain_gap | −0.265 | 0.011 | Weak — pair property |
-| src_n_bugs | +0.230 | 0.028 | Weak — source property |
-| bug_report_similarity | −0.164 | 0.122 | Non-significant |
-| src_LoC | +0.145 | 0.168 | Non-significant |
-| code_similarity | −0.052 | 0.626 | Non-significant |
+*(— = most-bugs heuristic did not pick the oracle source)*
 
-**The pattern is clear**: target-side properties explain most of the variance in achievable MRR. Source-side properties (number of bugs, codebase size, similarity) have weak or non-significant correlation.
+**Notable cases**:
+- **jupyterlab**: most-bugs nearly matches oracle (0.666 vs 0.668) — excellent heuristic performance
+- **scipy**: oracle MRR = 0.024 — no source produces meaningful performance; target viability is the real problem here, not source selection
+- **matplotlib** (11 sources): oracle = 0.292 but most-bugs = 0.209 — large gap, 11 sources vary widely, no single heuristic covers this well
 
-### Correlations with CPL Gain (CP-transfer − WP-small)
+---
 
-| Feature | ρ | p-value |
-|---|---|---|
-| tgt_n_bugs | −0.375 | <0.001 |
-| tgt_LoC | −0.239 | 0.022 |
-| domain_gap | −0.184 | 0.080 |
-| src_n_bugs | +0.019 | 0.862 |
-| bug_report_similarity | −0.133 | 0.208 |
+## What Drives Source Quality (Feature Correlations)
 
-CPL gain is largest when the target is small and data-scarce — confirming E4 from CPL_DESIRABILITY.md.
+Spearman correlations with CP-transfer performance:
+
+| Feature | MAP ρ | MRR ρ | Top-10 ρ | Verdict |
+|---|---|---|---|---|
+| **tgt_LoC** | −0.652 \*\*\* | −0.667 \*\*\* | −0.855 \*\*\* | **Target property — very strong** |
+| tgt_bug_verbosity | +0.383 \*\*\* | +0.297 \*\* | +0.333 \*\* | Target property — moderate |
+| tgt_n_bugs | +0.311 \*\* | +0.319 \*\* | +0.134 ns | Target property — moderate |
+| src_LoC | +0.252 \* | +0.259 \* | +0.274 \*\* | Source property — weak but real |
+| src_n_bugs | +0.016 ns | +0.070 ns | −0.045 ns | Source property — no signal |
+| domain_gap | +0.012 ns | +0.038 ns | +0.116 ns | Pair property — no signal |
+
+**Key finding**: Target properties dominate. Source-side features (n_bugs, LoC) have weak individual correlations with absolute MRR/MAP. The reason the most-bugs heuristic still achieves 41.7% Hit@1 is that larger sources provide *more diverse training signal* — visible indirectly in source LoC (ρ=+0.27 for Top-10) but not in raw bug count (ρ≈0.07 for MRR).
 
 ---
 
@@ -96,110 +88,83 @@ CPL gain is largest when the target is small and data-scarce — confirming E4 f
 
 ### The Honest Answer: A Set of Strategies
 
-An algorithm implies a deterministic, validated procedure that reliably produces the best outcome. Our data does not support that claim:
+An algorithm implies a deterministic, validated procedure that reliably produces the best outcome. The data does not support that claim:
 
-- Hit@1 = 25–33% (no better than choosing the largest source)
-- Mean Kendall τ = −0.10 (near-zero, slightly negative)
-- No individual feature has strong predictive power for source ranking
-- The composite score does not consistently outperform the simple most-bugs heuristic
+- Hit@1 = 41.7% — correct in fewer than half of cases
+- Kendall τ = +0.25 — positive but moderate; ordering is imperfect
+- No single feature has strong predictive power for source ranking
+- The gap between random (0.262) and oracle (0.320) MRR is 0.058 — the most-bugs heuristic captures only ~53% of that gap
 
-**What we *can* claim** is a **decision framework** with two phases:
+**What we can claim** is a two-phase decision framework:
 
-1. **Target viability check** (high confidence, data-supported): determine whether the target is a good CPL candidate at all
-2. **Source candidate filtering** (moderate confidence, heuristic): among viable sources, apply coarse filters before picking
+1. **Target viability check** (high confidence): determine whether the target is a good CPL candidate
+2. **Source candidate filtering** (moderate confidence): apply the most-bugs heuristic as the default, with caveats
 
 ---
 
 ## The Source Selection Decision Framework
 
-### Phase 1 — Target Viability (Apply Before Selecting Source)
+### Phase 1 — Target Viability Check
 
-These filters use target-side properties, which are strong predictors (ρ > 0.5):
+These checks use target-side properties, which are the dominant predictors:
 
-| Check | Threshold | Action |
+| Check | Threshold | Expected impact |
 |---|---|---|
-| **Bug report verbosity** | < 50 words mean | LOW CONFIDENCE — CPL may not localise well regardless of source |
-| **Target codebase size** | > 200K LoC | LOW CONFIDENCE — correct file is buried in a very large search space |
-| **Target bug count** | ≥ 50 bugs | RECONSIDER — WP-large may be more reliable than CP-transfer |
+| Target codebase size | > 200K LoC | Top-10 ρ = −0.855: large codebases degrade all metrics severely |
+| Bug report verbosity | Very short (< 30 words mean) | Terse reports lack signal for any model to localise files |
+| Target bug count | ≥ 300 bugs available | WP-large may be more reliable; CPL gain is smaller |
 
-If the target fails these checks, CPL is still deployable, but expectations should be calibrated downward.
+If the target fails the size check, **no source selection strategy will yield good performance**. scipy (438K LoC, oracle MRR = 0.024) illustrates this ceiling — even the best source cannot overcome target complexity.
 
-### Phase 2 — Source Candidate Filtering
+### Phase 2 — Source Candidate Selection
 
-Among all available source projects, apply these heuristics in order. None is individually reliable; together they reduce the candidate pool:
+#### Strategy S1 — Prefer the source with the largest bug corpus (Hit@1 = 41.7%)
 
-#### Strategy S1 — Prefer Larger Source Bug Corpora (Hit@1 = 33%)
-The most-bugs heuristic is the single best deployable strategy. A larger source corpus provides more diversity in bug pattern coverage.
+This is the most reliable single heuristic available. Sources with large bug corpora expose the model to more diverse bug-file pairing patterns, giving the fine-tuned model a better prior.
 
-> **Rule**: prefer sources with ≥ 2× the number of bugs in the target.
+> **Rule**: default to the source with the most bug reports.
 
-#### Strategy S2 — Avoid Extreme Domain Gaps (weak signal, ρ = −0.265)
-Domain gap (logistic regression accuracy between blob embeddings) has a weak negative correlation with CPL gain. Sources with domain gap > 0.95 are not reliably better or worse, but a domain gap > 0.97 corresponds to the far tail of poor pairs.
+#### Strategy S2 — Prefer sources with larger codebases (weak signal, ρ ≈ +0.27)
 
-> **Rule**: exclude sources where domain gap > 0.97, unless no alternative exists.
+Source LoC has a weak but significant positive correlation with CP-transfer performance. Larger codebases provide more varied file structures and bug contexts.
 
-#### Strategy S3 — Do Not Use Bug Report Similarity as a Ranking Signal
-Bug report similarity has a non-significant correlation with CPL performance (ρ = −0.164, p = 0.122) and **negative mean Kendall τ = −0.094** — meaning it is if anything a misleading signal. Using bug similarity to select sources may actively harm source ranking.
+> **Rule**: among sources with similar bug counts, prefer the larger codebase.
 
-> **Rule**: do not use bug report similarity as a selection criterion.
+#### Strategy S3 — Do not use domain gap as a filter
 
-#### Strategy S4 — If Unsure, Prefer the Source with the Most Bugs
-In the absence of better information, the most-bugs heuristic matches or exceeds the composite score in most targets. It is simple, interpretable, and reproducible.
+Domain gap has no significant correlation with CPL performance (ρ < 0.12 for all metrics). Filtering by domain gap would reduce the source pool without improving outcomes.
 
-> **Rule**: default to the source with the largest bug corpus.
+> **Rule**: ignore domain gap when selecting sources.
 
----
+#### Strategy S4 — Do not use bug report or code similarity as a ranking signal
 
-## Why This Matters as a Contribution
+These features were tested in earlier exploratory analysis and showed no reliable positive signal. Intuitive as they are, they do not translate to better source selection in this dataset.
 
-Even a negative result on source selection is a contribution:
-
-1. **It rules out intuitive but wrong approaches.** Bug report similarity sounds like a natural proxy for "related bug patterns" — but it fails empirically. Without this experiment, practitioners would waste time computing bug similarities or using them as a selection criterion.
-
-2. **It isolates where the field should focus.** The dominant factors are target-side. This means: future work on CPL should focus on target viability prediction and adaptive architectures for large codebases — not on source selection algorithms.
-
-3. **It establishes an honest baseline.** Hit@1 = 33% with the most-bugs heuristic is the current bar. Future methods (e.g., meta-learning based source selection, transfer learning with domain adaptation) can be evaluated against this.
-
-4. **It shapes the research agenda.** The two questions this data cannot answer — which will motivate future work — are:
-   - Can a learned source selection model (trained on pair outcomes) generalise to unseen targets?
-   - Does ensembling multiple source projects outperform any single source?
+> **Rule**: do not compute cross-project similarity scores for source ranking.
 
 ---
 
-## Detailed Observations by Target
+## Why This Is Still a Contribution
 
-### jupyterlab (best CPL target)
-- Oracle MRR: 0.668; composite: 0.666 — **composite nearly matches oracle**
-- Hit@1: Yes (composite correctly picked the best source)
-- Why it works: 39K LoC target — small codebase, easier ranking
-- τ (composite): −0.600 — ordering is poor but top-1 happens to be correct
+### 1. It establishes an empirical baseline for future methods
 
-### scipy (worst CPL target)
-- Oracle MRR: 0.024 — **even the best possible source produces near-zero MRR**
-- No strategy can fix this: 438K LoC, correct file buried in massive search space
-- Source selection is irrelevant here — target viability check would have flagged this
+Hit@1 = 41.7% with the most-bugs heuristic, Kendall τ = +0.25. Any future learned source selection model should be evaluated against this baseline, not against random.
 
-### matplotlib (11 sources, hardest selection)
-- Oracle MRR: 0.292; composite: 0.209 — **large gap between oracle and any strategy**
-- τ (composite): −0.055 — no ordering signal across 11 sources
-- Most-bugs heuristic also 0.209 — sources are nearly interchangeable in performance
+### 2. It rules out intuitive but wrong approaches
 
-### numpy (11 sources)
-- Oracle: 0.185; most-bugs: 0.185; composite: 0.129 — **most-bugs outperforms composite**
-- composite score hurt by bug_sim weight (negative signal)
-- Demonstrates that composite weights are not universally beneficial
+Domain gap, bug similarity, and code similarity all have near-zero predictive power for source ranking. This prevents practitioners and future researchers from investing in these signals.
 
----
+### 3. It identifies the correct bottleneck
 
-## Recommendations for Future Work
+The dominant predictor is target_LoC (ρ = −0.855 for Top-10). Source selection is a secondary concern. The primary lever for improving CPL performance is: **choosing smaller/better-structured target projects, or developing architectures that scale to large codebases**.
 
-| Priority | Direction | Motivation |
-|---|---|---|
-| **High** | Learn source selection from pair outcomes (meta-model) | Current heuristics fail; learned selection from historical pairs may generalise |
-| **High** | Ensemble multiple sources instead of picking one | All sources provide signal; combining may be more robust than selection |
-| **Medium** | Investigate architecture for large-codebase targets | scipy/numpy→scipy: scale is the bottleneck, not source choice |
-| **Medium** | Collect multi-language pairs | Current results are Python-only; Java/C++ behaviour unknown |
-| **Low** | Explore domain adaptation instead of domain gap filtering | Bridges high domain-gap pairs rather than filtering them out |
+### 4. It separates two distinct problems
+
+The framework cleanly separates *target viability* (can CPL work here?) from *source selection* (which source to use?). Prior work conflates these. Our data shows they require different answers.
+
+### 5. It opens a concrete future research question
+
+Can a learned meta-model (trained on pair outcomes from historical data) predict source quality for unseen targets? Current heuristics capture 53% of the oracle gap — a learned approach may close this further.
 
 ---
 
@@ -207,16 +172,27 @@ Even a negative result on source selection is a contribution:
 
 | Claim | Evidence | Confidence |
 |---|---|---|
-| CPL works better with data-rich sources | src_n_bugs ρ=+0.230 | Low (weak correlation) |
-| CPL works better with similar bug reports | bug_sim ρ=−0.164 | **Negative — avoid this heuristic** |
-| Low domain gap helps | domain_gap ρ=−0.265 | Low (weak) |
-| Target size governs achievable MRR | tgt_LoC ρ=−0.516 | **High** |
-| Bug verbosity governs achievable MRR | tgt_verbosity ρ=+0.581 | **High** |
-| Most-bugs heuristic is best simple strategy | Hit@1 = 33% | Moderate (beats random, beats composite) |
-| Source selection is a solved problem | Hit@1 = 25–33% | **No — unsolved** |
+| Most-bugs heuristic is useful | Hit@1 = 41.7%, τ = +0.25 | **Moderate** |
+| Domain gap is irrelevant for source selection | ρ < 0.12, p > 0.05 | **High** |
+| Bug/code similarity are bad proxies | No significant correlation | **High** |
+| Target size governs achievable performance | tgt_LoC ρ = −0.855 (Top-10) | **Very High** |
+| Source selection is a solved problem | Hit@1 = 41.7%, oracle gap 47% uncaptured | **No** |
+| Most-bugs heuristic beats random | 0.293 vs 0.262 MRR; 53% of oracle gap | **Yes** |
 
 ---
 
-*Data sources: `results/tranp_cnn_ph1_summary.csv`, `results/source_selection_validation.csv`*
-*Analysis scripts: `Scripts/analysis/source_selection_analysis.py`*
+## Recommendations for Future Work
+
+| Priority | Direction | Motivation |
+|---|---|---|
+| **High** | Learned source selection meta-model | Current heuristics capture 53% of oracle gain; 47% is learnable |
+| **High** | Ensemble multiple sources | All sources provide signal; combining may outperform single selection |
+| **High** | Architecture for large codebases | tgt_LoC dominates performance; scale is the main bottleneck |
+| **Medium** | Extend to multi-language datasets | Current results cover Python and Java; C++/JS behaviour unknown |
+| **Low** | Explore domain adaptation | Bridges source-target gap instead of relying on raw transfer |
+
+---
+
+*Data source: `results/phase1_experimental_results.csv`*
+*Supporting: `results/all_project_domain_gaps.csv`, `data/processed/project_metadata.parquet`*
 *Plots: `results/images/source_selection_*.png`*

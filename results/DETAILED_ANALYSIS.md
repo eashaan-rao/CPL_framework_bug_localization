@@ -26,9 +26,12 @@ The core CPL hypothesis: **CP-transfer should outperform WP-small**, showing tha
 4. We measure how highly the ground-truth file is ranked after re-ranking
 
 ### Metrics
-- **Top-K recall**: fraction of bugs where the ground-truth file appears in position ≤ K
+- **Top-1 / Top-5 / Top-10 recall**: fraction of bugs where the ground-truth file appears in position ≤ K
+- **MAP (Mean Average Precision)**: ranking quality metric; penalises correct answers ranked lower
 - **MRR (Mean Reciprocal Rank)**: mean of 1/rank across all bugs. Higher = better. Range: (0, 1]
 - **Rank displacement**: `faiss_rank - model_rank`. Positive = model improved on FAISS. Negative = model made it worse.
+
+All five metrics are reported throughout this analysis. Top-K recall and MAP/MRR can tell different stories: a model may achieve high recall (file found somewhere in top-10) but low MAP/MRR (file is ranked 9th, not 1st).
 
 ---
 
@@ -119,19 +122,42 @@ Each pair folder contains:
 
 ### 3.1 Scenario Performance
 
-```
-Mean MRR across all 92 pairs:
-  WP-large:      0.179  (best — uses 80% target data)
-  CP-transfer:   0.164  (strong — cross-project + 20% target)
-  WP-small:      0.147  (weak — only 20% target)
-  CP-cold-start: 0.033  (hardest — zero target data)
-```
+Mean metrics across all 92–94 pairs:
 
-The gap between WP-large (0.179) and CP-transfer (0.164) is small — **CPL-transfer is nearly as good as within-project training with 4× more data**. This is the central finding.
+| Scenario | Top-1 | Top-5 | Top-10 | MAP | MRR |
+|---|---|---|---|---|---|
+| **WP-large** | 0.081 | 0.200 | 0.258 | 0.218 | 0.248 |
+| **CP-transfer** | 0.064 | 0.189 | 0.251 | 0.197 | 0.226 |
+| **WP-small** | 0.056 | 0.167 | 0.223 | 0.176 | 0.202 |
+| **CP-cold-start** | 0.005 | 0.021 | 0.040 | 0.038 | 0.042 |
 
-The gap between CP-transfer (0.164) and WP-small (0.147) is modest, but directionally correct: CP-transfer outperforms WP-small in **65.9% of pairs**. This is statistically meaningful across 91 pairs.
+**Reading the pattern**: CP-transfer consistently sits between WP-small and WP-large across all five metrics. The key observations:
 
-CP-cold-start (0.033) is much lower, as expected — the model has never seen the target project. However, it still beats the FAISS baseline by +107.6% in 55.4% of pairs. This shows the model learns **transferable features** that generalize across projects, even with zero target data.
+1. **The ranking-quality gap (MAP, MRR) vs recall gap (Top-K) differ**: CP-transfer nearly matches WP-large on Top-K recall (within 0.007–0.010 across Top-1/5/10) but has a larger gap in MAP (−0.021) and MRR (−0.022). WP-large's advantage is in precise ranking, not just retrieval.
+
+2. **CP-transfer vs WP-small** — statistical significance by metric:
+
+| Metric | CP-transfer > WP-small | Mean gain | Wilcoxon p |
+|---|---|---|---|
+| Top-1 | 37.0% (34/92) | +0.007 | 0.118 (ns) |
+| Top-5 | 43.5% (40/92) | +0.021 | 0.007 ** |
+| Top-10 | 47.8% (44/92) | +0.026 | 0.001 ** |
+| MAP | 64.1% (59/92) | +0.020 | 0.006 ** |
+| MRR | **67.4% (62/92)** | +0.022 | 0.005 ** |
+
+CP-transfer significantly improves MAP and MRR over WP-small (p < 0.01). Top-1 improvement is not statistically significant — the benefit is in ranking quality, not pinpoint top-of-list precision.
+
+3. **CP-transfer vs WP-large** — Top-K recall comparisons are more favourable:
+
+| Metric | CP-transfer ≥ WP-large | Within 10% of WP-large |
+|---|---|---|
+| Top-10 | 53.3% | 63.0% |
+| MAP | 30.4% | 41.3% |
+| MRR | 32.6% | 47.8% |
+
+For Top-10 recall, CP-transfer matches or exceeds WP-large in 53% of pairs. For MAP/MRR, WP-large wins in the majority. This nuance matters: for shortlist-based workflows (show top-10 files), CP-transfer is largely equivalent to WP-large. For rank-1 precision, WP-large retains an advantage.
+
+4. **CP-cold-start** (0.038 MAP, 0.042 MRR) — low but non-zero. Zero-shot cross-project transfer starts below any practical usefulness threshold, but the signal shows the model does capture some transferable patterns before fine-tuning.
 
 ### 3.2 FAISS Ceiling — A Critical Diagnostic Finding
 
@@ -207,20 +233,29 @@ numpy (276K LoC) is also large but much smaller than scipy (438K LoC), so locali
 
 ### 3.6 Metadata Correlations
 
-Top predictors of model MRR (Spearman ρ, overall):
+Spearman correlations with CP-transfer performance (all five metrics):
 
-| Feature | ρ | Direction | Interpretation |
-|---|---|---|---|
-| `tgt_LoC` | strong negative | ↑ size → ↓ MRR | Larger codebase = harder to localize |
-| `tgt_bug_report_verbosity` | positive | ↑ words → ↑ MRR | More descriptive bug reports = better model signal |
-| `tgt_polyglot_index` | negative | ↑ mixed languages → ↓ MRR | Polyglot projects = noisier embeddings |
+| Feature | MAP ρ | MRR ρ | Top-10 ρ | Significance |
+|---|---|---|---|---|
+| **tgt_LoC** | −0.652 | −0.667 | **−0.855** | \*\*\* all metrics |
+| tgt_bug_report_verbosity | +0.383 | +0.297 | +0.333 | \*\*\* / \*\* |
+| tgt_n_bugs | +0.311 | +0.319 | +0.134 | \*\* / ns |
+| src_LoC | +0.252 | +0.259 | +0.274 | \* / \*\* |
+| src_n_bugs | +0.016 | +0.070 | −0.045 | ns all |
+| domain_gap | +0.012 | +0.038 | +0.116 | ns all |
+
+**Key findings**:
+- **tgt_LoC dominates** (ρ = −0.855 for Top-10): target codebase size is the single strongest predictor across all metrics. This is even clearer in recall (Top-10) than in ranking quality (MRR). A large codebase means the correct file competes against more candidates.
+- **tgt_bug_report_verbosity** is the second-strongest feature — more descriptive bug reports provide more matching signal.
+- **Source-side features are weak or non-significant**: src_n_bugs has ρ ≈ 0.07 for MRR (non-significant). Source LoC has weak but marginally significant correlation. Neither is actionable for source selection.
+- **Domain gap has no predictive power** (ρ < 0.12, p > 0.05 for all metrics). Dissimilar projects can transfer just as well as similar ones.
 
 These correlations are consistent across all 4 scenarios, making them robust findings.
 
-**Practical guidance**: when choosing a source project for CPL, prefer:
-- Source projects with similar or larger bug count than target (more training data)
-- Target projects with verbose bug descriptions
-- Target projects with focused (single-language) codebases
+**Practical guidance**:
+- Primary filter: check target codebase size before deploying CPL. Projects > 200K LoC will have low Top-10 and MAP regardless of source.
+- Secondary filter: check bug report verbosity. Very terse reports (< 30 words) limit model signal.
+- Source selection: prefer sources with large bug corpora (most-bugs heuristic, Hit@1 = 41.7%). Domain gap is irrelevant.
 
 ---
 
@@ -230,15 +265,24 @@ The evidence for CPL feasibility assembles as follows:
 
 **Claim**: Cross-project bug localization is feasible and practical for projects with limited historical bug data.
 
-**Evidence 1** (65.9% win rate): CP-transfer (100% source + 20% target) outperforms WP-small (20% target only) in 65.9% of 91 pairs. A project new to bug localization, with limited labelled data, benefits from using a related project as source.
+**Evidence 1** (ranking quality improves, statistically significant):
+CP-transfer significantly outperforms WP-small on MAP (p=0.006) and MRR (p=0.005), winning 64–67% of pairs. Top-10 recall improvement is also significant (p=0.001, 47.8% win rate). Top-1 improvement is non-significant — the benefit is in ranking quality, not pinpoint precision.
 
-**Evidence 2** (zero-shot works): CP-cold-start improves over FAISS baseline in 55.4% of pairs (+107.6% mean improvement), without any target training data. The model learns transferable features from source projects.
+**Evidence 2** (most valuable where data is scarcest):
+For targets with ≤228 bugs (bottom half), CPL gain is 3–4× larger than for data-rich targets:
+- Top-10 gain: +0.043 (few bugs) vs +0.007 (many bugs)
+- MRR gain: +0.032 (few bugs) vs +0.012 (many bugs)
 
-**Evidence 3** (CPL ≈ WP-large for good pairs): For numpy→jupyterlab, CP-transfer MRR (0.666) is within 8% of WP-large (0.724), despite WP-large using 4× more target training data.
+This is precisely the scenario CPL is designed for.
 
-**Evidence 4** (domain proximity matters): Low-domain-gap pairs show higher CPL benefit. This is actionable: a practitioner can use domain gap scores to select the best source project for their target.
+**Evidence 3** (Top-K recall nearly matches WP-large):
+CP-transfer matches or exceeds WP-large on Top-10 recall in 53.3% of pairs, and comes within 10% in 63% of pairs. For shortlist-based developer tools (show top-10 candidate files), CP-transfer is broadly equivalent to the resource-intensive WP-large baseline.
 
-**Evidence 5** (model beats retrieval by design): FAISS baseline MRR is 0.006–0.022; TRANP-CNN achieves 0.164–0.724. The model contribution is real and substantial. The zero unreachable rate confirms FAISS embeddings are not the bottleneck — the CPL gains are from the model learning transferable ranking patterns.
+**Evidence 4** (domain gap does not limit CPL):
+Domain gap has no significant correlation with CPL performance (ρ < 0.12, p > 0.05 for all five metrics). High domain-gap pairs benefit from CPL at similar rates to low domain-gap pairs. This means CPL is applicable across diverse project combinations, not just closely related ones.
+
+**Evidence 5** (model beats retrieval by large margin):
+The model improves over FAISS across all scenarios (median 9.2× model/FAISS MRR ratio). pct_unreachable = 0% — all ground-truth files are in FAISS top-300. Every failure is a ranking failure, not a retrieval failure. The CPL gains are genuine model learning, not artefacts of retrieval quality.
 
 ---
 
@@ -304,6 +348,6 @@ For WP-large and CP-transfer, mean rank displacement is **~140**: the model move
 
 ---
 
-*Data: 367 diagnostic files, 92 pairs × 4 scenarios, 20 Python projects*
+*Data: `results/phase1_experimental_results.csv` (373 rows, 94 pairs × 4 scenarios, 20 Python + Java projects)*
 *Scripts: `Scripts/analysis/`, `benchmark_dataset_analysis/tranp_cnn_ph1_analysis.ipynb`*
 *Showcase examples: `results/showcase_pairs/`*

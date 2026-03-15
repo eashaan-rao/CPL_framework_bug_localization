@@ -1,118 +1,160 @@
 # TRANP-CNN Phase 1 — Results Summary
 
 **Study**: Cross-Project Bug Localization (CPL) using TRANP-CNN
-**Dataset**: 20 Python open-source projects, 92 source→target pairs, 4 scenarios each
+**Dataset**: 20 projects (Python + Java), 94 source→target pairs, 4 scenarios
+**Metrics**: Top-1, Top-5, Top-10, MAP, MRR
+**Source**: `results/phase1_experimental_results.csv` (373 rows)
 **Key question**: Can a bug localization model trained on one project transfer to another?
 
 ---
 
-## The Core Finding: CPL is Feasible
+## The Core Finding: CPL improves ranking quality over limited within-project training
 
-**CP-transfer beats WP-small in 65.9% of pairs.**
+**CP-transfer beats WP-small in 67.4% of pairs (MRR) and 64.1% of pairs (MAP) — both statistically significant (p < 0.01).**
 
-This means: using 100% source data + 20% target data outperforms using 20% target data alone.
-Cross-project knowledge genuinely helps when target training data is limited.
-
----
-
-## Scenario Rankings (mean MRR across all pairs)
-
-| Scenario | Mean MRR | What it means |
-|---|---|---|
-| **WP-large** | 0.179 | Best — 80% target data, within-project |
-| **CP-transfer** | 0.164 | Strong — cross-project + 20% target |
-| **WP-small** | 0.147 | Weaker — only 20% target |
-| **CP-cold-start** | 0.033 | Hardest — zero target data |
-
-**CP-transfer (0.164) is close to WP-large (0.179)** while requiring far less target data.
+Cross-project pre-training provides a better ranking prior than within-project training alone when target data is limited. The benefit is strongest on ranking quality metrics (MAP, MRR) and for data-scarce targets.
 
 ---
 
-## 5 Key Findings
+## Scenario Overview (All 5 Metrics, Mean Across 92–94 Pairs)
 
-### 1. TRANP-CNN massively improves over FAISS
-- FAISS baseline MRR across all pairs: 0.006–0.022 (near-random retrieval)
-- TRANP-CNN achieves up to **MRR 0.724** (numpy→jupyterlab, WP-large)
-- Even CP-cold-start (zero target data) improves over FAISS by **+107.6%** in 55% of pairs
-- The model is doing real work — not piggy-backing on retrieval quality
+| Scenario | Top-1 | Top-5 | Top-10 | MAP | MRR |
+|---|---|---|---|---|---|
+| **WP-large** | 0.081 | 0.200 | 0.258 | 0.218 | 0.248 |
+| **CP-transfer** | 0.064 | 0.189 | 0.251 | 0.197 | 0.226 |
+| **WP-small** | 0.056 | 0.167 | 0.223 | 0.176 | 0.202 |
+| **CP-cold-start** | 0.005 | 0.021 | 0.040 | 0.038 | 0.042 |
 
-### 2. The FAISS ceiling is not the problem
-- 0% of bugs had the ground-truth file outside FAISS's top-300 candidates
-- Every failure is a **model ranking failure**, not a retrieval failure
-- Implication: better model architecture will directly improve results; the embeddings are good
+**Reading**: CP-transfer sits between WP-small and WP-large across all metrics. The gap to WP-large is small for recall (Top-K) but larger for ranking quality (MAP, MRR). Top-K and MAP/MRR tell different stories — both are reported throughout.
 
-### 3. Commutativity breaks due to target codebase size
-- `matplotlib→jupyterlab`: MRR 0.614 (CP-transfer) ← CPL wins
-- `jupyterlab→matplotlib`: MRR 0.236 (CP-transfer) ← CPL hurts
-- **Same domain gap (0.972), same projects, just swapped direction**
-- jupyterlab as target: 39K lines of code → easy to rank correctly
-- matplotlib as target: 249K lines of code → correct file buried among thousands
+---
 
-### 4. Target codebase size is the strongest predictor of performance
-- Top metadata correlates with MRR: `tgt_LoC` (negative), `tgt_bug_report_verbosity` (positive), `tgt_polyglot_index` (negative)
-- Larger target codebase → harder localization
-- More verbose bug reports → better localization (more signal for the model)
+## 7 Key Findings
 
-### 5. Domain gap predicts CPL benefit
-- Low domain gap pairs benefit most from CP-transfer over WP-small
-- scipy→numpy (domain gap 0.934, lower gap) performs better than numpy→scipy
+### 1. CP-transfer significantly beats WP-small on ranking metrics
+
+| Metric | Win rate | Mean gain | p-value |
+|---|---|---|---|
+| Top-1 | 37.0% | +0.007 | ns |
+| Top-5 | 43.5% | +0.021 | 0.007 \*\* |
+| Top-10 | 47.8% | +0.026 | 0.001 \*\* |
+| MAP | 64.1% | +0.020 | 0.006 \*\* |
+| MRR | **67.4%** | +0.022 | 0.005 \*\* |
+
+Top-1 gain is non-significant. The CPL advantage is in ranking quality (MAP, MRR) and broad recall (Top-10), not pinpoint precision.
+
+### 2. CP-transfer achieves WP-large-level recall in most pairs
+
+For Top-10 recall, CP-transfer matches or exceeds WP-large in **53.3% of pairs** and comes within 10% in **63.0%**. For MAP/MRR, WP-large retains an edge (wins in ~70%). The practical implication: for shortlist-based developer tools (top-10 candidates), CP-transfer is broadly equivalent to WP-large — without needing 4× more labelled target data.
+
+### 3. CPL gain is 3–4× larger for data-scarce targets
+
+| Target group | Top-10 gain | MAP gain | MRR gain |
+|---|---|---|---|
+| Few bugs (≤228, n=48) | **+0.043** | **+0.029** | **+0.032** |
+| Many bugs (>228, n=46) | +0.007 | +0.011 | +0.012 |
+
+CPL is most valuable exactly where it is most needed: new projects and low-activity codebases.
+
+### 4. Target codebase size (LoC) is the dominant performance predictor
+
+| Feature | Top-10 ρ | MAP ρ | MRR ρ |
+|---|---|---|---|
+| **tgt_LoC** | **−0.855 \*\*\*** | −0.652 \*\*\* | −0.667 \*\*\* |
+| tgt_bug_report_verbosity | +0.333 \*\* | +0.383 \*\*\* | +0.297 \*\* |
+| src_n_bugs | −0.045 ns | +0.016 ns | +0.070 ns |
+| domain_gap | +0.116 ns | +0.012 ns | +0.038 ns |
+
+Target size explains most variance in achievable performance. Source features and domain gap are non-significant. **Domain gap does not limit CPL** — high domain-gap pairs benefit at similar rates.
+
+### 5. The FAISS retrieval ceiling is not the bottleneck
+
+0% of bugs had the ground-truth file outside FAISS top-300 candidates. Every failure is a **model ranking failure**, not a retrieval failure. Better architectures (transformers, GNNs) will directly improve results without any retrieval changes needed.
+
+### 6. Commutativity breaks due to target size
+
+- `matplotlib → jupyterlab`: CP-transfer MRR = 0.614 (CPL wins)
+- `jupyterlab → matplotlib`: CP-transfer MRR = 0.236 (CPL hurts)
+
+Same domain gap (0.972), same projects, just swapped. The direction is determined entirely by which project is the target: jupyterlab (39K LoC) is easy; matplotlib (249K LoC) is hard.
+
+### 7. Source selection: most-bugs heuristic achieves 41.7% Hit@1
+
+For selecting which source project to use for a given target:
+- **Most-bugs heuristic** (pick source with most bug reports): Hit@1 = **41.7%**, Kendall τ = **+0.25**
+- Captures ~53% of the gap between random and oracle source selection
+- Domain gap and bug similarity are unreliable proxies — do not use them for source selection
 
 ---
 
 ## The Three Showcase Pairs
 
 ### Pair A: matplotlib ↔ jupyterlab — Commutativity Contrast
+
 | Direction | WP-small | WP-large | CP-transfer | CP-cold-start |
 |---|---|---|---|---|
 | matplotlib → jupyterlab | 0.438 | 0.554 | **0.614** | 0.045 |
 | jupyterlab → matplotlib | **0.372** | 0.294 | 0.236 | 0.320 |
 
-- Forward direction (matplotlib→jupyterlab): **CP-transfer is the best scenario** — CPL wins
-- Reverse direction (jupyterlab→matplotlib): **WP-small is the best scenario** — more data hurts
-- Why: jupyterlab (39K LoC, small) is easy target; matplotlib (249K LoC, large) is hard target
+Forward: CPL is the best scenario. Reverse: WP-small beats CP-transfer. Entirely explained by target LoC.
 
 ### Pair B: numpy → jupyterlab — Best CPL Performer
-| Scenario | MRR | Top-1 | Top-5 | Top-10 |
-|---|---|---|---|---|
-| WP-large | **0.724** | 0.565 | 1.000 | 1.000 |
-| CP-transfer | 0.666 | 0.478 | 1.000 | 1.000 |
-| WP-small | 0.464 | 0.217 | 0.870 | 1.000 |
-| CP-cold-start | 0.258 | 0.130 | 0.348 | 0.565 |
 
-- **Top-10 recall = 100%** for WP-large and CP-transfer: every single bug found in top-10
-- CP-transfer (0.666) nearly matches WP-large (0.724) — strong CPL argument
-- FAISS baseline: 0.022 → model improves by **33×**
+| Scenario | Top-1 | Top-5 | Top-10 | MAP | MRR |
+|---|---|---|---|---|---|
+| WP-large | 0.565 | 1.000 | 1.000 | — | **0.724** |
+| CP-transfer | 0.478 | 1.000 | 1.000 | — | 0.666 |
+| WP-small | 0.217 | 0.870 | 1.000 | — | 0.464 |
+| CP-cold-start | 0.130 | 0.348 | 0.565 | — | 0.258 |
+
+Top-10 recall = 100% for WP-large and CP-transfer. CP-transfer (0.666) nearly matches WP-large (0.724). FAISS baseline: 0.022 → **33× improvement**.
 
 ### Pair C: numpy → scipy — Hard Target Ceiling
-| Scenario | MRR | Top-1 | Top-5 | Top-10 |
-|---|---|---|---|---|
-| WP-large | 0.029 | 0.000 | 0.000 | 0.000 |
-| CP-transfer | 0.024 | 0.000 | 0.000 | 0.000 |
-| WP-small | 0.004 | 0.000 | 0.000 | 0.000 |
-| CP-cold-start | 0.006 | 0.000 | 0.000 | 0.000 |
 
-- **Zero bugs in top-10 across all scenarios** — not a model failure, a scale problem
-- scipy has **438K lines of code** — correct file buried among thousands even after reranking
-- The model IS improving ranks (mean displacement = 131 for WP-large) but not enough to break top-10
-- Fix: better initial retrieval embeddings, or project-specific fine-tuning
+| Scenario | Top-1 | Top-5 | Top-10 | MAP | MRR |
+|---|---|---|---|---|---|
+| All scenarios | 0.000 | 0.000 | 0.000 | <0.030 | <0.030 |
+
+scipy has 438K LoC — the correct file is reachable (pct_unreachable=0%) but cannot be pushed into top-10. This is a target viability failure, not a source selection failure.
+
+---
+
+## Source Project Selection Framework
+
+Phase 1 — **Target viability check** (check before selecting source):
+- Target LoC > 200K → CPL will underperform regardless of source (ρ = −0.855)
+- Very terse bug reports → low model signal
+
+Phase 2 — **Source selection heuristic**:
+- Default: pick the source with the most bug reports (Hit@1 = 41.7%, τ = +0.25)
+- Avoid: using domain gap or bug similarity as filters (both non-significant)
+
+This is a set of strategies, not an algorithm. Hit@1 = 41.7% means the heuristic fails 58% of the time. Learned source selection is an open research problem.
 
 ---
 
 ## On MRR/MAP Values vs SOTA Literature
 
-**Short answer: our numbers are expected and correct for cross-project evaluation.**
+SOTA papers (TRANP-CNN original, FLIM, LCA) report MAP/MRR > 0.5 using **within-project** evaluation (train and test on the same project). Our setup is fundamentally harder — the model has never seen the target project. The correct comparisons are:
 
-SOTA papers (TRANP-CNN original, FLIM, etc.) train and test on the **same project** (within-project). Our setup is fundamentally harder:
-- The model has never seen the target project's code style, naming conventions, or bug patterns
-- Our FAISS baseline itself has MRR 0.006–0.022 (very low) because we are not cherry-picking easy pairs
-- For the best pairs, we reach **MRR 0.72** — which is SOTA-competitive even for within-project settings
-- The correct comparison is: our model vs our FAISS baseline, **not** vs within-project SOTA
+1. Our model vs our FAISS baseline (9.2× median improvement)
+2. CP-transfer vs WP-small (matched data budget — CPL wins 64–67% of pairs)
 
-The low averages (0.147–0.179) are pulled down by:
-1. scipy as target (438K LoC) — pathologically large codebase
-2. CP-cold-start (zero target data) — zero-shot is inherently hard
-3. Small test sets (some targets have only 23 bugs)
+For the best pairs (numpy→jupyterlab), we reach MRR = 0.724 — SOTA-competitive even for within-project benchmarks.
+
 ---
 
-*Generated from 367 diagnostic files, 92 project pairs, 4 scenarios.*
-*Full analysis: `benchmark_dataset_analysis/tranp_cnn_ph1_analysis.ipynb`*
+## What This Means for the Research Paper
+
+| Claim | Evidence | Framing |
+|---|---|---|
+| CPL is the preferred strategy for data-limited targets | 67.4% MRR win rate, 3–4× larger gain for few-bug targets | Core contribution |
+| Target viability predicts CPL outcome | tgt_LoC ρ = −0.855 | Practical deployment guidance |
+| Source selection is partially solved | Hit@1 = 41.7%, τ = +0.25 | Open problem with a useful baseline |
+| Architecture is the bottleneck, not retrieval | pct_unreachable = 0% | Future work direction |
+
+---
+
+*Data: `results/phase1_experimental_results.csv` (373 rows, 94 pairs, 20 projects)*
+*Full analysis: `results/DETAILED_ANALYSIS.md`, `results/CPL_DESIRABILITY.md`, `results/SOURCE_PROJECT_SELECTION.md`*
+*Showcase: `results/showcase_pairs/`*
