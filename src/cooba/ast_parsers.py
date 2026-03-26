@@ -69,7 +69,7 @@ class BaseASTParser:
             for edge in edges:
                 if edge['source'] < self.max_nodes and edge['target'] < self.max_nodes:
                     valid_edges.append(edge)
-        edges = valid_edges
+            edges = valid_edges
         
         # Create node features (will be replaced with BGE embeddings later)
         # for now, create placeholder features
@@ -77,9 +77,8 @@ class BaseASTParser:
         if num_nodes == 0:
             # Empty graph
             return Data(
-                x=torch.zeros(1, 768), # BGE embedding dimension
-                edge_index=torch.tensor([[], []], dtype=torch.long),
-                node_tokens = [UNK_TOKEN] # Store tokens for reference
+                x=torch.zeros(1, 1536), # BGE embedding dimension
+                edge_index=torch.tensor([[], []], dtype=torch.long)
             )
         
         # Create edge index tensor
@@ -88,18 +87,12 @@ class BaseASTParser:
             edge_index[0].append(edge['source'])
             edge_index[1].append(edge['target'])
 
-        # Store node tokens for later embedding
-        node_tokens = [node.get('token', UNK_TOKEN) for node in nodes]
-
         # Create placeholder node features (will be replaced with BGE Embeddings)
-        # Using zeros as placeholders since actual embeddings will be computed later
-        node_features = torch.zeros(num_nodes, 768) # BGE embeddng dimension
-        
+        node_features = torch.zeros(num_nodes, 1536) # BGE embedding dimension
+
         return Data(
-            x=node_features, 
-            edge_index = torch.tensor(edge_index, dtype=torch.long),
-            node_tokens = node_tokens, # Store tokens for reference
-            code_token_sequence = torch.zeros(min(num_nodes, 100)) # Placeholder
+            x=node_features,
+            edge_index=torch.tensor(edge_index, dtype=torch.long)
         )
 
 class PythonASTParser(BaseASTParser):
@@ -136,13 +129,10 @@ class PythonASTParser(BaseASTParser):
 
         # Return minimal graph on failure
         return Data(
-            x=torch.zeros(1, 768),
-            edge_index=torch.tensor([[], []], dtype=torch.long),
-            node_tokens=[UNK_TOKEN],
-            code_token_sequence=torch.zeros(1)
+            x=torch.zeros(1, 1536),
+            edge_index=torch.tensor([[], []], dtype=torch.long)
         )
-    
-        
+
     def _traverse_python_ast(self, node, nodes, edges, parent_id=None):
         '''
         Recursively traverses the Python AST.
@@ -218,12 +208,10 @@ class JavaASTParser(BaseASTParser):
 
         # Return minimal graph on failure
         return Data(
-            x=torch.zeros(1, 768),
-            edge_index = torch.tensor([[], []], dtype=torch.long),
-            node_tokens = [UNK_TOKEN],
-            code_token_sequence = torch.zeros(1)
+            x=torch.zeros(1, 1536),
+            edge_index=torch.tensor([[], []], dtype=torch.long)
         )
-        
+
     def _get_java_node_token(self, node):
         '''
         Extracts a meaningful token from a javalang node.

@@ -35,7 +35,7 @@ CACHE_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/cooba_cache"
 
 # BGE Model Configuration
 BGE_MODEL_NAME = 'BAAI/bge-code-v1'
-BGE_EMBEDDING_DIM = 512
+BGE_EMBEDDING_DIM = 1536
 
 # Experiment settings
 TOP_K_CANDIDATES = 300
@@ -280,8 +280,7 @@ class CoobaBugLocalizationDataset(Dataset):
 
         return {
             'bug_embeddings': bug_embeddings,
-            # 'bug_length': min(len(bug_text.split()), MAX_BUG_LEN),
-            'bug_length': 1,
+            'bug_length': 1,  # always 1: single mean-pooled BGE vector per bug
             'code_embeddings': code_embeddings.unsqueeze(0), # Add sequence dimension
             'graph_data': graph_data,
             'label': torch.tensor(label, dtype=torch.long),
@@ -358,10 +357,6 @@ def train_cooba(model, discriminator, source_loader, target_loader, optimizer_ma
         graph_data = batch['graph_data'].to(device)
         labels = batch['labels'].to(device)
         
-        print(f"Bug embeddings shape: {bug_embeddings.shape}")
-        print(f"Bug lengths: {bug_lengths}")
-        print(f"Code embeddings shape: {code_embeddings.shape}")
-
         # Determine project type from batch
         project_type = batch['project_types'][0] if mode == 'cross-project' else None
 
@@ -438,9 +433,10 @@ def train_cooba(model, discriminator, source_loader, target_loader, optimizer_ma
             optimizer_main.zero_grad()
             total_loss = task_loss
         
-        # Backward pass
-        total_loss.backward()
-        optimizer_main.step()
+        # Backward pass (skip if no valid ranking pairs in batch)
+        if total_loss.grad_fn is not None:
+            total_loss.backward()
+            optimizer_main.step()
 
         # Update statistics
         total_task_loss += task_loss.item()

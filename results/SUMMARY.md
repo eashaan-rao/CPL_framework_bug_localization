@@ -63,9 +63,9 @@ CPL is most valuable exactly where it is most needed: new projects and low-activ
 | **tgt_LoC** | **−0.855 \*\*\*** | −0.652 \*\*\* | −0.667 \*\*\* |
 | tgt_bug_report_verbosity | +0.333 \*\* | +0.383 \*\*\* | +0.297 \*\* |
 | src_n_bugs | −0.045 ns | +0.016 ns | +0.070 ns |
-| domain_gap | +0.116 ns | +0.012 ns | +0.038 ns |
+| domain_gap | +0.134 ns | −0.014 ns | +0.022 ns |
 
-Target size explains most variance in achievable performance. Source features and domain gap are non-significant. **Domain gap does not limit CPL** — high domain-gap pairs benefit at similar rates.
+Target size explains most variance in achievable performance. Source features and domain gap are non-significant. **Domain gap does not limit CPL.** Critically, all 85 Python pairs have domain gap between **0.934 and 0.998** — near-zero variance across the corpus. When a variable barely changes across observations, it cannot predict outcomes regardless of theoretical relevance. The logistic regression probe essentially says all Python open-source projects are already highly dissimilar in BAAI/bge-code-v1 embedding space.
 
 ### 5. The FAISS retrieval ceiling is not the bottleneck
 
@@ -271,7 +271,7 @@ The answer is: **we tested all of these through Spearman correlation** and here 
 |---|---|---|---|
 | Pick source with most bug reports | Spearman (src_n_bugs vs MRR): ρ = +0.064 ns | Weak individual correlation, but best available heuristic | **Adopted** |
 | Pick source with largest codebase | Spearman (src_LoC vs MRR): ρ = +0.321 ** | Weak-moderate positive signal | Candidate, subsumed by most-bugs |
-| Pick source most similar in domain | Spearman (domain_gap vs MRR): ρ = +0.038 ns | No significant correlation | **Rejected** |
+| Pick source most similar in domain | Spearman (domain_gap vs MRR): ρ = +0.022 ns, p=0.84 | No significant correlation; also near-zero variance (all gaps: 0.93–1.0) | **Rejected** |
 | Pick source with most similar code vocabulary | Not computed — would need pair-level vocabulary overlap | Not available in our metadata | Not tested |
 | Pick source with highest bug density | Not a significant predictor in exploratory analysis | Not included |
 

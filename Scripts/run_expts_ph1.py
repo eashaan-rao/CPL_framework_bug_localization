@@ -10,8 +10,8 @@ import itertools
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Placeholder for the actual training pipelines
-from src.tranp_cnn.pipeline import run_tranp_cnn_experiment
-# from src.cooba.pipeline import run_cooba_experiment
+# from src.tranp_cnn.pipeline import run_tranp_cnn_experiment
+from src.cooba.pipeline import run_cooba_experiment
 # from blaze_pipeline_import run_cooba_experiment
 
 # def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, target_train_ids, target_test_ids, scenario):
@@ -51,16 +51,16 @@ from src.tranp_cnn.pipeline import run_tranp_cnn_experiment
 # dmwm/wmcore (263)
 # rucio/rucio (297)
 PROJECTS = [
-    {'name': 'scipy/scipy', 'language':'python'},
-    {'name': 'sympy/sympy', 'language':'python'},
-    {'name': 'matplotlib/matplotlib', 'language':'python'},
-    {'name': 'numpy/numpy', 'language':'python'},
-    {'name': 'open-mmlab/mmdetection', 'language':'python'},
-    {'name': 'ray-project/ray', 'language':'python'},
-    {'name': 'scikit-learn/scikit-learn', 'language':'python'},
-    {'name': 'google/jax', 'language':'python'},
-    {'name': 'jupyterlab/jupyterlab', 'language':'python'},
-    {'name': 'lightning-ai/lightning', 'language':'python'},
+    # {'name': 'scipy/scipy', 'language':'python'},
+    # {'name': 'sympy/sympy', 'language':'python'},
+    # {'name': 'matplotlib/matplotlib', 'language':'python'},
+    # {'name': 'numpy/numpy', 'language':'python'},
+    # {'name': 'open-mmlab/mmdetection', 'language':'python'},
+    # {'name': 'ray-project/ray', 'language':'python'},
+    # {'name': 'scikit-learn/scikit-learn', 'language':'python'},
+    # {'name': 'google/jax', 'language':'python'},
+    # {'name': 'jupyterlab/jupyterlab', 'language':'python'},
+    # {'name': 'lightning-ai/lightning', 'language':'python'},
     {'name': 'prefecthq/prefect', 'language':'python'},
     {'name': 'pydata/xarray', 'language':'python'}
 ]

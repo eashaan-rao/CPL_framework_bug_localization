@@ -1,6 +1,7 @@
 /Resources/
 /obj1/
 /Dataset/
+/data/processed
 /data/repos
 /data/embedding_dbs
 /data/embedding_dbs_sample
@@ -11,3 +12,4 @@ CLAUDE.md
 *.pkl
 *.pyc
 *.npy
+*.log

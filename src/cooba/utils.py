@@ -122,7 +122,7 @@ def preprocess_code_to_ast_embeddings(code_string, ast_parser, bge_model, bge_to
     if graph_data is None:
         # Return empty graph if parsing fails
         return torch.geometric.data.Data(
-            x=torch.zeros(1, 768), # BGE embedding dimension
+            x=torch.zeros(1, 1536), # BGE embedding dimension
             edge_index=torch.tensor([[], []], dtype=torch.long)
         )
     
