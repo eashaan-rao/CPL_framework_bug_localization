@@ -372,3 +372,4 @@ TRANP-CNN,open-mmlab/mmdetection,jupyterlab/jupyterlab,CP-transfer,0.225,0.475,0
 TRANP-CNN,jupyterlab/jupyterlab,open-mmlab/mmdetection,WP-small,0.0476,0.0952,0.0952,0.144,0.1416
 TRANP-CNN,jupyterlab/jupyterlab,open-mmlab/mmdetection,WP-large,0.0476,0.1429,0.1905,0.1574,0.1806
 TRANP-CNN,jupyterlab/jupyterlab,open-mmlab/mmdetection,CP-cold-start,0.0,0.0,0.0,0.0064,0.0049
+COOBA,prefecthq/prefect,pydata/xarray,WP-small,0.16,0.28,0.48,0.2146416616071034,0.23593450257055637

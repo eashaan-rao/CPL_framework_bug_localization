@@ -335,21 +335,18 @@ def train_cooba(model, discriminator, source_loader, target_loader, optimizer_ma
 
     # Setup iterators
     if mode == 'within-project':
-        # Only use target loader
         data_loader = target_loader if target_loader else source_loader
-        progress_bar = tqdm(data_loader, desc=f"Epoch {epoch + 1}/{EPOCHS}")
+        target_iter = None
     else:
-        # use both loaders
-        print("Running in Cross-Project mode.")
-        progress_bar = tqdm(source_loader, desc=f"Epoch {epoch+1}/{EPOCHS}")
+        data_loader = source_loader
         target_iter = iter(itertools.cycle(target_loader)) if target_loader else None
-        
+
     total_task_loss = 0
     total_adv_loss = 0
     total_disc_loss = 0
     batch_count = 0
 
-    for batch in progress_bar:
+    for batch in data_loader:
         # Move data to device
         bug_embeddings = batch['bug_embeddings'].to(device)
         bug_lengths = batch['bug_lengths'].to(device)
@@ -442,17 +439,14 @@ def train_cooba(model, discriminator, source_loader, target_loader, optimizer_ma
         total_task_loss += task_loss.item()
         batch_count += 1
 
-        # Update progress bar
-        if mode == 'cross-project':
-            progress_bar.set_postfix({
-                'Task': f'{total_task_loss/batch_count:.4f}',
-                'Adv': f'{total_adv_loss/batch_count:.4f}',
-                'Disc': f'{total_disc_loss/batch_count:.4f}'
-            })
-        else:
-            progress_bar.set_postfix({
-                'Task': f'{total_task_loss/batch_count:.4f}'
-            })
+    # Epoch summary (one line per epoch)
+    if mode == 'cross-project':
+        print(f"  Epoch {epoch+1}/{EPOCHS} | Task={total_task_loss/max(batch_count,1):.4f} "
+              f"Adv={total_adv_loss/max(batch_count,1):.4f} Disc={total_disc_loss/max(batch_count,1):.4f} "
+              f"[{batch_count} batches]")
+    else:
+        print(f"  Epoch {epoch+1}/{EPOCHS} | Task={total_task_loss/max(batch_count,1):.4f} "
+              f"[{batch_count} batches]")
 
 def evaluate_cooba(model, test_loader, device):
     """Evaluate COOBA model."""
@@ -463,7 +457,7 @@ def evaluate_cooba(model, test_loader, device):
     ground_truths = {}
     
     with torch.no_grad():
-        for batch in tqdm(test_loader, desc="Evaluating"):
+        for batch in test_loader:
             bug_embeddings = batch['bug_embeddings'].to(device)
             bug_lengths = batch['bug_lengths'].to(device)
             code_embeddings = batch['code_embeddings'].to(device)

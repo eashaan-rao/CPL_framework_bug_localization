@@ -139,7 +139,7 @@ class IndividualExtractor(nn.Module):
         # Apply GCN layers with batch norm and dropout
         for i, conv in enumerate(self.convs[:-1]):
             x = conv(x, edge_index)
-            if i < len(self.batch_norms):  # FIXED: Check bounds
+            if i < len(self.batch_norms) and x.shape[0] > 1:
                 x = self.batch_norms[i](x)
             x = F.relu(x)
             x = self.dropout(x)
@@ -160,14 +160,14 @@ class ProjectDiscriminator(nn.Module):
         super(ProjectDiscriminator, self).__init__()
         self.model = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
-            nn.BatchNorm1d(hidden_dim),
+            nn.LayerNorm(hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout_prob),
-            nn.Linear(hidden_dim, hidden_dim // 2), 
-            nn.BatchNorm1d(hidden_dim // 2),
+            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.LayerNorm(hidden_dim // 2),
             nn.ReLU(),
             nn.Dropout(dropout_prob),
-            nn.Linear(hidden_dim // 2, 2)  # FIXED: Output 2 classes
+            nn.Linear(hidden_dim // 2, 2)
         )
 
     def forward(self, public_features):
@@ -192,11 +192,11 @@ class FeatureFusion(nn.Module):
         # FIXED: Use correct dimensions throughout
         self.model = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
-            nn.BatchNorm1d(hidden_dim),
+            nn.LayerNorm(hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout_prob),
-            nn.Linear(hidden_dim, output_dim),  # FIXED: hidden_dim -> output_dim
-            nn.BatchNorm1d(output_dim),
+            nn.Linear(hidden_dim, output_dim),
+            nn.LayerNorm(output_dim),
             nn.ReLU(),
             nn.Dropout(dropout_prob),
             nn.Linear(output_dim, output_dim)
