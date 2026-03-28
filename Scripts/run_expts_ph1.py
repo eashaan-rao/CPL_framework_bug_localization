@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Placeholder for the actual training pipelines
 # from src.tranp_cnn.pipeline import run_tranp_cnn_experiment
 from src.cooba.pipeline import run_cooba_experiment
-# from blaze_pipeline_import run_cooba_experiment
+# from src.flim.pipeline import run_flim_experiment
+# from src.blaze.pipeline import run_blaze_experiment
 
 # def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, target_train_ids, target_test_ids, scenario):
 #     '''
@@ -68,7 +69,8 @@ PROJECTS = [
 # Define the models to be evaluated
 MODELS_TO_RUN = {
     # 'TRANP-CNN': run_tranp_cnn_experiment
-    'COOBA': run_cooba_experiment,
+    'COOBA': run_cooba_experiment
+    # 'FLIM': run_flim_experiment,
     # 'BLAZE': run_blaze_experiment
 }
 
@@ -127,21 +129,21 @@ def main():
             {'source': proj2_config, 'target': proj1_config} # Reversed direction
         ]
         for direction in directions:
-            start_time = time.time()
+            pair_start_time = time.time()
             source_project_config = direction['source']
             target_project_config = direction['target']
-            
+
             source_project_name = source_project_config['name']
             target_project_name = target_project_config['name']
-        
+
             print(f"\n{'='*20} Setting up experiments for {source_project_name} -> {target_project_name} {'='*20}")
-            
+
             # Load bug IDs for BOTH projects
             source_bug_ids_all = load_bug_ids_for_project(source_project_name)
             target_bug_ids_all = load_bug_ids_for_project(target_project_name)
             # Create data splits for the target project
             splits = get_data_splits(target_bug_ids_all)
-            
+
             # Define the four scenarios based on the splits
             scenarios = [
                 # Scenario 1: WP-Small (Train: 10% Target, Test: 20% Target)
@@ -163,7 +165,6 @@ def main():
                     scenario_name = scenario['name']
                     print(f"\n -- Running Model: {model_name} | Scenario: {scenario_name} --")
 
-
                     # Check if this result already exists to avoid re-running
                     is_done = (
                         (df_results['model_name'] == model_name) &
@@ -171,10 +172,12 @@ def main():
                         (df_results['target_project'] == target_project_name) &
                         (df_results['scenario'] == scenario_name)
                     ).any()
-                    
+
                     if is_done:
                         print(f" -> Experiment already exists in results. Skipping.")
                         continue
+
+                    scenario_start_time = time.time()
 
                     # Execute the experiment
                     metrics = model_function(
@@ -186,7 +189,7 @@ def main():
                         scenario=scenario_name
                     )
 
-                    # Log the results - FIX: Unpack metrics dictionary
+                    # Log the results
                     new_result = {
                         'model_name': model_name,
                         'source_project': source_project_name,
@@ -200,13 +203,14 @@ def main():
                     }
                     new_result_df = pd.DataFrame([new_result])
                     new_result_df.to_csv(RESULTS_FILE, mode='a', header=False, index=False)
-                    # Also update the in-memory dataframe
                     df_results = pd.concat([df_results, new_result_df], ignore_index=True)
-                    print(f" -> Results logged to {RESULTS_FILE}")
 
-                    end_time = time.time()
-                    total_time = end_time - start_time
-                    print(f"\nAll experiments for pair {source_project_name} -> {target_project_name} completed in {total_time/3600:.2f} hrs")
+                    scenario_time = time.time() - scenario_start_time
+                    print(f" -> Results logged to {RESULTS_FILE}")
+                    print(f" -> Scenario {scenario_name} completed in {scenario_time/3600:.2f} hrs")
+
+            pair_time = time.time() - pair_start_time
+            print(f"\nAll 4 scenarios for {source_project_name} -> {target_project_name} completed in {pair_time/3600:.2f} hrs")
 
 if __name__ == '__main__':
     main()

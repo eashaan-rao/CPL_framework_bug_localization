@@ -16,7 +16,6 @@ import itertools
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence
 from torch_geometric.data import Batch, Data
-from transformers import AutoModel, AutoTokenizer
 import time
 
 # Local imports
@@ -159,15 +158,15 @@ class CoobaBugLocalizationDataset(Dataset):
     '''
     PyTorch Dataset for COOBA with BGE embeddings and AST graphs.
     '''
-    def __init__(self, samples, bug_reports_df, repo, language, bge_model, bge_tokenizer, ast_parser, cache_dir, project_type='target'):
+    def __init__(self, samples, bug_reports_df, repo, language, bug_metadata_db, blob_embedding_db, ast_parser, cache_dir, project_type='target'):
         """
         Args:
             samples: List of (bug_id, blob_sha, label) tuples
             bug_reports_df: Bug reports dataframe
             repo: Git repository object
             language: Programming language
-            bge_model: BGE model
-            bge_tokenizer: BGE tokenizer
+            bug_metadata_db: Pre-computed bug embeddings dict {bug_id: {'embedding': np.array, ...}}
+            blob_embedding_db: Pre-computed code embeddings dict {blob_sha: np.array}
             ast_parser: AST parser
             cache_dir: Directory for caching AST graphs
             project_type: 'source' or 'target'
@@ -176,42 +175,17 @@ class CoobaBugLocalizationDataset(Dataset):
         self.bug_reports_df = bug_reports_df
         self.repo = repo
         self.language = language
-        self.bge_model = bge_model
-        self.bge_tokenizer = bge_tokenizer
+        self.bug_metadata_db = bug_metadata_db
+        self.blob_embedding_db = blob_embedding_db
         self.ast_parser = ast_parser
         self.cache_dir = cache_dir
-        self.project_type = project_type  # Store project type
+        self.project_type = project_type
 
         os.makedirs(cache_dir, exist_ok=True)
-
-        # Create bug text lookup
-        self.bug_texts = pd.Series(
-            bug_reports_df['bug_report_text'].values,
-            index=bug_reports_df['bug_id']
-        ).to_dict()
 
     def __len__(self):
         return len(self.samples)
     
-    def _get_bge_embedding(self, text, max_length=512):
-        '''Get BGE embedding for text.'''
-        inputs = self.bge_tokenizer(
-            text,
-            padding=True,
-            truncation=True,
-            max_length=max_length,
-            return_tensors='pt'
-        )
-        # ADD THIS LINE - move inputs to the same device as the model
-        inputs = {k: v.to(self.bge_model.device) for k, v in inputs.items()}
-        
-        with torch.no_grad():
-            outputs = self.bge_model(**inputs)
-            # Use CLS token embedding or mean pooling
-            embeddings = outputs.last_hidden_state.mean(dim=1)
-        # print(f"BGE embedding shape: {embeddings.shape}")  
-        return embeddings.squeeze(0).cpu()
-
     def _get_code_content(self, blob_sha):
         '''Fetch code content from blob SHA.'''
         try:
@@ -225,66 +199,50 @@ class CoobaBugLocalizationDataset(Dataset):
         return os.path.join(self.cache_dir, f"{blob_sha}.pt")
 
     def __getitem__(self, idx):
-        bug_id, blob_sha, label, _ = self.samples[idx]  # Ignore stored project_type
-        
-        # Check cache first
-        cache_path = self._cache_key(blob_sha)
+        bug_id, blob_sha, label, _ = self.samples[idx]
 
+        # Bug embedding: use pre-computed from database (no BGE inference needed)
+        bug_emb_np = self.bug_metadata_db[bug_id]['embedding'] if bug_id in self.bug_metadata_db else np.zeros(BGE_EMBEDDING_DIM, dtype='float32')
+        bug_embeddings = torch.tensor(bug_emb_np, dtype=torch.float32)
+
+        # Code embedding: use pre-computed from database
+        code_emb_np = self.blob_embedding_db[blob_sha] if blob_sha in self.blob_embedding_db else np.zeros(BGE_EMBEDDING_DIM, dtype='float32')
+        code_embeddings = torch.tensor(code_emb_np, dtype=torch.float32)
+
+        # AST graph: load from cache (structure only) or build from code content
+        cache_path = self._cache_key(blob_sha)
         if os.path.exists(cache_path):
             cached_data = torch.load(cache_path, weights_only=False)
-            code_embeddings = cached_data['code_embeddings']
             graph_data = cached_data['graph_data']
+            # Always overwrite node features with current pre-computed embedding
+            num_nodes = graph_data.x.shape[0]
+            graph_data.x = code_embeddings.unsqueeze(0).expand(num_nodes, -1).clone()
         else:
-            # Get code content
             code_content = self._get_code_content(blob_sha)
-
-            # Get BGE embeddings for code
             if code_content:
-                # Split code into chunks for embedding
-                lines = code_content.splitlines()[:MAX_CODE_LEN]
-                code_text = '\n'.join(lines)
-                code_embeddings = self._get_bge_embedding(code_text, MAX_CODE_LEN)
-
-                # Parse code to AST graph
                 graph_data = self.ast_parser.parse(code_content)
-
                 if graph_data is not None and hasattr(graph_data, 'x'):
-                    # Add BGE embeddings as node features
-                    # For simplicity, use mean embedding for all nodes
                     num_nodes = graph_data.x.shape[0]
-                    node_embeddings = code_embeddings.unsqueeze(0).expand(num_nodes, -1)
-                    graph_data.x = node_embeddings
+                    graph_data.x = code_embeddings.unsqueeze(0).expand(num_nodes, -1).clone()
                 else:
-                    # Fallback for invalid graph
                     graph_data = Data(
                         x=code_embeddings.unsqueeze(0),
                         edge_index=torch.tensor([[], []], dtype=torch.long)
                     )
             else:
-                # Empty file handling
-                code_embeddings = torch.zeros(BGE_EMBEDDING_DIM)
                 graph_data = Data(
-                    x=torch.zeros(1, BGE_EMBEDDING_DIM),
+                    x=code_embeddings.unsqueeze(0),
                     edge_index=torch.tensor([[], []], dtype=torch.long)
                 )
-            
-            # Cache the processed data
-            torch.save({
-                'code_embeddings': code_embeddings,
-                'graph_data': graph_data
-            }, cache_path)
-
-        # Get bug report embedding
-        bug_text = self.bug_texts.get(bug_id, "")
-        bug_embeddings = self._get_bge_embedding(bug_text, MAX_BUG_LEN)
+            torch.save({'graph_data': graph_data}, cache_path)
 
         return {
             'bug_embeddings': bug_embeddings,
             'bug_length': 1,  # always 1: single mean-pooled BGE vector per bug
-            'code_embeddings': code_embeddings.unsqueeze(0), # Add sequence dimension
+            'code_embeddings': code_embeddings.unsqueeze(0),
             'graph_data': graph_data,
             'label': torch.tensor(label, dtype=torch.long),
-            'project_type': self.project_type,  # Use dataset's project_type
+            'project_type': self.project_type,
             'bug_id': bug_id,
             'blob_sha': blob_sha
         }
@@ -345,8 +303,9 @@ def train_cooba(model, discriminator, source_loader, target_loader, optimizer_ma
     total_adv_loss = 0
     total_disc_loss = 0
     batch_count = 0
+    num_batches = len(data_loader)
 
-    for batch in data_loader:
+    for batch_idx, batch in enumerate(data_loader):
         # Move data to device
         bug_embeddings = batch['bug_embeddings'].to(device)
         bug_lengths = batch['bug_lengths'].to(device)
@@ -438,6 +397,11 @@ def train_cooba(model, discriminator, source_loader, target_loader, optimizer_ma
         # Update statistics
         total_task_loss += task_loss.item()
         batch_count += 1
+
+        # Progress print every 100 batches
+        if (batch_idx + 1) % 100 == 0 or (batch_idx + 1) == num_batches:
+            print(f"  Epoch {epoch+1}/{EPOCHS} | Batch {batch_idx+1}/{num_batches} | "
+                  f"Task={total_task_loss/batch_count:.4f}", flush=True)
 
     # Epoch summary (one line per epoch)
     if mode == 'cross-project':
@@ -544,13 +508,6 @@ def run_cooba_experiment(source_project, target_project, source_train_ids, targe
     df_meta = pd.read_parquet(PROJECTS_METADATA_PATH)
     df_bugs = pd.read_parquet(BUG_REPORTS_PATH)
 
-    # Initialize BGE model
-    print("Loading BGE model....")
-    bge_tokenizer = AutoTokenizer.from_pretrained(BGE_MODEL_NAME)
-    bge_model = AutoModel.from_pretrained(BGE_MODEL_NAME).to(device)
-    print(bge_model.config.hidden_size) 
-    bge_model.eval()
-    
     # load databases
     print("Loading project databases...")
     source_bug_db, source_blob_db, source_language = load_project_databases(source_project, df_meta)
@@ -601,20 +558,20 @@ def run_cooba_experiment(source_project, target_project, source_train_ids, targe
     if source_samples:
         source_dataset = CoobaBugLocalizationDataset(
             source_samples, df_bugs, source_repo, source_language,
-            bge_model, bge_tokenizer, parsers[source_language], source_cache,
-            project_type='source'  # FIXED: Add project_type
+            source_bug_db, source_blob_db, parsers[source_language], source_cache,
+            project_type='source'
         )
     if target_train_samples:
         target_train_dataset = CoobaBugLocalizationDataset(
             target_train_samples, df_bugs, target_repo, target_language,
-            bge_model, bge_tokenizer, parsers[target_language], target_cache,
-            project_type='target'  # FIXED: Add project_type
+            target_bug_db, target_blob_db, parsers[target_language], target_cache,
+            project_type='target'
         )
- 
+
     target_test_dataset = CoobaBugLocalizationDataset(
         target_test_samples, df_bugs, target_repo, target_language,
-        bge_model, bge_tokenizer, parsers[target_language], target_cache,
-        project_type='target'  # FIXED: Add project_type
+        target_bug_db, target_blob_db, parsers[target_language], target_cache,
+        project_type='target'
     )
 
     # Create data loaders
@@ -683,5 +640,11 @@ def run_cooba_experiment(source_project, target_project, source_train_ids, targe
     print("\nEvaluating model...")
     metrics = evaluate_cooba(model, target_test_loader, device)
     print(f"Final metrics: {metrics}")
+
+    # Free GPU memory before returning so the next scenario starts clean
+    del model
+    if discriminator:
+        del discriminator
+    torch.cuda.empty_cache()
 
     return metrics
