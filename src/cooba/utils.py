@@ -3,8 +3,95 @@ import pandas as pd
 from tqdm import tqdm
 import os
 import pickle
+import re
 import torch
 from transformers import AutoModel, AutoTokenizer
+
+# ── GloVe constants ──────────────────────────────────────────────────────────
+GLOVE_DIM = 300
+
+# Module-level cache so GloVe is only loaded once per process
+_GLOVE_CACHE = None
+
+def load_glove(glove_path):
+    """
+    Load GloVe 840B 300d vectors from text file into a {word: np.float32 array} dict.
+    Saves/loads a fast numpy binary cache alongside the text file for subsequent runs.
+    """
+    global _GLOVE_CACHE
+    if _GLOVE_CACHE is not None:
+        return _GLOVE_CACHE
+
+    npy_path = glove_path.replace('.txt', '_cache.npy')
+    words_path = glove_path.replace('.txt', '_words.pkl')
+
+    if os.path.exists(npy_path) and os.path.exists(words_path):
+        print("Loading GloVe from binary cache...")
+        matrix = np.load(npy_path)
+        with open(words_path, 'rb') as f:
+            words = pickle.load(f)
+        glove = {w: matrix[i] for i, w in enumerate(words)}
+    else:
+        print(f"Loading GloVe from {glove_path} (first time, building binary cache)...")
+        words, vecs = [], []
+        with open(glove_path, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in tqdm(f, desc="Reading GloVe"):
+                parts = line.rstrip().split(' ')
+                if len(parts) != GLOVE_DIM + 1:
+                    continue
+                words.append(parts[0])
+                vecs.append(np.array(parts[1:], dtype='float32'))
+        matrix = np.stack(vecs)
+        np.save(npy_path, matrix)
+        with open(words_path, 'wb') as f:
+            pickle.dump(words, f)
+        glove = {w: matrix[i] for i, w in enumerate(words)}
+        print(f"GloVe loaded: {len(glove):,} vectors")
+
+    _GLOVE_CACHE = glove
+    return glove
+
+
+def _split_identifier(token):
+    """Split a camelCase or underscore_separated identifier into lowercase subtokens."""
+    parts = token.split('_')
+    result = []
+    for part in parts:
+        # split camelCase: 'FunctionDef' → ['Function', 'Def']
+        words = re.findall('[A-Z][a-z]*|[a-z]+|[A-Z]+(?=[A-Z]|$)', part)
+        result.extend([w.lower() for w in words] if words else [part.lower()])
+    return [r for r in result if r]
+
+
+def glove_lookup(token, glove_dict):
+    """
+    Look up a token in GloVe.  For OOV tokens (code identifiers, AST node type names)
+    splits on underscores and camelCase and averages sub-token vectors.
+    Returns a zero vector if nothing matches.
+    """
+    t = token.lower()
+    if t in glove_dict:
+        return glove_dict[t]
+    subtokens = _split_identifier(token)
+    vecs = [glove_dict[s] for s in subtokens if s in glove_dict]
+    if vecs:
+        return np.mean(vecs, axis=0).astype('float32')
+    return np.zeros(GLOVE_DIM, dtype='float32')
+
+
+def text_to_glove_sequence(text, glove_dict, max_len=512):
+    """
+    Tokenise plain text, look up each word in GloVe, pad/truncate to max_len.
+    Returns:
+        seq   : np.float32 array of shape (max_len, GLOVE_DIM)
+        length: int — actual number of tokens (clamped to [1, max_len])
+    """
+    tokens = re.findall(r'[a-zA-Z]+', text)[:max_len]
+    length = max(len(tokens), 1)
+    seq = np.zeros((max_len, GLOVE_DIM), dtype='float32')
+    for i, tok in enumerate(tokens):
+        seq[i] = glove_lookup(tok, glove_dict)
+    return seq, length
 
 def get_bge_embeddings(texts, model, tokenizer, device='cuda', max_length= 512, batch_size=32):
     '''

@@ -21,7 +21,7 @@ import time
 # Local imports
 from .model import COOBA, ProjectDiscriminator
 from .ast_parsers import PythonASTParser, JavaASTParser
-from .utils import preprocess_code_to_ast_embeddings, prepare_bug_embeddings
+from .utils import load_glove, glove_lookup, text_to_glove_sequence
 
 
 REPO_BASE_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/repos"
@@ -32,15 +32,14 @@ PROJECTS_METADATA_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/p
 BUG_REPORTS_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/bug_reports_clean.parquet"
 CACHE_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/cooba_cache"
 
-# BGE Model Configuration
-BGE_MODEL_NAME = 'BAAI/bge-code-v1'
-BGE_EMBEDDING_DIM = 1536
+# GloVe configuration (used for COOBA training — retrieval stage still uses BGE)
+GLOVE_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/glove/glove.6B.300d.txt"
+GLOVE_DIM = 300
 
 # Experiment settings
 TOP_K_CANDIDATES = 300
-MAX_BUG_LEN = 512
-MAX_CODE_LEN = 1024
-MAX_AST_NODES = 500 # Maximum nodes in AST graph
+MAX_BUG_LEN = 512   # max words in bug report sequence
+# No MAX_AST_NODES cap — true Python/Java AST used; OOM protection in training loop
 
 # Model Hyperparameters - FIXED: Use 'hidden_size' instead of 'hidden_dim'
 PARAMS = {
@@ -52,7 +51,7 @@ PARAMS = {
 
 # Training Hyperparameters
 EPOCHS = 10
-BATCH_SIZE = 32 # Smaller batch size due to graph processing
+BATCH_SIZE = 16  # Reduced to accommodate variable true-AST graph sizes
 LEARNING_RATE = 0.001
 DISC_LEARNING_RATE = 0.0005
 WEIGHT_DECAY = 1e-5
@@ -158,16 +157,15 @@ class CoobaBugLocalizationDataset(Dataset):
     '''
     PyTorch Dataset for COOBA with BGE embeddings and AST graphs.
     '''
-    def __init__(self, samples, bug_reports_df, repo, language, bug_metadata_db, blob_embedding_db, ast_parser, cache_dir, project_type='target'):
+    def __init__(self, samples, bug_reports_df, repo, language, glove_dict, ast_parser, cache_dir, project_type='target'):
         """
         Args:
             samples: List of (bug_id, blob_sha, label) tuples
             bug_reports_df: Bug reports dataframe
             repo: Git repository object
             language: Programming language
-            bug_metadata_db: Pre-computed bug embeddings dict {bug_id: {'embedding': np.array, ...}}
-            blob_embedding_db: Pre-computed code embeddings dict {blob_sha: np.array}
-            ast_parser: AST parser
+            glove_dict: GloVe {word: np.array(300)} — used for bug sequences and AST node features
+            ast_parser: AST parser (must have glove_dict set)
             cache_dir: Directory for caching AST graphs
             project_type: 'source' or 'target'
         """
@@ -175,13 +173,18 @@ class CoobaBugLocalizationDataset(Dataset):
         self.bug_reports_df = bug_reports_df
         self.repo = repo
         self.language = language
-        self.bug_metadata_db = bug_metadata_db
-        self.blob_embedding_db = blob_embedding_db
+        self.glove_dict = glove_dict
         self.ast_parser = ast_parser
         self.cache_dir = cache_dir
         self.project_type = project_type
 
         os.makedirs(cache_dir, exist_ok=True)
+
+        # Bug text lookup
+        self.bug_texts = pd.Series(
+            bug_reports_df['bug_report_text'].values,
+            index=bug_reports_df['bug_id']
+        ).to_dict()
 
     def __len__(self):
         return len(self.samples)
@@ -201,45 +204,32 @@ class CoobaBugLocalizationDataset(Dataset):
     def __getitem__(self, idx):
         bug_id, blob_sha, label, _ = self.samples[idx]
 
-        # Bug embedding: use pre-computed from database (no BGE inference needed)
-        bug_emb_np = self.bug_metadata_db[bug_id]['embedding'] if bug_id in self.bug_metadata_db else np.zeros(BGE_EMBEDDING_DIM, dtype='float32')
-        bug_embeddings = torch.tensor(bug_emb_np, dtype=torch.float32)
+        # Bug report → GloVe word sequence (faithful to paper: variable-length word embeddings)
+        bug_text = self.bug_texts.get(bug_id, "")
+        bug_seq, bug_len = text_to_glove_sequence(bug_text, self.glove_dict, MAX_BUG_LEN)
+        bug_embeddings = torch.tensor(bug_seq, dtype=torch.float32)  # (MAX_BUG_LEN, GLOVE_DIM)
 
-        # Code embedding: use pre-computed from database
-        code_emb_np = self.blob_embedding_db[blob_sha] if blob_sha in self.blob_embedding_db else np.zeros(BGE_EMBEDDING_DIM, dtype='float32')
-        code_embeddings = torch.tensor(code_emb_np, dtype=torch.float32)
-
-        # AST graph: load from cache (structure only) or build from code content
+        # AST graph with per-node GloVe features — load from cache or build
         cache_path = self._cache_key(blob_sha)
         if os.path.exists(cache_path):
             cached_data = torch.load(cache_path, weights_only=False)
             graph_data = cached_data['graph_data']
-            # Always overwrite node features with current pre-computed embedding
-            num_nodes = graph_data.x.shape[0]
-            graph_data.x = code_embeddings.unsqueeze(0).expand(num_nodes, -1).clone()
         else:
             code_content = self._get_code_content(blob_sha)
             if code_content:
+                # ast_parser has glove_dict set — produces Data with per-node GloVe features
                 graph_data = self.ast_parser.parse(code_content)
-                if graph_data is not None and hasattr(graph_data, 'x'):
-                    num_nodes = graph_data.x.shape[0]
-                    graph_data.x = code_embeddings.unsqueeze(0).expand(num_nodes, -1).clone()
-                else:
-                    graph_data = Data(
-                        x=code_embeddings.unsqueeze(0),
-                        edge_index=torch.tensor([[], []], dtype=torch.long)
-                    )
             else:
                 graph_data = Data(
-                    x=code_embeddings.unsqueeze(0),
+                    x=torch.zeros(1, GLOVE_DIM),
                     edge_index=torch.tensor([[], []], dtype=torch.long)
                 )
             torch.save({'graph_data': graph_data}, cache_path)
 
         return {
-            'bug_embeddings': bug_embeddings,
-            'bug_length': 1,  # always 1: single mean-pooled BGE vector per bug
-            'code_embeddings': code_embeddings.unsqueeze(0),
+            'bug_embeddings': bug_embeddings,    # (MAX_BUG_LEN, GLOVE_DIM)
+            'bug_length': bug_len,               # actual word count for BiLSTM packing
+            'code_embeddings': graph_data.x,     # (N, GLOVE_DIM) variable — padded in collate_fn
             'graph_data': graph_data,
             'label': torch.tensor(label, dtype=torch.long),
             'project_type': self.project_type,
@@ -250,12 +240,21 @@ class CoobaBugLocalizationDataset(Dataset):
 def cooba_collate_fn(batch):
     '''
     Custom collate function for batching COOBA data.
+    bug_embeddings : already padded to MAX_BUG_LEN in __getitem__ → stack directly
+    code_embeddings: variable-length node sequences → pad to max nodes in this batch
     '''
-    # Separate components
-    bug_embeddings = torch.stack([item['bug_embeddings'] for item in batch])
+    # Bug: (MAX_BUG_LEN, GLOVE_DIM) per item — uniform shape, just stack
+    bug_embeddings = torch.stack([item['bug_embeddings'] for item in batch])  # (B, MAX_BUG_LEN, GLOVE_DIM)
     bug_lengths = torch.tensor([item['bug_length'] for item in batch])
-    code_embeddings = torch.stack([item['code_embeddings'] for item in batch])
-    # labels = torch.stack([torch.tensor(item['label']) for item in batch])
+
+    # Code: (N_i, GLOVE_DIM) per item — pad to max nodes in this batch
+    code_seqs = [item['code_embeddings'] for item in batch]
+    max_nodes = max(s.shape[0] for s in code_seqs)
+    glove_dim = code_seqs[0].shape[1]
+    code_embeddings = torch.zeros(len(batch), max_nodes, glove_dim)
+    for i, seq in enumerate(code_seqs):
+        code_embeddings[i, :seq.shape[0]] = seq  # (B, max_nodes, GLOVE_DIM)
+
     labels = torch.stack([item['label'] for item in batch])
 
     # Batch graphs using PyG's Batch
@@ -265,9 +264,9 @@ def cooba_collate_fn(batch):
     project_types = [item['project_type'] for item in batch]
     bug_ids = [item['bug_id'] for item in batch]
     blob_shas = [item['blob_sha'] for item in batch]
-    
+
     return {
-        'bug_embeddings': bug_embeddings.unsqueeze(1), # Add sequence dimension
+        'bug_embeddings': bug_embeddings,
         'bug_lengths': bug_lengths,
         'code_embeddings': code_embeddings,
         'graph_data': batched_graph,
@@ -305,103 +304,112 @@ def train_cooba(model, discriminator, source_loader, target_loader, optimizer_ma
     batch_count = 0
     num_batches = len(data_loader)
 
+    oom_skips = 0
     for batch_idx, batch in enumerate(data_loader):
-        # Move data to device
-        bug_embeddings = batch['bug_embeddings'].to(device)
-        bug_lengths = batch['bug_lengths'].to(device)
-        code_embeddings = batch['code_embeddings'].to(device)
-        graph_data = batch['graph_data'].to(device)
-        labels = batch['labels'].to(device)
-        
-        # Determine project type from batch
-        project_type = batch['project_types'][0] if mode == 'cross-project' else None
+        try:
+            # Move data to device
+            bug_embeddings = batch['bug_embeddings'].to(device)
+            bug_lengths = batch['bug_lengths'].to(device)
+            code_embeddings = batch['code_embeddings'].to(device)
+            graph_data = batch['graph_data'].to(device)
+            labels = batch['labels'].to(device)
 
-        # Forward pass
-        scores, public_features = model(
-            bug_embeddings, bug_lengths, code_embeddings, graph_data, project_type
-        )
+            # Determine project type from batch
+            project_type = batch['project_types'][0] if mode == 'cross-project' else None
 
-        # Task loss (margin ranking)
-        pos_mask = (labels == 1)
-        neg_mask = (labels == 0)
+            # Forward pass
+            scores, public_features = model(
+                bug_embeddings, bug_lengths, code_embeddings, graph_data, project_type
+            )
 
-        if torch.any(pos_mask) and torch.any(neg_mask):
-            pos_scores = scores[pos_mask]
-            neg_scores = scores[neg_mask]
+            # Task loss (margin ranking)
+            pos_mask = (labels == 1)
+            neg_mask = (labels == 0)
 
-            n_pairs = min(len(pos_scores), len(neg_scores))
-            if n_pairs > 0:
-                pos_scores = pos_scores[:n_pairs]
-                neg_scores = neg_scores[:n_pairs]
+            if torch.any(pos_mask) and torch.any(neg_mask):
+                pos_scores = scores[pos_mask]
+                neg_scores = scores[neg_mask]
 
-                target_rank = torch.ones(n_pairs, device=device)
-                task_loss = task_criterion(pos_scores, neg_scores, target_rank)
+                n_pairs = min(len(pos_scores), len(neg_scores))
+                if n_pairs > 0:
+                    pos_scores = pos_scores[:n_pairs]
+                    neg_scores = neg_scores[:n_pairs]
+
+                    target_rank = torch.ones(n_pairs, device=device)
+                    task_loss = task_criterion(pos_scores, neg_scores, target_rank)
+                else:
+                    task_loss = torch.tensor(0.0, device=device)
             else:
                 task_loss = torch.tensor(0.0, device=device)
-        else:
-            task_loss = torch.tensor(0.0, device=device)
 
-        # Adversarial training (only in cross-project mode)
-        if mode == 'cross-project' and discriminator and target_iter:
-            # Train discriminator
-            optimizer_disc.zero_grad()
-            # Get target batch
-            target_batch = next(target_iter)
-            target_bug_embeddings = target_batch['bug_embeddings'].to(device)
-            target_bug_lengths = target_batch['bug_lengths'].to(device)
-            target_code_embeddings = target_batch['code_embeddings'].to(device)
-            target_graph_data = target_batch['graph_data'].to(device)
+            # Adversarial training (only in cross-project mode)
+            if mode == 'cross-project' and discriminator and target_iter:
+                # Train discriminator
+                optimizer_disc.zero_grad()
+                # Get target batch
+                target_batch = next(target_iter)
+                target_bug_embeddings = target_batch['bug_embeddings'].to(device)
+                target_bug_lengths = target_batch['bug_lengths'].to(device)
+                target_code_embeddings = target_batch['code_embeddings'].to(device)
+                target_graph_data = target_batch['graph_data'].to(device)
 
-            # Get features from both domains
-            with torch.no_grad():
+                # Get features from both domains
+                with torch.no_grad():
+                    _, source_public = model(bug_embeddings, bug_lengths, code_embeddings, graph_data, 'source')
+                    _, target_public = model(target_bug_embeddings, target_bug_lengths, target_code_embeddings, target_graph_data, 'target')
+
+                # Discriminator predictions
+                all_public = torch.cat([source_public, target_public], dim=0)
+                disc_labels = torch.cat([
+                    torch.zeros(len(source_public), device=device, dtype=torch.long),
+                    torch.ones(len(target_public), device=device, dtype=torch.long)
+                ])
+
+                disc_preds = discriminator(all_public)
+                disc_loss = adv_criterion(disc_preds, disc_labels)
+                disc_loss.backward()
+                optimizer_disc.step()
+
+                # Train generator (model) to fool discriminator
+                optimizer_main.zero_grad()
+
+                # Re-compute features (with gradients this time)
                 _, source_public = model(bug_embeddings, bug_lengths, code_embeddings, graph_data, 'source')
-                _, target_public = model(target_bug_embeddings, target_bug_lengths, target_code_embeddings, target_graph_data, 'target')
 
-            # Discriminator predictions
-            all_public = torch.cat([source_public, target_public], dim=0)
-            disc_labels = torch.cat([
-                torch.zeros(len(source_public), device=device, dtype=torch.long),
-                torch.ones(len(target_public), device=device, dtype=torch.long)
-            ])
+                # Reverse labels to fool discriminator
+                fool_labels = torch.ones(len(source_public), device=device, dtype=torch.long)
+                disc_preds = discriminator(source_public)
+                adv_loss = adv_criterion(disc_preds, fool_labels)
 
-            disc_preds = discriminator(all_public)
-            disc_loss = adv_criterion(disc_preds, disc_labels)
-            disc_loss.backward()
-            optimizer_disc.step()
+                total_loss = task_loss + LAMBDA_ADV * adv_loss
+                total_adv_loss += adv_loss.item()
+                total_disc_loss += disc_loss.item()
 
-            # Train generator (model) to fool discriminator
-            optimizer_main.zero_grad()
+            else:
+                # Within-project or no adversarial training
+                optimizer_main.zero_grad()
+                total_loss = task_loss
 
-            # Re-compute features (with gradients this time)
-            _, source_public = model(bug_embeddings, bug_lengths, code_embeddings, graph_data, 'source')
+            # Backward pass (skip if no valid ranking pairs in batch)
+            if total_loss.grad_fn is not None:
+                total_loss.backward()
+                optimizer_main.step()
 
-            # Reverse labels to fool discriminator
-            fool_labels = torch.ones(len(source_public), device=device, dtype=torch.long)
-            disc_preds = discriminator(source_public)
-            adv_loss = adv_criterion(disc_preds, fool_labels)
+            # Update statistics
+            total_task_loss += task_loss.item()
+            batch_count += 1
 
-            total_loss = task_loss + LAMBDA_ADV * adv_loss
-            total_adv_loss += adv_loss.item()
-            total_disc_loss += disc_loss.item()
-        
-        else:
-            # Within-project or no adversarial training
-            optimizer_main.zero_grad()
-            total_loss = task_loss
-        
-        # Backward pass (skip if no valid ranking pairs in batch)
-        if total_loss.grad_fn is not None:
-            total_loss.backward()
-            optimizer_main.step()
-
-        # Update statistics
-        total_task_loss += task_loss.item()
-        batch_count += 1
+        except torch.cuda.OutOfMemoryError:
+            # Skip batches with pathologically large ASTs (auto-generated files)
+            torch.cuda.empty_cache()
+            oom_skips += 1
+            continue
 
         # Progress print every 100 batches
         if (batch_idx + 1) % 100 == 0 or (batch_idx + 1) == num_batches:
+            oom_str = f" OOM_skips={oom_skips}" if oom_skips else ""
             print(f"  Epoch {epoch+1}/{EPOCHS} | Batch {batch_idx+1}/{num_batches} | "
-                  f"Task={total_task_loss/batch_count:.4f}", flush=True)
+                  f"Task={total_task_loss/max(batch_count,1):.4f}{oom_str}", flush=True)
 
     # Epoch summary (one line per epoch)
     if mode == 'cross-project':
@@ -515,11 +523,17 @@ def run_cooba_experiment(source_project, target_project, source_train_ids, targe
     target_bug_db, target_blob_db, target_language = load_project_databases(target_project, df_meta)
     target_language = target_language.strip().lower()
 
-    # Initialize AST parsers
+    # Load GloVe embeddings (loaded once, cached in module-level _GLOVE_CACHE)
+    print("Loading GloVe embeddings...")
+    glove_dict = load_glove(GLOVE_PATH)
+
+    # Initialize AST parsers with GloVe dict for per-node features
     parsers = {
         'java': JavaASTParser(),
         'python': PythonASTParser()
     }
+    for p in parsers.values():
+        p.glove_dict = glove_dict
 
     # Get repos
     source_repo = git.Repo(get_project_path(source_project, source_language))
@@ -558,19 +572,19 @@ def run_cooba_experiment(source_project, target_project, source_train_ids, targe
     if source_samples:
         source_dataset = CoobaBugLocalizationDataset(
             source_samples, df_bugs, source_repo, source_language,
-            source_bug_db, source_blob_db, parsers[source_language], source_cache,
+            glove_dict, parsers[source_language], source_cache,
             project_type='source'
         )
     if target_train_samples:
         target_train_dataset = CoobaBugLocalizationDataset(
             target_train_samples, df_bugs, target_repo, target_language,
-            target_bug_db, target_blob_db, parsers[target_language], target_cache,
+            glove_dict, parsers[target_language], target_cache,
             project_type='target'
         )
 
     target_test_dataset = CoobaBugLocalizationDataset(
         target_test_samples, df_bugs, target_repo, target_language,
-        target_bug_db, target_blob_db, parsers[target_language], target_cache,
+        glove_dict, parsers[target_language], target_cache,
         project_type='target'
     )
 
@@ -599,8 +613,8 @@ def run_cooba_experiment(source_project, target_project, source_train_ids, targe
     # Initialize model
     print("Initializing COOBA model...")
     model = COOBA(
-        bug_embedding_dim=BGE_EMBEDDING_DIM,
-        code_embedding_dim=BGE_EMBEDDING_DIM,
+        bug_embedding_dim=GLOVE_DIM,
+        code_embedding_dim=GLOVE_DIM,
         bug_encoder_params=PARAMS['bug_encoder'],
         shared_extractor_params=PARAMS['shared_extractor'],
         individual_extractor_params=PARAMS['individual_extractor'],

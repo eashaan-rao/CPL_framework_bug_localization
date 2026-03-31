@@ -2,23 +2,27 @@ import ast
 import javalang
 from torch_geometric.data import Data
 import torch
+import numpy as np
 import re
 
 # Constants for special tokens (compatibility)
 PAD_TOKEN = '<PAD>'
 UNK_TOKEN = '<UNK>'
+GLOVE_DIM = 300  # matches utils.GLOVE_DIM
 
 class BaseASTParser:
     '''
     Base class for AST parsers.
-    Adaoted to work with BGE embeddings instead of token vocabularies.
+    Uses GloVe word embeddings as per-node features (faithful to COOBA paper).
     '''
-    def __init__(self, max_nodes=500):
+    def __init__(self, max_nodes=None, glove_dict=None):
         '''
-        Args: 
-            max nodes (int): Maximum number of nodes in the AST graph
+        Args:
+            max_nodes (int|None): Maximum nodes to keep. None = no cap (true AST).
+            glove_dict (dict): GloVe {word: np.array(300)} lookup, set after init
         '''
-        self.max_nodes = max_nodes
+        self.max_nodes = max_nodes  # None means no truncation — true Python AST
+        self.glove_dict = glove_dict  # injected by pipeline after GloVe is loaded
         self.node_counter = 0
 
     def get_tokens(self, code_string):
@@ -61,34 +65,34 @@ class BaseASTParser:
         # Traverse the AST
         traverse_func(root_node, nodes, edges)
 
-        # Limit number of nodes
-        if len(nodes) > self.max_nodes:
+        # Limit number of nodes only if max_nodes is set
+        if self.max_nodes is not None and len(nodes) > self.max_nodes:
             nodes = nodes[:self.max_nodes]
-            # Filter edges to only include valid nodes
-            valid_edges = []
-            for edge in edges:
-                if edge['source'] < self.max_nodes and edge['target'] < self.max_nodes:
-                    valid_edges.append(edge)
-            edges = valid_edges
+            edges = [e for e in edges if e['source'] < self.max_nodes and e['target'] < self.max_nodes]
         
-        # Create node features (will be replaced with BGE embeddings later)
-        # for now, create placeholder features
         num_nodes = len(nodes)
         if num_nodes == 0:
-            # Empty graph
             return Data(
-                x=torch.zeros(1, 1536), # BGE embedding dimension
+                x=torch.zeros(1, GLOVE_DIM),
                 edge_index=torch.tensor([[], []], dtype=torch.long)
             )
-        
-        # Create edge index tensor
+
+        # Build edge index tensor
         edge_index = [[], []]
         for edge in edges:
             edge_index[0].append(edge['source'])
             edge_index[1].append(edge['target'])
 
-        # Create placeholder node features (will be replaced with BGE Embeddings)
-        node_features = torch.zeros(num_nodes, 1536) # BGE embedding dimension
+        # Per-node GloVe features: each node gets the GloVe embedding of its token
+        # (different for every node — faithful to COOBA paper's GloVe usage)
+        if self.glove_dict is not None:
+            from .utils import glove_lookup
+            node_features = torch.stack([
+                torch.tensor(glove_lookup(node['token'], self.glove_dict), dtype=torch.float32)
+                for node in nodes
+            ])
+        else:
+            node_features = torch.zeros(num_nodes, GLOVE_DIM)
 
         return Data(
             x=node_features,
@@ -129,7 +133,7 @@ class PythonASTParser(BaseASTParser):
 
         # Return minimal graph on failure
         return Data(
-            x=torch.zeros(1, 1536),
+            x=torch.zeros(1, GLOVE_DIM),
             edge_index=torch.tensor([[], []], dtype=torch.long)
         )
 
@@ -142,9 +146,9 @@ class PythonASTParser(BaseASTParser):
             edges: List to store edge information
             parent_id: ID of parent node
         '''
-        if self.node_counter >= self.max_nodes:
+        if self.max_nodes is not None and self.node_counter >= self.max_nodes:
             return
-        
+
         current_id = self.node_counter
         self.node_counter += 1
 
@@ -158,7 +162,7 @@ class PythonASTParser(BaseASTParser):
         elif hasattr(node, 'name'):
             node_token = f"{node_type}:{node.name}"
         elif hasattr(node, 'value') and isinstance(node.value, (str, int, float)):
-            node_token = f"{node_type}:{str(node.value[:20])}" # Limit token length
+            node_token = f"{node_type}:{str(node.value)[:20]}"  # Convert first, then limit length
         
         nodes.append({'id':current_id, 'token': node_token, 'type': node_type})
 
@@ -167,7 +171,7 @@ class PythonASTParser(BaseASTParser):
 
         # Traverse children
         for child in ast.iter_child_nodes(node):
-            if self.node_counter < self.max_nodes:
+            if self.max_nodes is None or self.node_counter < self.max_nodes:
                 self._traverse_python_ast(child, nodes, edges, parent_id=current_id)
 
 class JavaASTParser(BaseASTParser):
@@ -208,7 +212,7 @@ class JavaASTParser(BaseASTParser):
 
         # Return minimal graph on failure
         return Data(
-            x=torch.zeros(1, 1536),
+            x=torch.zeros(1, GLOVE_DIM),
             edge_index=torch.tensor([[], []], dtype=torch.long)
         )
 
@@ -247,7 +251,7 @@ class JavaASTParser(BaseASTParser):
             edges: List to store edge information
             parent_id: ID of parent node
         '''
-        if node is None or self.node_counter >= self.max_nodes:
+        if node is None or (self.max_nodes is not None and self.node_counter >= self.max_nodes):
             return
         
         current_id = self.node_counter
@@ -273,10 +277,10 @@ class JavaASTParser(BaseASTParser):
                 # Handle different types of attributes
                 if isinstance(attr_value, list):
                     for item in attr_value:
-                        if self.node_counter < self.max_nodes:
+                        if self.max_nodes is None or self.node_counter < self.max_nodes:
                             self._traverse_java_ast(item, nodes, edges, parent_id=current_id)
                 elif isinstance(attr_value, javalang.ast.Node):
-                    if self.node_counter < self.max_nodes:
+                    if self.max_nodes is None or self.node_counter < self.max_nodes:
                         self._traverse_java_ast(attr_value, nodes, edges, parent_id=current_id)
         elif isinstance(node, list):
             for item in node:

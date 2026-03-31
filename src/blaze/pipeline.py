@@ -13,6 +13,7 @@ files by maximum chunk similarity.
 
 import copy
 import itertools
+import math
 import os
 
 import git
@@ -68,13 +69,13 @@ HARD_POSITIVE_SCALE = 1.2
 POSITIVE_SCALE = 1.001
 
 # Training hyperparameters
-EPOCHS = 5
+EPOCHS = 10
 BATCH_SIZE = 4          # small: frozen transformer still holds all activations in VRAM
 LEARNING_RATE = 1e-4    # higher LR is fine when only adapters are trained
 WEIGHT_DECAY = 1e-2
 WARMUP_RATIO = 0.1      # fraction of steps used for LR warm-up
-PATIENCE = 2            # early-stopping patience (validation loss)
-GRAD_ACCUM_STEPS = 8    # effective batch = BATCH_SIZE × GRAD_ACCUM_STEPS = 32
+PATIENCE = 3            # early-stopping patience (validation loss)
+GRAD_ACCUM_STEPS = 2    # effective batch = BATCH_SIZE × GRAD_ACCUM_STEPS = 8
 
 # Whether to freeze the transformer backbone and train only the adapters.
 # Set True (default): trains adapters only — much lower VRAM, faster convergence.
@@ -441,12 +442,12 @@ def evaluate(
 
     n = len(test_db)
     if n == 0:
-        return {"top-1": 0, "top-5": 0, "top-10": 0, "MAP": 0, "MRR": 0}
+        return {"Top-1": 0, "Top-5": 0, "Top-10": 0, "MAP": 0, "MRR": 0}
 
     return {
-        "top-1":  round(top_k_hits[1] / n, 4),
-        "top-5":  round(top_k_hits[5] / n, 4),
-        "top-10": round(top_k_hits[10] / n, 4),
+        "Top-1":  round(top_k_hits[1] / n, 4),
+        "Top-5":  round(top_k_hits[5] / n, 4),
+        "Top-10": round(top_k_hits[10] / n, 4),
         "MAP":    round(float(np.mean(average_precisions)), 4),
         "MRR":    round(float(np.mean(reciprocal_ranks)), 4),
     }
@@ -478,7 +479,7 @@ def run_blaze_experiment(
         CPL-transfer  : both provided
 
     Returns:
-        dict with keys 'top-1', 'top-5', 'top-10', 'MAP', 'MRR'.
+        dict with keys 'Top-1', 'Top-5', 'Top-10', 'MAP', 'MRR'.
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"\n{'='*60}")
@@ -540,7 +541,7 @@ def run_blaze_experiment(
 
     if not src_train_samples and not tgt_train_samples:
         print("WARNING: No training samples found. Skipping training; returning zeros.")
-        return {"top-1": 0, "top-5": 0, "top-10": 0, "MAP": 0, "MRR": 0}
+        return {"Top-1": 0, "Top-5": 0, "Top-10": 0, "MAP": 0, "MRR": 0}
 
     # 4. Build DataLoaders
     # Training: drop_last=True so every batch has BATCH_SIZE items (needed for
@@ -583,7 +584,11 @@ def run_blaze_experiment(
         (len(source_train_loader) if source_train_loader else 0)
         + (len(target_train_loader) if target_train_loader else 0)
     )
-    total_steps = (total_train_batches // GRAD_ACCUM_STEPS) * EPOCHS
+    # Use ceil so that even when total_train_batches < GRAD_ACCUM_STEPS we get
+    # at least 1 optimizer step per epoch (the training loop always steps at
+    # end-of-epoch via the `(batch_idx+1)==n_batches` guard).
+    optimizer_steps_per_epoch = max(1, math.ceil(total_train_batches / GRAD_ACCUM_STEPS))
+    total_steps = max(1, optimizer_steps_per_epoch * EPOCHS)
     warmup_steps = max(1, int(total_steps * WARMUP_RATIO))
 
     scheduler = transformers.get_linear_schedule_with_warmup(
@@ -634,7 +639,7 @@ def run_blaze_experiment(
     # 7. Evaluation
     if not target_test_ids:
         print("WARNING: No test IDs. Returning zeros.")
-        return {"top-1": 0, "top-5": 0, "top-10": 0, "MAP": 0, "MRR": 0}
+        return {"Top-1": 0, "Top-5": 0, "Top-10": 0, "MAP": 0, "MRR": 0}
 
     print("\n--- Evaluating on target test set ---")
     metrics = evaluate(

@@ -13,7 +13,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # from src.tranp_cnn.pipeline import run_tranp_cnn_experiment
 from src.cooba.pipeline import run_cooba_experiment
 # from src.flim.pipeline import run_flim_experiment
-# from src.blaze.pipeline import run_blaze_experiment
+from src.blaze.pipeline import run_blaze_experiment
+from src.blgan.pipeline import run_blgan_experiment
 
 # def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, target_train_ids, target_test_ids, scenario):
 #     '''
@@ -52,26 +53,23 @@ from src.cooba.pipeline import run_cooba_experiment
 # dmwm/wmcore (263)
 # rucio/rucio (297)
 PROJECTS = [
-    # {'name': 'scipy/scipy', 'language':'python'},
-    # {'name': 'sympy/sympy', 'language':'python'},
-    # {'name': 'matplotlib/matplotlib', 'language':'python'},
-    # {'name': 'numpy/numpy', 'language':'python'},
-    # {'name': 'open-mmlab/mmdetection', 'language':'python'},
-    # {'name': 'ray-project/ray', 'language':'python'},
-    # {'name': 'scikit-learn/scikit-learn', 'language':'python'},
-    # {'name': 'google/jax', 'language':'python'},
-    # {'name': 'jupyterlab/jupyterlab', 'language':'python'},
-    # {'name': 'lightning-ai/lightning', 'language':'python'},
-    {'name': 'prefecthq/prefect', 'language':'python'},
-    {'name': 'pydata/xarray', 'language':'python'}
+    # Phase 1 selected projects — 6 projects, stratified by target LoC
+    # (see results/PYTHON_PROJECT_SELECTION.md for full methodology)
+    {'name': 'jupyterlab/jupyterlab',    'language': 'python'},  # S1 — 39K LoC,  197 bugs
+    {'name': 'lightning-ai/lightning',   'language': 'python'},  # S1 — 51K LoC,  366 bugs
+    {'name': 'prefecthq/prefect',        'language': 'python'},  # S2 — 107K LoC, 404 bugs
+    {'name': 'pydata/xarray',            'language': 'python'},  # S3 — 142K LoC, 110 bugs
+    {'name': 'numpy/numpy',              'language': 'python'},  # S4 — 277K LoC, 789 bugs
+    {'name': 'scikit-learn/scikit-learn','language': 'python'},  # S5 — 376K LoC, 228 bugs
 ]
 
 # Define the models to be evaluated
 MODELS_TO_RUN = {
     # 'TRANP-CNN': run_tranp_cnn_experiment
-    'COOBA': run_cooba_experiment
+    # 'COOBA': run_cooba_experiment,
     # 'FLIM': run_flim_experiment,
-    # 'BLAZE': run_blaze_experiment
+    'BLAZE': run_blaze_experiment
+    # 'BL-GAN': run_blgan_experiment
 }
 
 # Define paths for output
@@ -79,7 +77,7 @@ REPO_BASE_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/repos"
 BUG_METADATA_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/embedding_dbs"
 BLOB_DB_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/embedding_dbs"
 RESULT_PATH = "/home/cs21d002_eashaan/PhD/Objective1/results"
-RESULTS_FILE = os.path.join(RESULT_PATH, 'phase1_experimental_results.csv')
+RESULTS_FILE = os.path.join(RESULT_PATH, 'obj1_experimental_results.csv')
 PROJECTS_METADATA_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/project_metadata.parquet"
 BUG_REPORTS_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/bug_reports_clean.parquet"
 BLOB_CACHE_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/tranp_cnn_cache"
