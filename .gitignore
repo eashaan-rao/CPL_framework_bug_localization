@@ -6,6 +6,7 @@
 /data/embedding_dbs
 /data/embedding_dbs_sample
 /data/cache
+/data/glove
 /.claude
 CLAUDE.md
 *.parquet
