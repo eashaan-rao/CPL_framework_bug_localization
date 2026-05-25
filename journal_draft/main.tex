@@ -169,7 +169,7 @@ The primary outcome of this study will be a set of empirically-grounded, actiona
 
 % Main text
 \section{Introduction}
-he primary objective of this phase of research is to conduct a systematic and comprehensive empirical analysis of Cross-Project Learning (CPL) for the task of bug localization. The core difficulty lies in bridging the semantic gap between the natural language of bug reports and the structured nature of source code. While many methods have been developed, their performance remains suboptimal for practical use, a problem exacerbated by the scarcity of large, high-quality datasets for training robust models. CPL has emerged as a promising technique to address this by leveraging data from multiple source projects to improve performance on a target project. However, CPL introduces its own challenges, such as domain shift and vocabulary mismatch, and its effectiveness has not yet been thoroughly studied under controlled, multi-metric evaluation conditions. This study addresses that gap by not only evaluating whether CPL works, but by systematically identifying the conditions under which it succeeds or fails, and by empirically validating the first data-driven strategy for source project selection.
+The primary objective of this study is to conduct a systematic and comprehensive empirical analysis of Cross-Project Learning (CPL) for the task of bug localization. The core difficulty lies in bridging the semantic gap between the natural language of bug reports and the structured nature of source code. While many methods have been developed, their performance remains suboptimal for practical use, a problem exacerbated by the scarcity of large, high-quality datasets for training robust models. CPL has emerged as a promising technique to address this by leveraging data from multiple source projects to improve performance on a target project. However, CPL introduces its own challenges, such as domain shift and vocabulary mismatch, and its effectiveness has not yet been thoroughly studied under controlled, multi-metric evaluation conditions. This study addresses that gap by not only evaluating whether CPL works, but by systematically identifying the conditions under which it succeeds or fails, and by empirically validating the first data-driven strategy for source project selection.
 
 To achieve this, the study employs \textbf{TRANP-CNN} \cite{huo2019deep}, a convolutional neural network-based reranking model, as the representative SOTA bug localization model for Phase 1 evaluation. The evaluation is structured around four training scenarios designed to isolate the contribution of cross-project data at varying levels of target-project data availability. The study is guided by the following research questions:
 
@@ -187,64 +187,208 @@ To achieve this, the study employs \textbf{TRANP-CNN} \cite{huo2019deep}, a conv
     \textbf{Motivation}: Diagnosing whether failures originate in retrieval (ground-truth file not retrieved) or in reranking (file retrieved but ranked too low) directly informs where architectural investment is most valuable.
 \end{itemize}
 
-\section{Experimental Setup}
-\paragraph{Dataset Selection and Curation.}
-The candidate pool for this study was assembled by consolidating projects from five established bug localization benchmark datasets: \textbf{Bench4BL} \cite{lee2018bench4bl}, \textbf{BeetleBox} \cite{chakraborty2025blaze}, \textbf{LCA} \cite{bogomolov2024long}, \textbf{SWE-bench} \cite{jimenez2023swe}, and the dataset of \textbf{Ye et al.} \cite{ye2014learning}. Across these five sources, the initial candidate pool comprised \textbf{over 500 unique repositories} spanning multiple programming languages. To ensure that experiments are conducted on projects with statistically adequate bug report volumes, projects were filtered according to language-stratified thresholds: for the primary languages (Python and Java), a minimum of \textbf{100 unique bug reports} per project was required; for under-represented languages (Go, C++, JavaScript, Kotlin), a relaxed threshold of \textbf{at least 20 bug reports} was applied to retain sufficient cross-language diversity. After deduplication and quality filtering, this process yielded a curated multi-language pool of \textbf{98 repositories} covering 41 Python, 34 Java, 9 Kotlin, 6 JavaScript, 5 C++, and 3 Go projects.
+\section{Study Design}
 
-For Phase 1 of the Objective 1 evaluation, the scope is restricted to \textbf{14 Python projects} to establish a clean, language-homogeneous baseline for CPL analysis. This restriction avoids confounding the CPL signal with cross-language transfer effects, which will be investigated separately in Objective 2. The 14 projects were selected to ensure diversity in codebase size (39K--696K LoC), application domain (scientific computing, machine learning, data visualization, developer tools, cloud infrastructure), and historical bug report volume (100--789 reports). This produces \textbf{87 unique source$\rightarrow$target project pairs} (all ordered pairs over 14 projects minus same-project pairs where data permits), yielding \textbf{345 individual experiment runs} across four evaluation scenarios. Table~\ref{tab:dataset} summarizes the 14 projects.
+This section provides a complete account of the experimental methodology. We first introduce the three bug localization models evaluated (Section~\ref{sec:models}), then describe dataset construction and project selection (Section~\ref{sec:dataset}), the embedding and preprocessing pipeline (Section~\ref{sec:preprocessing}), the four CPL evaluation scenarios (Section~\ref{sec:scenarios}), the evaluation metrics (Section~\ref{sec:metrics}), the domain gap measurement procedure (Section~\ref{sec:domaingap}), and finally the statistical analysis methods applied across all research questions (Section~\ref{sec:statmethods}).
+
+\subsection{Benchmarked Models}
+\label{sec:models}
+
+A central design choice of this study is to evaluate CPL \emph{across three architecturally distinct} bug localization models, rather than committing to a single representative. This choice guards against conclusions that are artefacts of one model's specific inductive bias. The three models span the dominant paradigms in the current SOTA literature: CNN-based interaction models, GNN-based structural models, and dual-encoder contrastive models. Each is described below.
+
+\paragraph{TRANP-CNN \cite{huo2019deep}.}
+TRANP-CNN (Transfer and NLP-Based CNN) is a retriever-reranker model that treats bug localization as a learning-to-rank problem. A pre-trained FAISS index (inner-product search over L2-normalized file embeddings from BAAI/bge-code-v1 \cite{bge_code}) first retrieves the top-$K = 300$ candidate source files for each bug report, reducing the search space from tens of thousands of files to a manageable candidate set. A CNN-based reranker then takes each (bug report, candidate file) pair, processes them through parallel convolutional feature extractors with kernel sizes of 3, 4, and 5, and produces a scalar relevance score. The model is trained with a margin ranking loss, pushing the ground-truth file's score above all negative candidates by a learned margin. The FAISS pre-filter stage is kept frozen across all scenarios; only the CNN reranker is trained. This architecture makes TRANP-CNN well-suited for controlled ablation because retrieval failures and reranking failures are structurally separable and independently measurable.
+
+\paragraph{COOBA \cite{zhu2020cooba}.}
+COOBA (COoperative Bug localization with Adversarial domain adaptation) is a Graph Neural Network (GNN) based model that explicitly incorporates the Abstract Syntax Tree (AST) of source code files. Each code file is parsed into an AST using language-specific parsers (Python and Java), converted into a graph where nodes represent AST node types and edges represent syntactic relationships, and encoded using graph convolutional layers (GCNConv) with global mean pooling. Bug reports are encoded separately using a bidirectional LSTM over GloVe-300 token embeddings. A \emph{shared extractor} (CNN over pre-computed BGE embeddings) produces domain-invariant representations, while an \emph{individual extractor} (biLSTM over AST node features) captures project-specific structural patterns. Domain adaptation is achieved through a Gradient Reversal Layer (GRL) \cite{ganin2016domain} placed before a binary \emph{project discriminator}: during training, the shared extractor is simultaneously optimized to (i) minimize the ranking loss and (ii) fool the discriminator into being unable to distinguish source from target project representations. This adversarial objective, weighted by $\lambda_{\text{adv}} = 0.1$, encourages the model to learn features that generalize across projects. COOBA uses FAISS top-300 retrieval as its first stage, identical to TRANP-CNN.
+
+\paragraph{BLAZE \cite{chakraborty2025blaze}.}
+BLAZE (Bug Localization via Adaptation and Zero-shot Embedding) is a dual-encoder contrastive model that bypasses FAISS pre-filtering entirely, instead ranking \emph{all} source files in the target project directly. Its backbone is BAAI/bge-code-v1, a 1536-dimensional Qwen2-based decoder model pre-trained for code understanding. Two modal-specific \emph{ResidualAdapters} — lightweight stacks of residual blocks with PReLU activations and LayerNorm — are placed on top of the shared frozen transformer: one for bug reports (prefixed as \texttt{"search\_query: "}) and one for code chunks (prefixed as \texttt{"search\_document: "}). Only these adapter layers are trained; the transformer backbone is frozen throughout to respect GPU memory constraints at our VRAM budget. The model is trained with in-batch NTXentLoss (temperature $\tau = 0.3$) with hard-negative and hard-positive scaling, following the BLAZE paper. At evaluation time, each code file is split into 512-token chunks, each chunk is scored against the bug report embedding via cosine similarity, and the file score is the \emph{maximum} chunk similarity. This design makes BLAZE sensitive to the most relevant passage within a long file, which is particularly advantageous for large codebases. All three models share the same test split and the same four training scenarios, enabling direct cross-model comparison.
+
+Table~\ref{tab:models} summarises the three models' key properties.
 
 \begin{table*}[h]
 \centering
-\caption{The 14 Python projects used in Phase 1, ordered by codebase size.}
+\caption{Summary of the three benchmarked bug localization models and their key architectural properties.}
+\label{tab:models}
+\begin{tabular}{|l|l|l|l|l|}
+\hline
+\textbf{Model} & \textbf{Paradigm} & \textbf{Code Representation} & \textbf{CPL Mechanism} & \textbf{Retrieval Stage} \\ \hline
+TRANP-CNN \cite{huo2019deep} & CNN Reranker & Token n-grams (BGE) & Fine-tune reranker & FAISS top-300 \\ \hline
+COOBA \cite{zhu2020cooba}    & GNN + Adversarial & AST graphs (GCN) & GRL domain adaptation & FAISS top-300 \\ \hline
+BLAZE \cite{chakraborty2025blaze} & Dual Encoder & Transformer chunks (BGE) & Adapter fine-tuning & None (full scan) \\ \hline
+\end{tabular}
+\end{table*}
+
+\subsection{Dataset Selection and Curation}
+\label{sec:dataset}
+
+\paragraph{Source Benchmarks.}
+The candidate pool for this study was assembled by consolidating projects from five established bug localization benchmark datasets: \textbf{Bench4BL} \cite{lee2018bench4bl}, \textbf{BeetleBox} \cite{chakraborty2025blaze}, \textbf{LCA} \cite{bogomolov2024long}, \textbf{SWE-bench} \cite{jimenez2023swe}, and the dataset of \textbf{Ye et al.} \cite{ye2014learning}. We intentionally draw from multiple sources to avoid the selection bias inherent in relying on any single benchmark, each of which was curated under different criteria and for different research objectives. Across these five sources, the initial candidate pool comprised \textbf{over 500 unique repositories} spanning multiple programming languages.
+
+\paragraph{Filtering Criteria.}
+To ensure that experiments are conducted on projects with statistically adequate bug report volumes, projects were filtered according to language-stratified thresholds. For the primary languages (Python and Java), a minimum of \textbf{100 unique bug reports} per project was required; this threshold ensures that the 80/20 train/test split used in all four evaluation scenarios (Section~\ref{sec:scenarios}) leaves a test set of at least 20 bug reports, sufficient for stable metric estimation. For under-represented languages (Go, C++, JavaScript, Kotlin), a relaxed threshold of \textbf{at least 20 bug reports} was applied to retain sufficient cross-language diversity without eliminating potentially informative projects. Each bug report was required to have a verified ground-truth file mapping (i.e., a commit SHA identifying the exact source file modified to resolve the reported bug); reports with missing annotations or malformed commit references were discarded. After deduplication and quality filtering, this process yielded a curated multi-language pool of \textbf{98 repositories} covering 41 Python, 34 Java, 9 Kotlin, 6 JavaScript, 5 C++, and 3 Go projects.
+
+\paragraph{Phase 1 Scope: 13 Python Projects.}
+For Phase 1 of this study, the scope is restricted to \textbf{13 Python projects} to establish a language-homogeneous baseline for CPL analysis. This restriction avoids confounding the CPL signal with cross-language transfer effects, which introduce an additional dimension of variation (syntactic structure, vocabulary, file granularity) that would obscure the factors of primary interest. Cross-language CPL is deferred to a subsequent phase of investigation. The 13 projects were selected to satisfy three diversity criteria simultaneously: (i) \textbf{codebase size diversity}, spanning from 35K to 572K lines of code to expose the full spectrum of retrieval difficulty; (ii) \textbf{domain diversity}, covering five distinct application domains to enable analysis of cross-domain transfer; and (iii) \textbf{bug corpus size diversity}, ranging from 110 to 1,336 bug reports to allow study of the data-scarcity regime. Table~\ref{tab:dataset} summarises the 13 projects and their key properties.
+
+\begin{table*}[h]
+\centering
+\caption{The 13 Python projects used in Phase 1, grouped by domain and ordered by codebase size within each group. Size categories: Small ($<$100K LoC), Medium (100--200K LoC), Large (200--400K LoC), XLarge ($>$400K LoC).}
 \label{tab:dataset}
 \begin{tabular}{|l|c|c|c|c|}
 \hline
 \textbf{Project} & \textbf{LoC} & \textbf{Bug Reports} & \textbf{Domain} & \textbf{Size Category} \\ \hline
-jupyterlab/jupyterlab   &  39,372 & 197 & Developer Tools      & Small  \\ \hline
-google/jax              &  72,684 & 326 & Scientific/ML        & Small  \\ \hline
-lightning-ai/lightning  &  51,387 & 366 & Scientific/ML        & Small  \\ \hline
-prefecthq/prefect       & 107,073 & 404 & Cloud Infrastructure & Medium \\ \hline
-pydata/xarray           & 142,044 & 110 & Scientific Computing & Medium \\ \hline
-rucio/rucio             & 156,628 & 404 & Cloud Infrastructure & Medium \\ \hline
-open-mmlab/mmdetection  & 208,928 & 102 & Computer Vision      & Large  \\ \hline
-matplotlib/matplotlib   & 248,837 & 183 & Data Visualization   & Large  \\ \hline
-ray-project/ray         & 244,283 & 337 & Scientific/ML        & Large  \\ \hline
-numpy/numpy             & 276,548 & 789 & Scientific Computing & Large  \\ \hline
-scikit-learn/scikit-learn & 376,169 & 228 & Machine Learning    & XLarge \\ \hline
-scipy/scipy             & 438,217 & 100 & Scientific Computing & XLarge \\ \hline
-sympy/sympy             & 696,129 & 384 & Mathematics          & XLarge \\ \hline
-dmwm/wmcore             & 1,048,906 & 277 & Cloud Infrastructure & XLarge \\ \hline
+docker/compose             &  35,000 & 572  & Systems / Containers     & Small  \\ \hline
+jupyterlab/jupyterlab      &  39,000 & 197  & Developer Tools / DS     & Small  \\ \hline
+lightning-ai/lightning     &  51,000 & 366  & Scientific / ML          & Small  \\ \hline
+ipython/ipython            &  78,000 & 832  & Developer Tools          & Small  \\ \hline
+prefecthq/prefect          & 107,000 & 404  & Cloud Infra / MLOps      & Medium \\ \hline
+mesonbuild/meson           & 121,000 & 937  & Build Systems / DevTools & Medium \\ \hline
+pydata/xarray              & 142,000 & 110  & Scientific Computing     & Medium \\ \hline
+numpy/numpy                & 277,000 & 789  & Scientific Computing     & Large  \\ \hline
+wagtail/wagtail            & 286,000 & 404  & Web Frameworks           & Large  \\ \hline
+ansible/ansible            & 348,000 & 768  & DevOps / Automation      & Large  \\ \hline
+scikit-learn/scikit-learn  & 376,000 & 228  & Machine Learning         & Large  \\ \hline
+qiskit/qiskit              & 435,000 & 1336 & Scientific / Quantum     & XLarge \\ \hline
+localstack/localstack      & 572,000 & 472  & Cloud Infrastructure     & XLarge \\ \hline
 \end{tabular}
 \end{table*}
 
-\subsection{Dataset Preprocessing}
-The preprocessing pipeline is structured into two distinct stages. In the first stage, bug report preprocessing, raw bug reports are extracted from the respective benchmark datasets and deduplicated by commit SHA to ensure each report maps to a unique ground-truth file set. Reports with missing ground-truth annotations or malformed commit references are discarded, resulting in a clean corpus of project-level bug metadata stored in a standardized Parquet format. In the second stage, source code embedding, all source files from each project repository are chunked into segments of 512 tokens with an overlap of 50 tokens, and each chunk is encoded using the \textbf{BAAI/bge-code-v1} \cite{bge_code} embedding model (768-dimensional, float32). These chunk-level embeddings are averaged to produce a single file-level embedding, stored as \texttt{float32} vectors in per-project pickle files. Bug report embeddings are generated analogously by encoding the full bug report text. The resulting per-project \textit{blob embedding databases} and \textit{bug metadata databases} serve as the foundation for both retrieval and domain gap computation.
+\paragraph{Pair Selection: 63 Directional Pairs.}
+A naïve all-pairs design over 13 projects yields $13 \times 12 = 156$ directed pairs, which would require approximately 1,872 experiment runs across three models and four scenarios — infeasible within our compute budget without sacrificing statistical quality. Instead, we define a \textbf{principled 63-pair paper set} that maximises analytical coverage while remaining executable. The selection is structured into three groups, each serving a distinct analytical purpose.
 
-\subsection{Evaluation Pipeline.}
-The study adopts a \textbf{Retriever-Reranker} architecture. The retriever is a \textbf{FAISS IndexFlatIP} (inner-product search after L2 normalization), which retrieves the top-$K$ = 300 candidate source files for each bug report. The reranker is \textbf{TRANP-CNN} \cite{huo2019deep}, a CNN-based model that takes the (bug report, candidate file) pair as input and produces a relevance score used to re-rank the 300 candidates. This architecture decouples retrieval quality from reranking quality, enabling precise diagnosis of where failures occur.
+\textbf{Group A — Within-Domain Pairs (30 pairs).} All bidirectional directed pairs among the six \emph{Data Science and ML} projects (jupyterlab, lightning-ai, prefecthq, pydata/xarray, numpy, scikit-learn). This group forms the statistical backbone of the study, providing 30 paired observations for all four RQs under controlled domain conditions. All 15 symmetric pairs appear in both directions, enabling a systematic commutativity analysis.
 
-\subsection{Training Scenarios.}
-Every source$\rightarrow$target pair is evaluated under four training regimes, as described in Table~\ref{tab:scenarios}.
+\textbf{Group B — Cross-Domain Hub Pairs (14 pairs).} Both directions between jupyterlab (the smallest project, 39K LoC) and each of the seven non-DS projects (ipython, meson, ansible, docker, localstack, wagtail, qiskit). Using a fixed small-LoC target isolates the effect of domain crossing from the confound of target size, directly answering whether CPL transfers across application domains when the target project's size is held constant.
+
+\textbf{Group C — Strategic Cross-Domain Diversity (19 pairs).} Carefully selected pairs that fill analytical gaps left by Groups A and B: large-to-large cross-domain transfers, DevOps/Systems/Apps interactions, and pairs that ensure every target project has at least three distinct source projects available for the source selection analysis (RQ3). Table~\ref{tab:pairs} summarises the three groups.
+
+\begin{table}[h]
+\centering
+\caption{Structure of the 63-pair paper set across three complementary groups.}
+\label{tab:pairs}
+\begin{tabular}{|l|c|l|}
+\hline
+\textbf{Group} & \textbf{Pairs} & \textbf{Primary Analytical Purpose} \\ \hline
+A — Within-Domain (DS$\times$DS) & 30 & RQ1 statistical backbone; commutativity analysis \\ \hline
+B — Cross-Domain Hub (jupyterlab) & 14 & Domain-crossing signal; LoC effect isolation \\ \hline
+C — Strategic Cross-Domain & 19 & Large target coverage; source selection completeness \\ \hline
+\textbf{Total} & \textbf{63} & \textbf{252 runs per model; 756 runs across all three models} \\ \hline
+\end{tabular}
+\end{table}
+
+Every target project in the 63-pair set has at least three distinct source projects (jupyterlab has 12), satisfying the minimum required by the Kendall $\tau$ source selection analysis in RQ3. The 63-pair design provides sufficient statistical power for all planned analyses: 63 paired observations exceeds the 50 required for 80\% power in the Wilcoxon signed-rank test (RQ1); the Spearman correlation analysis for the dominant predictor ($\rho \approx -0.85$, tgt\_LoC) is valid at $n = 22$, meaning the 63-pair corpus is over-powered by a factor of 3 for this effect.
+
+\subsection{Data Preprocessing}
+\label{sec:preprocessing}
+
+The preprocessing pipeline proceeds in two sequentially dependent stages: bug report curation and source code embedding. Both stages are executed once per project and the outputs are persisted to disk as project-level databases, avoiding redundant recomputation across the 756 experiment runs.
+
+\paragraph{Stage 1 — Bug Report Curation.}
+Raw bug reports are extracted from the five source benchmarks and cross-referenced against the repository's commit history to obtain ground-truth file mappings. Each bug report is uniquely identified by its commit SHA, which encodes the exact source file (or files) modified to resolve the bug. Reports are deduplicated at the commit SHA level: if multiple issue tracker entries map to the same commit, they are collapsed into a single canonical bug report. Reports with missing SHA annotations, ambiguous multi-file patches (where the ground-truth set exceeds 10 files, indicating a refactoring or merge commit rather than a bug fix), or patches touching only non-source files (e.g., documentation, CI configuration) are discarded. The resulting \emph{bug metadata database} for each project is stored as a Parquet file with columns \texttt{\{bug\_id, bug\_text, gt\_file\_path, commit\_sha\}} and serves as the sole ground-truth reference for all downstream evaluation.
+
+\paragraph{Stage 2 — Source Code Embedding.}
+All source files in each project repository are extracted at the commit corresponding to each bug report, ensuring that the indexed codebase reflects the state of the project at the time the bug was filed (rather than the current HEAD, which may have undergone substantial refactoring). Each file is processed through the \textbf{BAAI/bge-code-v1} \cite{bge_code} embedding model — a 1536-dimensional Qwen2-based decoder pre-trained on a diverse multilingual code corpus — to produce a fixed-length semantic representation. Files exceeding 512 tokens are split into overlapping chunks of \textbf{512 tokens with 50-token overlap}; each chunk is independently encoded, and the resulting chunk embeddings are averaged to produce a single \textbf{file-level embedding} stored as a \texttt{float32} vector. Bug report texts are encoded analogously (the full text is used if it fits in 512 tokens; longer reports are chunked and averaged). The 512/50 chunking parameters were chosen to match the maximum sequence length of the bge-code-v1 model while retaining sufficient contextual continuity across chunk boundaries.
+
+The per-project outputs are two binary databases in \texttt{float32} precision: the \emph{blob embedding database} (\texttt{<project>\_blob\_embeddings32.pkl}) mapping each source file's blob SHA to its 1536-dimensional embedding, and the \emph{bug metadata database} (\texttt{<project>\_bug\_metadata32.pkl}) mapping each bug ID to its embedding and ground-truth annotation. These databases serve as shared inputs to all three models, ensuring that any observed performance differences are attributable to model architecture rather than to differences in input representation quality. The embedding pipeline uses a producer-consumer multiprocessing architecture with 8 CPU worker processes for tokenization and batched GPU inference with a batch size of 256, processing all 13 projects in approximately 6 hours on a single A100 GPU.
+
+% [FIGURE PLACEHOLDER: Figure — Architecture of the preprocessing pipeline showing the producer-consumer
+% multiprocessing design, the BGE encoding step, chunk aggregation, and the resulting blob/bug database structure.
+% Suggested path: figs/preprocessing_pipeline.pdf ]
+
+\subsection{Evaluation Pipeline}
+\label{sec:pipeline}
+
+\paragraph{TRANP-CNN and COOBA: Retriever-Reranker Architecture.}
+Both TRANP-CNN and COOBA adopt a two-stage pipeline. In the \emph{retrieval stage}, a \textbf{FAISS IndexFlatIP} index is constructed for each target project by loading all file embeddings, normalizing them via L2-normalization (converting inner product to cosine similarity), and building an exact nearest-neighbour index. At evaluation time, each bug report is encoded, L2-normalized, and used to query the index, retrieving the top-$K = 300$ candidate files. The value $K = 300$ was selected by analysing the FAISS recall curve across $K \in \{30, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500, 600, 700\}$ and identifying the smallest $K$ at which ground-truth recall reached saturation (see RQ4 results). In the \emph{reranking stage}, the respective model processes each (bug report, candidate file) pair and assigns a relevance score. For TRANP-CNN, this is a CNN with parallel convolutions over token sequences; for COOBA, this is a GCN over the AST graph combined with a biLSTM over GloVe-encoded bug report tokens. The 300 candidates are re-sorted by their relevance scores, and evaluation metrics are computed against the re-sorted list.
+
+\paragraph{BLAZE: Full-Scan Dual-Encoder.}
+BLAZE bypasses the retrieval stage entirely. At evaluation time, the fine-tuned BlazeEmbedding model encodes the bug report and computes cosine similarity against \emph{every} file in the target project's codebase — no FAISS pre-filter is applied. Each file is scored as the maximum cosine similarity over its chunks (the ``MaxSim'' aggregation strategy from the original BLAZE paper). The full list of files is sorted by score and evaluation metrics are computed directly. This design means that BLAZE's recall@K is not bounded by a retrieval ceiling, and its performance on large-codebase targets reflects the model's raw ability to rank files without assistance from a retrieval heuristic.
+
+% [FIGURE PLACEHOLDER: Figure — Side-by-side schematic of the Retriever-Reranker pipeline (TRANP-CNN, COOBA)
+% and the full-scan Dual-Encoder pipeline (BLAZE), highlighting where each model's computation occurs.
+% Suggested path: figs/evaluation_pipeline.pdf ]
+
+\subsection{Training Scenarios}
+\label{sec:scenarios}
+
+The study is structured around four complementary training regimes, each designed to isolate a specific component of the CPL hypothesis. The split structure is fixed across all pairs, models, and scenarios: target project bug reports are partitioned into an 80\% \emph{training pool} and a 20\% \emph{held-out test set} using a stratified random split with random seed 42. Within the training pool, sub-samples are drawn as follows.
+
+\begin{itemize}
+    \item \textbf{WP-small (Within-Project, Limited Data):} The model is trained on approximately 10\% of the full target bug corpus (specifically, 12.5\% of the 80\% training pool, yielding $\approx$10\% of total target bugs). This scenario represents the practical setting of a newly active project or an under-reported software system that has accumulated only a small number of annotated bugs — the exact regime where CPL is most likely to offer value. It serves as the \emph{matched-budget baseline}: for any CPL scenario to be credibly useful, it should outperform WP-small, since both use the same 10\% of target data as fine-tuning input (in the CP-transfer case) or no target data at all (in the CP-cold-start case).
+
+    \item \textbf{WP-large (Within-Project, Full Data):} The model is trained on the full 80\% training pool of target bug reports. This scenario represents the ideal data-rich within-project setting and functions as the \emph{performance ceiling}: it quantifies how much of the gap between WP-small and WP-large can be recovered by CPL, and whether CPL can close this gap under the matched-budget comparison.
+
+    \item \textbf{CP-cold-start (Cross-Project, Zero-Shot):} The model is trained exclusively on 100\% of the source project's bug reports, with no target data used during training whatsoever. This scenario evaluates the zero-shot generalization capability of each architecture — whether the learned bug-file alignment from a foreign project transfers without any adaptation. CP-cold-start results also provide a lower bound on what structured source selection can achieve independently of target availability.
+
+    \item \textbf{CP-transfer (Cross-Project, Fine-Tuned):} The model is trained on 100\% of source project bugs concatenated with 25\% of the target training pool (yielding $\approx$20\% of total target bugs), and evaluated on the held-out 20\% test set. This is the \emph{core CPL scenario}: it simulates a practitioner who has access to a rich external project corpus and a small but non-zero annotation budget on the target project. The data budget (20\% target) is deliberately matched to WP-small to enable a fair head-to-head comparison under equal target annotation cost.
+\end{itemize}
+
+Table~\ref{tab:scenarios} provides a compact summary of the four scenarios with their data configurations.
 
 \begin{table*}[h]
 \centering
-\caption{Four evaluation scenarios and their data configurations.}
+\caption{Four evaluation scenarios, their data configurations, and their role in the study design. All scenarios share the same held-out test set (20\% of target bugs, seed 42).}
 \label{tab:scenarios}
-\begin{tabular}{|l|l|p{6.5cm}|}
+\begin{tabular}{|l|l|c|p{6cm}|}
 \hline
-\textbf{Scenario} & \textbf{Training Data} & \textbf{Research Relevance} \\ \hline
-WP-small & 20\% target bugs only & Baseline: limited within-project training \\ \hline
-WP-large & 80\% target bugs only & Upper bound: maximum within-project training \\ \hline
-CP-cold-start & 100\% source, 0\% target & Zero-shot cross-project transfer \\ \hline
-CP-transfer & 100\% source + 20\% target & Core CPL hypothesis: cross-project pre-training with minimal target fine-tuning \\ \hline
+\textbf{Scenario} & \textbf{Training Data} & \textbf{Target Budget} & \textbf{Role in Study} \\ \hline
+WP-small     & $\sim$10\% target bugs only                 & Low    & Matched-budget baseline; practical data-scarce setting \\ \hline
+WP-large     & 80\% target bugs only                       & High   & Performance ceiling; maximum within-project training \\ \hline
+CP-cold-start & 100\% source, 0\% target                   & None   & Zero-shot transfer; lower bound on source quality \\ \hline
+CP-transfer  & 100\% source + $\sim$20\% target           & Low    & Core CPL scenario; matched budget to WP-small \\ \hline
 \end{tabular}
 \end{table*}
 
 \subsection{Evaluation Metrics}
-Five complementary metrics are reported throughout this study to provide a complete picture of both retrieval and ranking performance. \textbf{Top-$K$ Recall} ($K \in \{1, 5, 10\}$) measures the fraction of bug reports for which the ground-truth file appears within the top $K$ ranked candidates. \textbf{Mean Average Precision (MAP)} measures the average precision at each rank position where a relevant file appears, rewarding models that place correct files higher in the ranking. \textbf{Mean Reciprocal Rank (MRR)} computes the mean of $1/\text{rank}$ across all bug reports, where rank is the position of the first correct answer. Together, Top-$K$ captures retrieval breadth while MAP and MRR capture ranking precision. It is important to note that these two families of metrics can diverge: a model may achieve high Top-10 recall but low MRR if the correct file is consistently ranked at position 9 rather than 1. Both perspectives are reported to avoid misleading conclusions.
+\label{sec:metrics}
 
-\subsection{Domain Gap Measurement.}
-To quantify the structural dissimilarity between project pairs, a \textbf{domain gap} score is computed for each source$\rightarrow$target combination by training a \texttt{LogisticRegression} binary classifier on the blob embeddings of the two projects. The rationale for this choice is three-fold. First, the \textbf{blob embeddings} (produced by BAAI/bge-code-v1) are high-dimensional, semantically rich representations that encode both vocabulary patterns and structural properties of source code files; a linear classifier applied to these embeddings directly tests whether the two projects are linearly separable in the shared embedding space, a necessary condition for domain shift to influence model transferability. Second, \textbf{logistic regression} is a well-understood, low-capacity classifier whose accuracy under balanced sampling is a clean measure of separability rather than a model-specific artifact: if the two projects are truly similar in embedding space, a logistic regression will achieve accuracy near 0.5 (chance); if they occupy disjoint regions, it will achieve accuracy near 1.0. Third, logistic regression has been widely used as a separability probe in domain adaptation literature and avoids the risk of a more powerful classifier overfitting on small embedding datasets. The resulting classification accuracy serves as the domain gap metric: a score of 1.0 indicates fully disjoint embedding distributions (high domain gap), while 0.5 indicates complete overlap (zero gap).
+Five complementary metrics are reported throughout this study to provide a complete picture of both retrieval breadth and ranking precision. The metrics are computed over the \emph{re-ranked} candidate list (top-300 for TRANP-CNN and COOBA; full file list for BLAZE) for each bug report in the test set, and averaged over all test reports.
+
+\textbf{Top-$K$ Recall} ($K \in \{1, 5, 10\}$) measures the fraction of bug reports for which the ground-truth file appears within the top $K$ positions of the ranked candidate list. Top-1 captures precision-at-one (whether the correct file is the model's most confident prediction), while Top-10 captures retrieval breadth (whether the correct file appears anywhere in a short-list of 10 candidates). These metrics directly reflect the user experience: a developer using a bug localization tool who inspects the top-$K$ recommendations sees the ground-truth file if and only if Top-$K$ recall is 1 for that report.
+
+\textbf{Mean Average Precision (MAP)} computes, for each bug report, the precision at every rank position where a relevant file appears, averages these precision values across all relevant positions, and then averages across all bug reports. In the single-ground-truth-file setting of this study (each bug report has exactly one correct file), MAP reduces to Precision@rank, i.e., $1/r_i$ where $r_i$ is the rank of the ground-truth file for bug $i$. MAP rewards models that consistently rank the correct file highly, and is more sensitive to rank-position precision than Top-$K$.
+
+\textbf{Mean Reciprocal Rank (MRR)} computes the mean of $1/\text{rank}$ across all bug reports, where rank is the position of the first correctly identified file. In the single-relevant-document case, MRR is identical to MAP; both are reported for comparability with prior literature, where different papers use different conventions.
+
+A key property of these metric families is that they can \emph{diverge}: a model may achieve high Top-10 recall but low MRR if the correct file is consistently ranked ninth rather than first. This divergence is itself informative — it reveals whether a model's failures are catastrophic (file not retrieved at all) or marginal (file retrieved but ranked too low). Both perspectives are systematically reported and interpreted throughout the Results section.
+
+\subsection{Domain Gap Measurement}
+\label{sec:domaingap}
+
+To quantify the structural dissimilarity between source and target projects, a \textbf{domain gap score} is computed for every pair by training a binary logistic regression classifier to distinguish the two projects' file embeddings. The procedure is as follows: (i) all file-level BGE embeddings from the source project are assigned label 0, and all embeddings from the target project are assigned label 1; (ii) a balanced 80/20 stratified split is constructed; (iii) a \texttt{LogisticRegression} classifier with $\ell_2$ regularization (default $C = 1.0$, up to 1000 iterations) is trained on the 80\% split and evaluated on the 20\% held-out split; (iv) the \emph{test accuracy} is recorded as the domain gap score.
+
+The rationale for this choice is three-fold. First, the BGE embeddings are high-dimensional (1536-dimensional) semantically rich representations that encode both lexical patterns and structural properties of source code; a linear classifier applied to these embeddings directly tests whether the two projects occupy linearly separable regions of the shared embedding space — a necessary condition for domain shift to impair model transferability. Second, logistic regression is a well-understood, low-capacity classifier whose accuracy under balanced sampling is a clean measure of \emph{separability} rather than a model-specific artifact: a domain gap of 0.5 indicates that the two projects are indistinguishable in embedding space (no domain shift), while a score of 1.0 indicates that they occupy fully disjoint regions (maximum domain shift). Third, the linear probe approach has been widely used as a separability diagnostic in the domain adaptation literature \cite{ganin2016domain} and avoids the risk of a more powerful (non-linear) classifier overfitting on small embedding datasets. Domain gap scores for all project pairs are computed once and stored in \texttt{results/all\_project\_domain\_gaps.csv}, shared across all three model evaluations.
+
+\subsection{Statistical Analysis Methods}
+\label{sec:statmethods}
+
+The study employs a layered statistical analysis framework, described in full here so that each analysis in Section~\ref{sec:results} can be interpreted in context.
+
+\paragraph{RQ1 — Wilcoxon Signed-Rank Test.}
+To assess whether CP-transfer significantly outperforms WP-small, a \textbf{Wilcoxon signed-rank test} \cite{wilcoxon1945} is applied to each metric separately. This non-parametric paired test is appropriate because: (i) observations are naturally paired — each source$\rightarrow$target pair contributes one CP-transfer result and one WP-small result under identical test conditions; and (ii) the distribution of metric improvements across a diverse project corpus cannot be assumed normal (the Shapiro-Wilk test rejects normality for most metric distributions in our corpus). A one-sided alternative is tested ($H_1$: CP-transfer $>$ WP-small). Effect sizes are reported as the mean absolute gain. Analyses are performed separately for each model (BLAZE, COOBA, TRANP-CNN) and then jointly assessed for cross-model consistency.
+
+\paragraph{RQ2 — Spearman Rank Correlation.}
+To identify project-level features predictive of CP-transfer performance, \textbf{Spearman's $\rho$} is computed between each feature and each metric across all pairs. Spearman's $\rho$ is preferred over Pearson's $r$ because the project corpus spans several orders of magnitude in codebase size and bug count, making linear association assumptions inappropriate. Features examined include: target LoC (\texttt{tgt\_LoC}), source LoC (\texttt{src\_LoC}), target bug count (\texttt{tgt\_n\_bugs}), source bug count (\texttt{src\_n\_bugs}), target bug report verbosity (average word count per report), source bug report verbosity, LoC ratio (\texttt{src\_LoC / tgt\_LoC}), and domain gap score. Significance thresholds follow the standard convention: $\star\star\star$ ($p < 0.001$), $\star\star$ ($p < 0.01$), $\star$ ($p < 0.05$), n.s. ($p \geq 0.05$).
+
+\paragraph{RQ3 — Source Selection Evaluation (Kendall $\tau$ and Hit@1).}
+To evaluate source selection strategies, \textbf{Kendall's rank correlation ($\tau$)} is computed between the ordering produced by each strategy and the oracle ordering (sorted by actual CP-transfer MRR) for each target project with at least three available sources. Hit@1 accuracy (the fraction of targets for which the strategy selects the oracle-best source) is also reported. For the \emph{most-bugs heuristic} (select the source with the largest bug corpus), Kendall's $\tau$ and Hit@1 are compared against a random baseline ($\tau \approx 0$, Hit@1 $\approx 1/N_{\text{sources}}$) and the oracle upper bound (Hit@1 = 100\%, $\tau = 1$).
+
+\paragraph{RQ4 — FAISS Retrieval Ceiling Analysis.}
+For TRANP-CNN and COOBA (which use FAISS pre-filtering), the fraction of bug reports for which the ground-truth file is \emph{absent} from the top-300 candidates (\texttt{pct\_unreachable}) is computed across all pairs and scenarios. Additionally, the rank displacement distribution ($\text{faiss\_rank} - \text{model\_rank}$) is analysed to determine whether reranking failures are systematic or marginal.
+
+\paragraph{Cross-Model Consistency Analysis.}
+For pairs evaluated by two or more models, the direction of CPL gain (CP-transfer $-$ WP-small MRR $> 0$ or $< 0$) is compared across models. Cross-model agreement is quantified as the fraction of pairs where both models agree on the sign of the gain. The magnitude correlation between models is assessed via Spearman $\rho$ on the numerical $\Delta$MRR values. This analysis tests the architecture-independence of the CPL findings.
+
+\paragraph{Negative Transfer Analysis.}
+A pair is classified as exhibiting \emph{negative transfer} if CP-transfer MRR $<$ WP-small MRR by more than a threshold of 0.01 MRR points (the neutral band $|\Delta| < 0.01$ is treated as no-effect). For negative transfer pairs, feature analysis identifies the structural conditions (target LoC, LoC ratio, domain gap) most predictive of the sign of transfer. Commutativity analysis examines whether, for symmetric pairs $(A \to B, B \to A)$, positive transfer in one direction predicts negative transfer in the other, and whether this asymmetry is explained by target LoC alone.
+
+\paragraph{Effect Size Analysis.}
+Beyond statistical significance, \textbf{Cohen's $d$} is computed for the CPL gain distributions to assess practical significance. The LoC-stratified effect size analysis partitions pairs into Small, Medium, Large, and XLarge target categories and reports mean gain and Cohen's $d$ separately for each stratum, testing whether CPL's advantage is concentrated in a specific size regime.
+
+% [FIGURE PLACEHOLDER: Figure — Statistical analysis workflow diagram showing the dependency between
+% RQs, statistical tests, and analysis scripts. Suggested path: figs/analysis_workflow.pdf ]
 
 \section{Results and Discussion}
 
