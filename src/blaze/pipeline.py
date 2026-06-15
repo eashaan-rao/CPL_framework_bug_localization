@@ -15,6 +15,7 @@ import copy
 import itertools
 import math
 import os
+import time
 
 import git
 import numpy as np
@@ -85,6 +86,50 @@ FREEZE_TRANSFORMER = True
 # Evaluation batch size (larger: inference is cheaper than training)
 EVAL_BATCH_SIZE = 16
 
+# GPU memory guard — pause BLAZE and offload model to CPU when GPU is tight,
+# so COOBA shards always have headroom for their occasional spikes to ~45 GB.
+GPU_FREE_THRESHOLD_MiB = 8_192    # back off when less than 8 GB is free
+GPU_POLL_INTERVAL_S    = 30       # seconds between checks while waiting
+GPU_CHECK_EVERY_N_BATCHES = 20    # how often to check mid-epoch
+
+
+# ---------------------------------------------------------------------------
+# GPU guard helpers
+# ---------------------------------------------------------------------------
+
+def _gpu_free_mib() -> float:
+    """Return free GPU memory in MiB (CUDA API — no subprocess overhead)."""
+    free_bytes, _ = torch.cuda.mem_get_info()
+    return free_bytes / (1024 ** 2)
+
+
+def _wait_for_gpu(model: torch.nn.Module, device: str,
+                  threshold_mib: int = GPU_FREE_THRESHOLD_MiB) -> None:
+    """
+    Block until the GPU has at least threshold_mib free.
+    While waiting, offloads the model to CPU so COOBA shards can use the
+    memory during their allocation spikes — preventing COOBA OOM as well.
+    """
+    if _gpu_free_mib() >= threshold_mib:
+        return  # fast path — no waiting needed
+
+    free = _gpu_free_mib()
+    print(f"\n  [GPU guard] {free:.0f} MiB free (< {threshold_mib} MiB threshold). "
+          f"Offloading BLAZE model to CPU to free headroom for COOBA...")
+    model.cpu()
+    torch.cuda.empty_cache()
+
+    while True:
+        free = _gpu_free_mib()
+        if free >= threshold_mib:
+            break
+        print(f"  [GPU guard] {free:.0f} MiB free — still waiting "
+              f"({GPU_POLL_INTERVAL_S}s interval)...")
+        time.sleep(GPU_POLL_INTERVAL_S)
+
+    print(f"  [GPU guard] {free:.0f} MiB free — resuming, moving model back to {device}.")
+    model.to(device)
+
 
 # ---------------------------------------------------------------------------
 # Training helpers
@@ -149,6 +194,10 @@ def _train_epoch(
     pbar = tqdm(loaders, total=n_batches, desc=f"Epoch {epoch+1} [{label}]")
 
     for batch_idx, batch in enumerate(pbar):
+        # Periodic GPU memory check — offloads model to CPU if COOBA is spiking
+        if batch_idx % GPU_CHECK_EVERY_N_BATCHES == 0:
+            _wait_for_gpu(model, device)
+
         issue_ids = batch["issue_id"].to(device)
 
         with torch.amp.autocast(device_type="cuda"):
@@ -605,6 +654,7 @@ def run_blaze_experiment(
 
     print(f"\n--- Training (max {EPOCHS} epochs) ---")
     for epoch in range(EPOCHS):
+        _wait_for_gpu(model, device)  # block epoch start if GPU is tight
         train_loss = _train_epoch(
             model, loss_fn, optimizer, scheduler, scaler,
             source_train_loader, target_train_loader, device, epoch,
@@ -642,6 +692,7 @@ def run_blaze_experiment(
         return {"Top-1": 0, "Top-5": 0, "Top-10": 0, "MAP": 0, "MRR": 0}
 
     print("\n--- Evaluating on target test set ---")
+    _wait_for_gpu(model, device)  # ensure headroom before full-snapshot embedding pass
     metrics = evaluate(
         model=model,
         bug_metadata_db=target_bug_db,

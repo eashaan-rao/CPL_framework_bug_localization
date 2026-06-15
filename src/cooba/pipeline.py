@@ -1,3 +1,4 @@
+import math
 import pandas as pd
 import os
 import git
@@ -17,9 +18,11 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence
 from torch_geometric.data import Batch, Data
 import time
+import gc
+import shutil
 
 # Local imports
-from .model import COOBA, ProjectDiscriminator
+from .model import COOBA, ProjectDiscriminator, GradientReversalLayer
 from .ast_parsers import PythonASTParser, JavaASTParser
 from .utils import load_glove, glove_lookup, text_to_glove_sequence
 
@@ -39,7 +42,7 @@ GLOVE_DIM = 300
 # Experiment settings
 TOP_K_CANDIDATES = 300
 MAX_BUG_LEN = 512   # max words in bug report sequence
-# No MAX_AST_NODES cap — true Python/Java AST used; OOM protection in training loop
+MAX_AST_NODES = 5000  # cap AST graph size; prevents OOM on auto-generated / minified files
 
 # Model Hyperparameters - FIXED: Use 'hidden_size' instead of 'hidden_dim'
 PARAMS = {
@@ -55,7 +58,7 @@ BATCH_SIZE = 16  # Reduced to accommodate variable true-AST graph sizes
 LEARNING_RATE = 0.001
 DISC_LEARNING_RATE = 0.0005
 WEIGHT_DECAY = 1e-5
-MARGIN = 0.4 # For Margin Ranking Loss
+MARGIN = 1.0  # For Margin Ranking Loss; scaled for normalized L2² ∈ [0, 4]
 LAMBDA_ADV = 0.1 # Weight for adversarial loss
 
 # Helper functions
@@ -226,6 +229,16 @@ class CoobaBugLocalizationDataset(Dataset):
                 )
             torch.save({'graph_data': graph_data}, cache_path)
 
+        # Truncate oversized AST graphs to prevent OOM
+        if graph_data.x.shape[0] > MAX_AST_NODES:
+            graph_data = Data(
+                x=graph_data.x[:MAX_AST_NODES],
+                edge_index=graph_data.edge_index[
+                    :, (graph_data.edge_index[0] < MAX_AST_NODES) &
+                       (graph_data.edge_index[1] < MAX_AST_NODES)
+                ]
+            )
+
         return {
             'bug_embeddings': bug_embeddings,    # (MAX_BUG_LEN, GLOVE_DIM)
             'bug_length': bug_len,               # actual word count for BiLSTM packing
@@ -277,157 +290,161 @@ def cooba_collate_fn(batch):
     }
 
 # --- 4. Training and Evaluation ---
-def train_cooba(model, discriminator, source_loader, target_loader, optimizer_main, 
-                optimizer_disc, epoch, device, mode='cross-project'):
-    '''
-    Main Training loop for COOBA with adversarial learning. 
-    '''
+
+def _compute_task_loss(scores, labels, criterion, device):
+    """MarginRankingLoss over positive/negative pairs in a batch."""
+    pos_mask = (labels == 1)
+    neg_mask = (labels == 0)
+    if not (torch.any(pos_mask) and torch.any(neg_mask)):
+        return torch.tensor(0.0, device=device)
+    pos_s = scores[pos_mask]
+    neg_s = scores[neg_mask]
+    n = min(len(pos_s), len(neg_s))
+    if n == 0:
+        return torch.tensor(0.0, device=device)
+    return criterion(pos_s[:n], neg_s[:n], torch.ones(n, device=device))
+
+
+def train_cooba(model, discriminator, grl, source_loader, target_loader, optimizer,
+                epoch, device, mode='cross-project'):
+    """
+    Training loop — paper-faithful implementation (Ganin et al. 2016 / COOBA Eq. 8, 11, 12):
+      - GRL + single combined optimizer (paper: "adapt Adam to directly minimize L")
+      - Task loss on BOTH source and target batches when labels are available (paper Eq. 12)
+      - GRL lambda scheduled 0→1 over epochs (Ganin et al. schedule)
+      - Gradient clipping for stability
+    """
     model.train()
     if discriminator:
         discriminator.train()
 
-    # Loss functions
     task_criterion = nn.MarginRankingLoss(margin=MARGIN).to(device)
-    adv_criterion = nn.CrossEntropyLoss().to(device)
+    adv_criterion  = nn.CrossEntropyLoss().to(device)
 
-    # Setup iterators
+    # GRL lambda: 0 at epoch 0, approaches 1 at final epoch (Ganin et al. schedule)
+    p = epoch / max(EPOCHS - 1, 1)
+    grl_lambda = 2.0 / (1.0 + math.exp(-10.0 * p)) - 1.0
+    if grl is not None:
+        grl.alpha = grl_lambda
+
+    all_params = list(model.parameters()) + (list(discriminator.parameters()) if discriminator else [])
+
+    total_task_loss = 0.0
+    total_disc_loss = 0.0
+    batch_count = 0
+    oom_skips = 0
+
     if mode == 'within-project':
         data_loader = target_loader if target_loader else source_loader
-        target_iter = None
-    else:
-        data_loader = source_loader
-        target_iter = iter(itertools.cycle(target_loader)) if target_loader else None
+        num_batches = len(data_loader)
 
-    total_task_loss = 0
-    total_adv_loss = 0
-    total_disc_loss = 0
-    batch_count = 0
-    num_batches = len(data_loader)
+        for batch_idx, batch in enumerate(data_loader):
+            try:
+                scores, _ = model(
+                    batch['bug_embeddings'].to(device), batch['bug_lengths'].to(device),
+                    batch['code_embeddings'].to(device), batch['graph_data'].to(device), None
+                )
+                task_loss = _compute_task_loss(scores, batch['labels'].to(device), task_criterion, device)
 
-    oom_skips = 0
-    for batch_idx, batch in enumerate(data_loader):
-        try:
-            # Move data to device
-            bug_embeddings = batch['bug_embeddings'].to(device)
-            bug_lengths = batch['bug_lengths'].to(device)
-            code_embeddings = batch['code_embeddings'].to(device)
-            graph_data = batch['graph_data'].to(device)
-            labels = batch['labels'].to(device)
+                optimizer.zero_grad()
+                if task_loss.grad_fn is not None:
+                    task_loss.backward()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                    optimizer.step()
 
-            # Determine project type from batch
-            project_type = batch['project_types'][0] if mode == 'cross-project' else None
+                total_task_loss += task_loss.item()
+                batch_count += 1
 
-            # Forward pass
-            scores, public_features = model(
-                bug_embeddings, bug_lengths, code_embeddings, graph_data, project_type
-            )
+            except torch.cuda.OutOfMemoryError:
+                torch.cuda.empty_cache()
+                oom_skips += 1
+                continue
 
-            # Task loss (margin ranking)
-            pos_mask = (labels == 1)
-            neg_mask = (labels == 0)
+            if (batch_idx + 1) % 100 == 0 or (batch_idx + 1) == num_batches:
+                oom_str = f" OOM={oom_skips}" if oom_skips else ""
+                print(f"  Epoch {epoch+1}/{EPOCHS} | {batch_idx+1}/{num_batches} | "
+                      f"Task={total_task_loss/max(batch_count,1):.4f}{oom_str}", flush=True)
 
-            if torch.any(pos_mask) and torch.any(neg_mask):
-                pos_scores = scores[pos_mask]
-                neg_scores = scores[neg_mask]
+    else:  # cross-project
+        has_target = target_loader is not None
+        num_batches = len(source_loader)
+        source_iter = iter(source_loader)
+        target_iter = iter(itertools.cycle(target_loader)) if has_target else None
 
-                n_pairs = min(len(pos_scores), len(neg_scores))
-                if n_pairs > 0:
-                    pos_scores = pos_scores[:n_pairs]
-                    neg_scores = neg_scores[:n_pairs]
-
-                    target_rank = torch.ones(n_pairs, device=device)
-                    task_loss = task_criterion(pos_scores, neg_scores, target_rank)
-                else:
-                    task_loss = torch.tensor(0.0, device=device)
-            else:
+        for batch_idx in range(num_batches):
+            try:
                 task_loss = torch.tensor(0.0, device=device)
+                disc_loss = torch.tensor(0.0, device=device)
 
-            # Adversarial training (only in cross-project mode)
-            if mode == 'cross-project' and discriminator and target_iter:
-                # Train discriminator
-                optimizer_disc.zero_grad()
-                # Get target batch
-                target_batch = next(target_iter)
-                target_bug_embeddings = target_batch['bug_embeddings'].to(device)
-                target_bug_lengths = target_batch['bug_lengths'].to(device)
-                target_code_embeddings = target_batch['code_embeddings'].to(device)
-                target_graph_data = target_batch['graph_data'].to(device)
+                # Source batch: task loss (paper L^s) + domain features
+                src = next(source_iter)
+                src_scores, src_pub = model(
+                    src['bug_embeddings'].to(device), src['bug_lengths'].to(device),
+                    src['code_embeddings'].to(device), src['graph_data'].to(device), 'source'
+                )
+                task_loss = task_loss + _compute_task_loss(
+                    src_scores, src['labels'].to(device), task_criterion, device
+                )
 
-                # Get features from both domains
-                with torch.no_grad():
-                    _, source_public = model(bug_embeddings, bug_lengths, code_embeddings, graph_data, 'source')
-                    _, target_public = model(target_bug_embeddings, target_bug_lengths, target_code_embeddings, target_graph_data, 'target')
+                if has_target:
+                    # Target batch: task loss (paper L^t, labeled in CP-transfer) + domain features
+                    tgt = next(target_iter)
+                    tgt_scores, tgt_pub = model(
+                        tgt['bug_embeddings'].to(device), tgt['bug_lengths'].to(device),
+                        tgt['code_embeddings'].to(device), tgt['graph_data'].to(device), 'target'
+                    )
+                    task_loss = task_loss + _compute_task_loss(
+                        tgt_scores, tgt['labels'].to(device), task_criterion, device
+                    )
 
-                # Discriminator predictions
-                all_public = torch.cat([source_public, target_public], dim=0)
-                disc_labels = torch.cat([
-                    torch.zeros(len(source_public), device=device, dtype=torch.long),
-                    torch.ones(len(target_public), device=device, dtype=torch.long)
-                ])
+                    # GRL adversarial: domain labels source=0, target=1.
+                    # GRL reverses gradients into shared_extractor → domain-invariant public features.
+                    if discriminator is not None and grl is not None:
+                        all_pub = torch.cat([grl(src_pub), grl(tgt_pub)], dim=0)
+                        domain_labels = torch.cat([
+                            torch.zeros(src_pub.size(0), dtype=torch.long, device=device),
+                            torch.ones(tgt_pub.size(0),  dtype=torch.long, device=device)
+                        ])
+                        disc_loss = adv_criterion(discriminator(all_pub), domain_labels)
 
-                disc_preds = discriminator(all_public)
-                disc_loss = adv_criterion(disc_preds, disc_labels)
-                disc_loss.backward()
-                optimizer_disc.step()
+                total_loss = task_loss + LAMBDA_ADV * disc_loss
 
-                # Train generator (model) to fool discriminator
-                optimizer_main.zero_grad()
+                optimizer.zero_grad()
+                if total_loss.grad_fn is not None:
+                    total_loss.backward()
+                    torch.nn.utils.clip_grad_norm_(all_params, max_norm=1.0)
+                    optimizer.step()
 
-                # Re-compute features (with gradients this time)
-                _, source_public = model(bug_embeddings, bug_lengths, code_embeddings, graph_data, 'source')
-
-                # Reverse labels to fool discriminator
-                fool_labels = torch.ones(len(source_public), device=device, dtype=torch.long)
-                disc_preds = discriminator(source_public)
-                adv_loss = adv_criterion(disc_preds, fool_labels)
-
-                total_loss = task_loss + LAMBDA_ADV * adv_loss
-                total_adv_loss += adv_loss.item()
+                total_task_loss += task_loss.item()
                 total_disc_loss += disc_loss.item()
+                batch_count += 1
 
-            else:
-                # Within-project or no adversarial training
-                optimizer_main.zero_grad()
-                total_loss = task_loss
+            except torch.cuda.OutOfMemoryError:
+                torch.cuda.empty_cache()
+                oom_skips += 1
+                continue
 
-            # Backward pass (skip if no valid ranking pairs in batch)
-            if total_loss.grad_fn is not None:
-                total_loss.backward()
-                optimizer_main.step()
+            if (batch_idx + 1) % 100 == 0 or (batch_idx + 1) == num_batches:
+                oom_str = f" OOM={oom_skips}" if oom_skips else ""
+                print(f"  Epoch {epoch+1}/{EPOCHS} | {batch_idx+1}/{num_batches} | "
+                      f"Task={total_task_loss/max(batch_count,1):.4f} "
+                      f"Disc={total_disc_loss/max(batch_count,1):.4f} "
+                      f"λ={grl_lambda:.3f}{oom_str}", flush=True)
 
-            # Update statistics
-            total_task_loss += task_loss.item()
-            batch_count += 1
+    print(f"  Epoch {epoch+1}/{EPOCHS} DONE | "
+          f"Task={total_task_loss/max(batch_count,1):.4f} "
+          f"Disc={total_disc_loss/max(batch_count,1):.4f} [{batch_count} batches]")
 
-        except torch.cuda.OutOfMemoryError:
-            # Skip batches with pathologically large ASTs (auto-generated files)
-            torch.cuda.empty_cache()
-            oom_skips += 1
-            continue
-
-        # Progress print every 100 batches
-        if (batch_idx + 1) % 100 == 0 or (batch_idx + 1) == num_batches:
-            oom_str = f" OOM_skips={oom_skips}" if oom_skips else ""
-            print(f"  Epoch {epoch+1}/{EPOCHS} | Batch {batch_idx+1}/{num_batches} | "
-                  f"Task={total_task_loss/max(batch_count,1):.4f}{oom_str}", flush=True)
-
-    # Epoch summary (one line per epoch)
-    if mode == 'cross-project':
-        print(f"  Epoch {epoch+1}/{EPOCHS} | Task={total_task_loss/max(batch_count,1):.4f} "
-              f"Adv={total_adv_loss/max(batch_count,1):.4f} Disc={total_disc_loss/max(batch_count,1):.4f} "
-              f"[{batch_count} batches]")
-    else:
-        print(f"  Epoch {epoch+1}/{EPOCHS} | Task={total_task_loss/max(batch_count,1):.4f} "
-              f"[{batch_count} batches]")
-
-def evaluate_cooba(model, test_loader, device):
-    """Evaluate COOBA model."""
+def evaluate_cooba(model, test_loader, device,
+                   source_project=None, target_project=None, scenario=None,
+                   target_bug_db=None, target_blob_db=None, target_repo=None):
+    """Evaluate COOBA model. Writes per-bug diagnostic CSV when project/DB args are provided."""
     model.eval()
-    
-    # Collect predictions
+
+    # Collect predictions: bug_id -> [(blob_sha, model_score), ...]
     predictions = {}
     ground_truths = {}
-    
+
     with torch.no_grad():
         for batch in test_loader:
             bug_embeddings = batch['bug_embeddings'].to(device)
@@ -437,60 +454,130 @@ def evaluate_cooba(model, test_loader, device):
             labels = batch['labels']
             bug_ids = batch['bug_ids']
             blob_shas = batch['blob_shas']
-            
+
             scores, _ = model(
                 bug_embeddings, bug_lengths,
                 code_embeddings, graph_data, 'target'
             )
-            
-            # Store predictions
+
             for i in range(len(bug_ids)):
                 bug_id = bug_ids[i]
                 if bug_id not in predictions:
                     predictions[bug_id] = []
                     ground_truths[bug_id] = []
-                
                 predictions[bug_id].append((blob_shas[i], scores[i].item()))
                 if labels[i] == 1:
                     ground_truths[bug_id].append(blob_shas[i])
-    
-    # Calculate metrics
+
+    # Standard metrics
     top_k_hits = {1: 0, 5: 0, 10: 0}
     mrr_scores = []
     map_scores = []
-    
+
     for bug_id in predictions:
-        # Sort predictions by score
         ranked = sorted(predictions[bug_id], key=lambda x: x[1], reverse=True)
         ranked_shas = [sha for sha, _ in ranked]
         true_shas = set(ground_truths[bug_id])
-        
-        # Top-K accuracy
+
         for k in top_k_hits:
             if len(set(ranked_shas[:k]) & true_shas) > 0:
                 top_k_hits[k] += 1
-        
-        # MRR
+
         for i, sha in enumerate(ranked_shas):
             if sha in true_shas:
                 mrr_scores.append(1.0 / (i + 1))
                 break
         else:
             mrr_scores.append(0.0)
-        
-        # MAP
+
         precisions = []
         hits = 0
         for i, sha in enumerate(ranked_shas):
             if sha in true_shas:
                 hits += 1
                 precisions.append(hits / (i + 1))
-        
-        if precisions:
-            map_scores.append(np.mean(precisions))
-        else:
-            map_scores.append(0.0)
-    
+        map_scores.append(np.mean(precisions) if precisions else 0.0)
+
+    # --- Diagnostics: FAISS rank vs COOBA model rank per ground-truth file ---
+    run_diag = all(x is not None for x in [
+        source_project, target_project, scenario,
+        target_bug_db, target_blob_db, target_repo
+    ])
+    if run_diag:
+        diagnostic_results = []
+
+        # Group test bugs by commit so we build one FAISS index per snapshot
+        bugs_by_commit = {}
+        for bug_id in predictions:
+            if bug_id not in target_bug_db:
+                continue
+            commit_sha = target_bug_db[bug_id]['commit_sha']
+            bugs_by_commit.setdefault(commit_sha, []).append(bug_id)
+
+        for commit_sha, bug_ids in bugs_by_commit.items():
+            path_to_sha = get_path_to_sha_map(target_repo, commit_sha)
+            snap_shas = [sha for sha in path_to_sha.values() if sha in target_blob_db]
+            if not snap_shas:
+                continue
+
+            snap_embs = np.stack([target_blob_db[sha].astype('float32') for sha in snap_shas])
+            faiss.normalize_L2(snap_embs)
+
+            for bug_id in bug_ids:
+                if bug_id not in predictions or bug_id not in target_bug_db:
+                    continue
+
+                bug_emb = target_bug_db[bug_id]['embedding'].astype('float32').reshape(1, -1)
+                faiss.normalize_L2(bug_emb)
+                faiss_sims = (snap_embs @ bug_emb.T).flatten()
+                faiss_order = np.argsort(faiss_sims)[::-1]
+                faiss_ranked_shas = [snap_shas[i] for i in faiss_order]
+
+                ranked = sorted(predictions[bug_id], key=lambda x: x[1], reverse=True)
+                model_ranked_shas = [sha for sha, _ in ranked]
+                model_scores_map = {sha: score for sha, score in predictions[bug_id]}
+                true_shas = set(ground_truths.get(bug_id, []))
+
+                for gt_sha in true_shas:
+                    faiss_rank = next(
+                        (r + 1 for r, s in enumerate(faiss_ranked_shas) if s == gt_sha), -1
+                    )
+                    model_rank = next(
+                        (r + 1 for r, s in enumerate(model_ranked_shas) if s == gt_sha), -1
+                    )
+                    rank_displacement = (
+                        (faiss_rank - model_rank)
+                        if (faiss_rank != -1 and model_rank != -1) else -1
+                    )
+                    faiss_score = (
+                        float(faiss_sims[snap_shas.index(gt_sha)])
+                        if gt_sha in snap_shas else -1.0
+                    )
+                    diagnostic_results.append({
+                        'bug_id': bug_id,
+                        'gt_blob_sha': gt_sha,
+                        'faiss_rank': faiss_rank,
+                        'model_rank': model_rank,
+                        'rank_displacement': rank_displacement,
+                        'faiss_score': faiss_score,
+                        'model_score': model_scores_map.get(gt_sha, -1.0),
+                    })
+
+        if diagnostic_results:
+            os.makedirs(os.path.join(RESULT_PATH, 'cooba_ph1_diagnostics'), exist_ok=True)
+            diag_df = pd.DataFrame(diagnostic_results)
+            src_safe = source_project.replace('/', '_')
+            tgt_safe = target_project.replace('/', '_')
+            diag_path = os.path.join(
+                RESULT_PATH, 'cooba_ph1_diagnostics',
+                f"{src_safe}_{tgt_safe}_{scenario}_diagnostics.csv",
+            )
+            try:
+                diag_df.to_csv(diag_path, index=False)
+                print(f"  Saved diagnostics → {diag_path}")
+            except Exception as e:
+                print(f"  Warning: could not save diagnostics: {e}")
+
     num_bugs = len(predictions)
     metrics = {
         'Top-1': top_k_hits[1] / num_bugs if num_bugs > 0 else 0,
@@ -499,7 +586,7 @@ def evaluate_cooba(model, test_loader, device):
         'MRR': np.mean(mrr_scores) if mrr_scores else 0,
         'MAP': np.mean(map_scores) if map_scores else 0
     }
-    
+
     return metrics
 
 def run_cooba_experiment(source_project, target_project, source_train_ids, target_train_ids, target_test_ids,
@@ -539,9 +626,10 @@ def run_cooba_experiment(source_project, target_project, source_train_ids, targe
     source_repo = git.Repo(get_project_path(source_project, source_language))
     target_repo = git.Repo(get_project_path(target_project, target_language))
 
-    # Create cache directories
-    source_cache = os.path.join(CACHE_DIR, f"{source_project.replace('/', '_')}_{scenario}")
-    target_cache = os.path.join(CACHE_DIR, f"{target_project.replace('/', '_')}_{scenario}")
+    # Pair-specific cache so each experiment is self-contained and can be cleaned up independently
+    pair_key = f"{source_project.replace('/', '_')}__{target_project.replace('/', '_')}__{scenario}"
+    source_cache = os.path.join(CACHE_DIR, pair_key, "source")
+    target_cache = os.path.join(CACHE_DIR, pair_key, "target")
 
     # Generate samples
     print("Generating training samples...")
@@ -622,43 +710,65 @@ def run_cooba_experiment(source_project, target_project, source_train_ids, targe
         mode=mode
     ).to(device)
 
-    # Initialize discriminator for cross-project
+    # Initialize discriminator + GRL for cross-project (paper Eq. 7-8)
     discriminator = None
-    optimizer_disc = None
+    grl = None
     if mode == 'cross-project':
         public_feat_dim = PARAMS['shared_extractor']['num_filters'] * len(PARAMS['shared_extractor']['kernel_sizes'])
         discriminator = ProjectDiscriminator(
             input_dim=public_feat_dim,
             hidden_dim=128,
             dropout_prob=0.5
-            ).to(device)
-        optimizer_disc = optim.Adam(discriminator.parameters(), lr=DISC_LEARNING_RATE)
-    
-    # Initialize optimizer
-    optimizer_main = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+        ).to(device)
+        grl = GradientReversalLayer(alpha=0.0)  # alpha ramped up each epoch
+
+    # Single combined optimizer — paper: "adapt Adam to directly minimize L" (Eq. 12)
+    all_params = list(model.parameters()) + (list(discriminator.parameters()) if discriminator else [])
+    optimizer_main = optim.AdamW(all_params, lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
     # Training
     print("Starting Training")
     for epoch in range(EPOCHS):
-        # Use appropriate loader based on scenario
         if mode == 'within-project':
             train_loader = target_train_loader if target_train_loader else source_loader
-            train_cooba(model, None, train_loader, None,
-                    optimizer_main, None, epoch, device, mode)
+            train_cooba(model, None, None, None, train_loader,
+                        optimizer_main, epoch, device, mode)
         else:
-            train_cooba(
-                model, discriminator, source_loader, target_train_loader, optimizer_main,
-                optimizer_disc, epoch, device, mode)
+            train_cooba(model, discriminator, grl, source_loader, target_train_loader,
+                        optimizer_main, epoch, device, mode)
         
     # Evaluation
     print("\nEvaluating model...")
-    metrics = evaluate_cooba(model, target_test_loader, device)
+    metrics = evaluate_cooba(
+        model, target_test_loader, device,
+        source_project=source_project,
+        target_project=target_project,
+        scenario=scenario,
+        target_bug_db=target_bug_db,
+        target_blob_db=target_blob_db,
+        target_repo=target_repo,
+    )
     print(f"Final metrics: {metrics}")
 
-    # Free GPU memory before returning so the next scenario starts clean
+    # Free GPU and CPU memory before returning so the next scenario starts clean
     del model
     if discriminator:
         del discriminator
+    grl = None
+    for obj in [source_loader, target_train_loader, source_dataset, target_train_dataset]:
+        if obj is not None:
+            del obj
+    del target_test_loader, target_test_dataset
+    del source_samples, target_train_samples, target_test_samples
+    del source_bug_db, source_blob_db, target_bug_db, target_blob_db
+    del df_meta, df_bugs
     torch.cuda.empty_cache()
+    gc.collect()
+
+    # Delete pair-specific cache — no longer needed after evaluation
+    pair_cache_dir = os.path.join(CACHE_DIR, pair_key)
+    if os.path.exists(pair_cache_dir):
+        shutil.rmtree(pair_cache_dir)
+        print(f"  Cleaned up pair cache: {pair_cache_dir}")
 
     return metrics

@@ -4,6 +4,31 @@ import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, global_mean_pool
 from torch_geometric.data import Data
 
+
+# Gradient Reversal Layer — canonical DANN implementation (Ganin et al., 2016)
+# Forward: identity. Backward: multiplies gradient by -alpha.
+# Placing this before the discriminator lets a single optimizer implement
+# min_{shared} max_{disc} simultaneously (paper Eq. 8).
+class _GRLFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x, alpha):
+        ctx.alpha = alpha
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return grad_output.neg() * ctx.alpha, None
+
+
+class GradientReversalLayer(nn.Module):
+    def __init__(self, alpha=1.0):
+        super().__init__()
+        self.alpha = alpha  # updated each epoch by train_cooba
+
+    def forward(self, x):
+        return _GRLFunction.apply(x, self.alpha)
+
+
 # 1. Shared Bug Report Encoder
 class BugReportEncoder(nn.Module):
     '''
@@ -305,12 +330,13 @@ class COOBA(nn.Module):
             combined = torch.cat([public_features, private_features], dim=1)
             code_vector = self.fusion(combined)
 
-        # 4. Compute relevance score
-        # Project to common dimension
+        # 4. Compute relevance score (paper Eq. 10: F = ||b - c||²)
         bug_vector = self.bug_projection(bug_vector)
         code_vector = self.code_projection(code_vector)
-        
-        # Compute cosine similarity
-        scores = F.cosine_similarity(bug_vector, code_vector, dim=1)
+
+        # Normalize then compute L2²; negate so higher score = smaller distance = more relevant
+        bug_norm = F.normalize(bug_vector, p=2, dim=1)
+        code_norm = F.normalize(code_vector, p=2, dim=1)
+        scores = -torch.sum((bug_norm - code_norm) ** 2, dim=1)
 
         return scores, public_features

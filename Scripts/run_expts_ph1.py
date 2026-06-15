@@ -1,5 +1,7 @@
+import fcntl
 import os
 import sys
+import gc
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import numpy as np
@@ -10,7 +12,7 @@ import itertools
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Placeholder for the actual training pipelines
-# from src.tranp_cnn.pipeline import run_tranp_cnn_experiment
+from src.tranp_cnn.pipeline import run_tranp_cnn_experiment
 from src.cooba.pipeline import run_cooba_experiment
 # from src.flim.pipeline import run_flim_experiment
 from src.blaze.pipeline import run_blaze_experiment
@@ -53,24 +55,90 @@ from src.blgan.pipeline import run_blgan_experiment
 # dmwm/wmcore (263)
 # rucio/rucio (297)
 PROJECTS = [
-    # Phase 1 selected projects — 6 projects, stratified by target LoC
-    # (see results/PYTHON_PROJECT_SELECTION.md for full methodology)
-    {'name': 'jupyterlab/jupyterlab',    'language': 'python'},  # S1 — 39K LoC,  197 bugs
-    {'name': 'lightning-ai/lightning',   'language': 'python'},  # S1 — 51K LoC,  366 bugs
-    {'name': 'prefecthq/prefect',        'language': 'python'},  # S2 — 107K LoC, 404 bugs
-    {'name': 'pydata/xarray',            'language': 'python'},  # S3 — 142K LoC, 110 bugs
-    {'name': 'numpy/numpy',              'language': 'python'},  # S4 — 277K LoC, 789 bugs
-    {'name': 'scikit-learn/scikit-learn','language': 'python'},  # S5 — 376K LoC, 228 bugs
+    # ── Data Science & AI/ML (6 projects) ────────────────────────────────────
+    # (see results/PYTHON_PROJECT_SELECTION.md for full selection methodology)
+    {'name': 'jupyterlab/jupyterlab',    'language': 'python'},  # DS S1 — 39K LoC,  197 bugs
+    {'name': 'lightning-ai/lightning',   'language': 'python'},  # DS S1 — 51K LoC,  366 bugs
+    {'name': 'prefecthq/prefect',        'language': 'python'},  # DS S2 — 107K LoC, 404 bugs
+    {'name': 'pydata/xarray',            'language': 'python'},  # DS S2 — 142K LoC, 110 bugs
+    {'name': 'numpy/numpy',              'language': 'python'},  # DS S4 — 277K LoC, 789 bugs
+    {'name': 'scikit-learn/scikit-learn','language': 'python'},  # DS S5 — 376K LoC, 228 bugs
+
+    # ── Developer Tools & DevOps (3 projects) ────────────────────────────────
+    {'name': 'ipython/ipython',          'language': 'python'},  # DT S1 — 78K LoC,  832 bugs
+    {'name': 'mesonbuild/meson',         'language': 'python'},  # DT S2 — 121K LoC, 937 bugs
+    {'name': 'ansible/ansible',          'language': 'python'},  # DT S3 — 348K LoC, 768 bugs
+
+    # ── Systems & Cloud Infrastructure (2 projects) ──────────────────────────
+    {'name': 'docker/compose',           'language': 'python'},  # SY S1 — 35K LoC,  572 bugs
+    {'name': 'localstack/localstack',    'language': 'python'},  # SY S2 — 572K LoC, 472 bugs
+
+    # ── Applications & Frameworks (2 projects) ───────────────────────────────
+    {'name': 'wagtail/wagtail',          'language': 'python'},  # AP S1 — 286K LoC, 404 bugs
+    {'name': 'qiskit/qiskit',            'language': 'python'},  # AP S2 — 435K LoC, 1336 bugs
 ]
 
-# Define the models to be evaluated
+# ── Active model config (paper submission run) ────────────────────────────
+# Phase 2b: TRANP-CNN — 252 runs across 63 pairs (~3 days, 3 shards)
+# Phase 2a BLAZE is complete (62/63 pairs; ipython->qiskit still needs 3 runs)
 MODELS_TO_RUN = {
-    # 'TRANP-CNN': run_tranp_cnn_experiment
-    # 'COOBA': run_cooba_experiment,
-    # 'FLIM': run_flim_experiment,
-    'BLAZE': run_blaze_experiment
-    # 'BL-GAN': run_blgan_experiment
+    'TRANP-CNN': run_tranp_cnn_experiment,
 }
+
+# ── Legacy BLAZE config (Phase 2a — 62/63 pairs complete 2026-06-08) ───────
+# MODELS_TO_RUN = {
+#     'BLAZE': run_blaze_experiment,
+# }
+# To finish the one missing BLAZE pair (ipython/ipython -> qiskit/qiskit,
+# 3 scenarios), run with SHARD=0, NUM_SHARDS=1 alongside TRANP-CNN.
+
+# ── Legacy COOBA config (stopped 2026-05-24, 121/156 pairs complete) ───────
+# MODELS_TO_RUN = {
+#     'COOBA': run_cooba_experiment,
+# }
+
+# Parallelism: set SHARD=0/1/2 in three terminals to run three instances.
+# CSV writes are protected by fcntl.flock so all processes can safely append.
+SHARD = 1      # <-- 0, 1, or 2 for TRANP-CNN (3 shards)
+NUM_SHARDS = 3 # <-- 3 for TRANP-CNN
+
+# ── Legacy BLAZE/COOBA sharding ────────────────────────────────────────────
+# SHARD = 0      # 0 or 1 for BLAZE (2 shards)
+# NUM_SHARDS = 2
+
+# ── Paper pair set: 63 directional pairs for journal submission ───────────
+# Group A (30): all DS×DS bidirectional pairs
+# Group B (14): jupyterlab ↔ each of the 7 non-DS projects (both directions)
+# Group C (19): strategic cross-domain diversity pairs (all COOBA-complete)
+# See results/PAPER_RUN_PLAN.md for full rationale.
+_DS = ['jupyterlab/jupyterlab', 'lightning-ai/lightning', 'prefecthq/prefect',
+       'pydata/xarray', 'numpy/numpy', 'scikit-learn/scikit-learn']
+PAPER_PAIRS = set(itertools.permutations(_DS, 2))           # Group A — 30 pairs
+for _p in ['ipython/ipython', 'mesonbuild/meson', 'ansible/ansible',
+           'docker/compose', 'localstack/localstack', 'wagtail/wagtail', 'qiskit/qiskit']:
+    PAPER_PAIRS.add(('jupyterlab/jupyterlab', _p))          # Group B — 14 pairs
+    PAPER_PAIRS.add((_p, 'jupyterlab/jupyterlab'))
+PAPER_PAIRS.update([                                         # Group C — 19 pairs
+    ('lightning-ai/lightning',    'ansible/ansible'),
+    ('ansible/ansible',           'lightning-ai/lightning'),
+    ('lightning-ai/lightning',    'localstack/localstack'),
+    ('localstack/localstack',     'lightning-ai/lightning'),
+    ('numpy/numpy',               'qiskit/qiskit'),
+    ('qiskit/qiskit',             'numpy/numpy'),
+    ('numpy/numpy',               'localstack/localstack'),
+    ('localstack/localstack',     'numpy/numpy'),
+    ('prefecthq/prefect',         'ansible/ansible'),
+    ('ansible/ansible',          'prefecthq/prefect'),
+    ('ipython/ipython',           'docker/compose'),
+    ('docker/compose',            'ipython/ipython'),
+    ('ipython/ipython',           'qiskit/qiskit'),
+    ('wagtail/wagtail',           'docker/compose'),
+    ('lightning-ai/lightning',    'ipython/ipython'),
+    ('numpy/numpy',               'mesonbuild/meson'),
+    ('prefecthq/prefect',         'mesonbuild/meson'),
+    ('lightning-ai/lightning',    'wagtail/wagtail'),
+    ('prefecthq/prefect',         'wagtail/wagtail'),
+])
 
 # Define paths for output
 REPO_BASE_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/repos"
@@ -81,6 +149,7 @@ RESULTS_FILE = os.path.join(RESULT_PATH, 'obj1_experimental_results.csv')
 PROJECTS_METADATA_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/project_metadata.parquet"
 BUG_REPORTS_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/bug_reports_clean.parquet"
 BLOB_CACHE_DIR = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/tranp_cnn_cache"
+
 
 # Helper Functions
 
@@ -119,7 +188,7 @@ def main():
     df_results = pd.read_csv(RESULTS_FILE)
 
     # Use itertools.combinations to get unique pairs of projects
-    project_pairs = list(itertools.combinations(PROJECTS, 2))
+    project_pairs = list(itertools.combinations(PROJECTS, 2))[SHARD::NUM_SHARDS]
     for proj1_config, proj2_config in project_pairs:
         # Define the two directions for this pair
         directions = [
@@ -133,6 +202,9 @@ def main():
 
             source_project_name = source_project_config['name']
             target_project_name = target_project_config['name']
+
+            if (source_project_name, target_project_name) not in PAPER_PAIRS:
+                continue
 
             print(f"\n{'='*20} Setting up experiments for {source_project_name} -> {target_project_name} {'='*20}")
 
@@ -200,12 +272,16 @@ def main():
                         'MRR': metrics['MRR']
                     }
                     new_result_df = pd.DataFrame([new_result])
-                    new_result_df.to_csv(RESULTS_FILE, mode='a', header=False, index=False)
+                    with open(RESULTS_FILE, 'a') as f:
+                        fcntl.flock(f, fcntl.LOCK_EX)
+                        new_result_df.to_csv(f, header=False, index=False)
+                        fcntl.flock(f, fcntl.LOCK_UN)
                     df_results = pd.concat([df_results, new_result_df], ignore_index=True)
 
                     scenario_time = time.time() - scenario_start_time
                     print(f" -> Results logged to {RESULTS_FILE}")
                     print(f" -> Scenario {scenario_name} completed in {scenario_time/3600:.2f} hrs")
+                    gc.collect()
 
             pair_time = time.time() - pair_start_time
             print(f"\nAll 4 scenarios for {source_project_name} -> {target_project_name} completed in {pair_time/3600:.2f} hrs")
