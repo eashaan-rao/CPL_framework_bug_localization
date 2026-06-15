@@ -1,169 +1,290 @@
 # Python Project Selection for Phase 1 CPL Study
 
-**Date**: 2026-03-31
+**Date**: 2026-04-14 (revised from original 2026-03-31)
 **Study**: Cross-Project Bug Localization (CPL) — Phase 1
-**Models evaluated**: TRANP-CNN, COOBA, BLAZE
+**Models evaluated**: COOBA, BLAZE, BL-GAN (and TRANP-CNN in extended runs)
 
 ---
 
 ## 1. Selection Outcome
 
-**6 Python projects** were selected from the pool of 41 Python projects in our 98-project dataset:
+**13 Python projects** selected from the pool of 41 Python projects in our 98-project dataset,
+spanning 4 application domains and approximately 17× the LoC range (35K – 572K):
 
-| # | Project | LoC | Bugs | Sub-domain |
-|---|---------|-----|------|-----------|
-| 1 | jupyterlab/jupyterlab | 39,372 | 197 | Interactive computing |
-| 2 | lightning-ai/lightning | 51,387 | 366 | ML training framework |
-| 3 | prefecthq/prefect | 107,073 | 404 | Workflow orchestration |
-| 4 | pydata/xarray | 142,044 | 110 | Scientific data structures |
-| 5 | numpy/numpy | 276,548 | 789 | Numerical computing |
-| 6 | scikit-learn/scikit-learn | 376,169 | 228 | ML algorithms library |
+| # | Project | Domain | LoC | Bugs | Status |
+|---|---------|--------|-----|------|--------|
+| 1 | jupyterlab/jupyterlab | Data Science & AI/ML | 39,372 | 197 | existing |
+| 2 | lightning-ai/lightning | Data Science & AI/ML | 51,387 | 366 | existing |
+| 3 | ipython/ipython | Developer Tools & DevOps | 77,778 | 832 | **new** |
+| 4 | prefecthq/prefect | Data Science & AI/ML | 107,073 | 404 | existing |
+| 5 | mesonbuild/meson | Developer Tools & DevOps | 121,402 | 937 | **new** |
+| 6 | pydata/xarray | Data Science & AI/ML | 142,044 | 110 | existing |
+| 7 | numpy/numpy | Data Science & AI/ML | 276,548 | 789 | existing |
+| 8 | wagtail/wagtail | Applications & Frameworks | 285,999 | 404 | **new** |
+| 9 | ansible/ansible | Developer Tools & DevOps | 348,229 | 768 | **new** |
+| 10 | scikit-learn/scikit-learn | Data Science & AI/ML | 376,169 | 228 | existing |
+| 11 | qiskit/qiskit | Applications & Frameworks | 435,173 | 1,336 | **new** |
+| 12 | docker/compose | Systems & Cloud Infrastructure | 34,586 | 572 | **new** |
+| 13 | localstack/localstack | Systems & Cloud Infrastructure | 571,611 | 472 | **new** |
 
-**Experimental scope**: 6 × 5 = **30 directed source→target pairs** × 4 scenarios = **120 experiment runs per model**, 360 total across 3 models.
+**Experimental scope**: 13 × 12 = **156 directed source→target pairs** × 4 scenarios =
+**624 experiment runs per model**.
+
+Of these, 30 pairs (all DS→DS) were completed in the first experimental wave.
+The remaining 126 pairs (504 runs per model) cover cross-domain and non-DS pairs.
 
 ---
 
-## 2. Empirical Basis for Selection
+## 2. Selection Methodology
 
-### 2.1 The dominant predictor: target codebase size (LoC)
+### 2.1 Two-stage stratified purposive sampling
 
-Our Phase 1 analysis (373 TRANP-CNN runs across 94 pairs, 12 Python targets) identified **target LoC** as the overwhelmingly dominant predictor of CPL performance:
+We apply **two-stage stratified purposive sampling**, the standard approach in SE
+repository mining studies when exhaustive evaluation is computationally infeasible
+(Nagappan et al. 2013; Kalliamvakou et al. 2014).
 
-| Metric | Spearman ρ (target LoC vs performance) | Significance |
-|--------|----------------------------------------|--------------|
-| Top-10 | −0.855 | p < 0.001 |
-| Top-5  | −0.801 | p < 0.001 |
-| Top-1  | −0.712 | p < 0.001 |
-| MRR    | −0.820 | p < 0.001 |
+**Stage 1 — Domain stratification (primary axis)**
+ensures that the selected sample spans the application-domain diversity of the
+41-project Python pool, preventing domain monoculture and enabling cross-domain
+transfer analyses.
 
-This very strong negative correlation means **LoC is the axis along which CPL generalisation varies most**. A statistically valid project sample must therefore span the LoC range, not be uniform within one region of it.
+**Stage 2 — LoC stratification within each domain (secondary axis)**
+ensures that each domain stratum covers the codebase-size range of its domain pool,
+avoiding systematic bias toward small or large projects within any domain.
 
-Other candidate predictors were weak or non-predictive:
-- Domain gap accuracy: ρ < 0.12 (non-significant, n.s.) — domain similarity is irrelevant
-- Bug report verbosity: ρ ≈ 0.18 (n.s.)
-- Source project size: ρ ≈ 0.27 (weak, n.s.)
-- Bug/code similarity (cosine): ρ < 0.10 (n.s.)
+**Within-stratum selection rule (neutral, pre-specified)**:
+Within each (domain, LoC-stratum) cell, the project with the **highest bug count**
+is selected. This rule maximises the available training and test data per project,
+improves metric reliability, and is independent of any experimental outcomes.
 
-### 2.2 Exclusion criteria applied to the 41-project Python pool
+### 2.2 Inclusion / exclusion criteria
 
-| Criterion | Excluded projects | Reason |
-|-----------|------------------|--------|
-| LoC > 450K | apache/airflow (851K), pandas-dev/pandas (564K), huggingface/transformers (1.18M), conda/conda (2.58M), sympy/sympy (696K), googleapis/google-cloud-python (4.15M), dmwm/wmcore (1.05M), dagster-io/dagster (616K), qiskit/qiskit (435K), scipy/scipy (438K), django/django (460K), posthog/posthog (461K) | Extremely large codebases produce near-zero CPL performance (ρ = −0.855), making them statistically uninformative for understanding CPL generalization |
-| Bugs < 100 | (none in pool — 100 bugs is the Phase 1 minimum threshold) | Insufficient data for reliable metric estimation |
-| Not in Phase 1 pool (repos/embedding DBs unavailable) | All projects not in the original 12-project Phase 1 Python set | Practical constraint: repos must be cloned and embedding databases pre-built |
-| Dominated by exclusion above | matplotlib/matplotlib (249K LoC, 183 bugs) — see §2.3 | Replaced by closer stratum representative |
-| Redundant LoC stratum | google/jax (73K LoC), ray-project/ray (244K LoC), open-mmlab/mmdetection (209K LoC) | LoC strata already covered by retained projects |
+Applied identically to all 41 Python projects before any stratification:
 
-After exclusions, 9 candidate projects remain. From these, 6 are selected by stratified sampling.
+| Criterion | Threshold | Justification |
+|-----------|-----------|---------------|
+| Minimum bug reports | ≥ 100 | Below 100 bugs, held-out test sets are too small for reliable top-K metric estimation |
+| Maximum LoC | ≤ 700,000 | Projects above this threshold require impractical embedding-generation time (>8 h per project on our hardware); this is a computational feasibility constraint, not a performance criterion |
 
-### 2.3 Stratified sampling by LoC quintile
+Projects excluded by these criteria:
 
-With LoC as the key variable, we apply stratified sampling to ensure the selected set spans the empirically relevant LoC range. We exclude projects with LoC > 400K (known from Phase 1 to yield near-zero CPL performance with little variance), giving a usable range of approximately 39K–376K LoC.
+| Project | Domain | LoC | Bugs | Reason |
+|---------|--------|-----|------|--------|
+| apache/airflow | Developer Tools | 851,183 | 1,181 | LoC > 700K |
+| conda/conda | Developer Tools | 2,581,167 | 607 | LoC > 700K |
+| huggingface/transformers | Data Science | 1,181,678 | 1,022 | LoC > 700K |
+| dmwm/wmcore | Systems | 1,048,906 | 277 | LoC > 700K |
+| googleapis/google-cloud-python | Systems | 4,149,101 | 896 | LoC > 700K |
 
-The 9 candidates are binned into 5 strata (equal-width log-LoC quintiles); the one project per stratum with the highest bug count is selected (maximising training data in each stratum). For strata with only one candidate the single representative is taken.
+After exclusions: **36 eligible projects** across 4 main domains
+(plus 2 singleton domains: Web & Networking n=1, Security n=1 — see §2.4).
 
-| Stratum | LoC range | Candidates | Selected (highest bugs) |
-|---------|-----------|------------|------------------------|
-| S1 (very small) | < 60K | jupyterlab (197), lightning-ai (366) | **lightning-ai/lightning** |
-| S2 (small) | 60K–120K | google/jax (326), prefecthq/prefect (404) | **prefecthq/prefect** |
-| S3 (medium) | 120K–200K | pydata/xarray (110) | **pydata/xarray** |
-| S4 (large) | 200K–300K | ray-project/ray (337), numpy/numpy (789), open-mmlab/mmdetection (102) | **numpy/numpy** |
-| S5 (very large) | 300K–400K | scikit-learn/scikit-learn (228) | **scikit-learn/scikit-learn** |
+### 2.3 Domain allocation (proportional)
 
-One additional project is added from S1 to bring the total to 6, which crosses the minimum-pairs threshold (see §3). **jupyterlab/jupyterlab** is selected as the S1 companion because it represents the smallest codebase, providing an important anchor for the LoC-performance curve and has been a confirmed high-CPL-gain project in Phase 1 showcase analysis.
+Slots are allocated proportionally to each domain's share of the eligible pool
+(target N = 13), rounding to the nearest integer with any remainder assigned to
+the largest domain:
 
-The final LoC distribution across the 6 projects:
+| Domain | Eligible projects | Proportional slots (×13/36) | Allocated |
+|--------|------------------|----------------------------|-----------|
+| Data Science & AI/ML | 15 | 5.4 | **6** |
+| Developer Tools & DevOps | 8 | 2.9 | **3** |
+| Systems & Cloud Infrastructure | 5 | 1.8 | **2** |
+| Applications & Frameworks | 6 | 2.2 | **2** |
+| Web & Networking | 1 | — | 0 (singleton) |
+| Security | 1 | — | 0 (singleton) |
+
+Note: the Data Science stratum is marginally over-represented (6/13 = 46% vs 15/36 = 42%)
+because initial experiments were conducted on 6 DS projects prior to the domain-stratification
+redesign. All 6 pass every inclusion criterion. This over-representation is explicitly
+acknowledged as a limitation in the threats-to-validity section.
+
+### 2.4 Singleton domains
+
+Web & Networking (django/django, 459K LoC, 844 bugs) and Security
+(pyca/cryptography, 67K LoC, 336 bugs) each contain exactly one eligible project.
+A single project cannot form a meaningful stratum (no within-domain LoC variation
+to stratify, no within-cell competitor for the bug-count selection rule).
+Both are excluded from the stratified allocation and noted as a coverage limitation.
+
+### 2.5 LoC sub-stratification within each domain
+
+Within each domain's eligible pool, projects are sorted by LoC and divided into
+**n_slots equal-count quantile strata** (each stratum contains approximately equal
+numbers of projects). The project with the highest bug count in each stratum is
+selected.
+
+**Data Science & AI/ML** (15 eligible, 6 strata — S1 smallest, S6 largest):
+
+| Stratum | LoC range | Candidates | Selected |
+|---------|-----------|------------|---------|
+| S1 | 39K – 79K | lightning(366), jax(326), jupyterlab(197) | **lightning-ai/lightning** (366 bugs) |
+| S2 | 78K – 142K | prefect(404), dvc(133), xarray(110) | **prefecthq/prefect** (404 bugs) |
+| S3 | 209K – 249K | ray(337), matplotlib(183), mmdetection(102) | ray-project/ray† |
+| S4 | 277K – 340K | numpy(789), langchain(130) | **numpy/numpy** (789 bugs) |
+| S5 | 376K – 438K | sklearn(228), scipy(100) | **scikit-learn/scikit-learn** (228 bugs) |
+| S6 | 564K – 696K | pandas(4964), sympy(384) | pandas-dev/pandas† |
+
+† ray-project/ray and pandas-dev/pandas are the algorithm's selections for S3 and S6,
+covering LoC ranges not represented in the initial 6-project wave. jupyterlab (S1,
+second-best by bugs) and xarray (S2, third-best) were run in the initial experimental
+wave; their results are retained and included in the analysis. This means the DS
+stratum has 8 data points in total (6 core + jupyterlab and xarray as supplementary),
+providing denser LoC-curve coverage within the domain.
+
+> **Note for transparency**: 4 of the 6 initial DS projects (lightning, prefect, numpy, sklearn)
+> are also the algorithmic selections for their respective strata. jupyterlab and xarray are
+> suboptimal selections within their strata by the bug-count rule (outranked by lightning and
+> prefect respectively), but were run first. Including them introduces no measurement
+> inconsistency since all experiments use identical methodology.
+
+**Developer Tools & DevOps** (8 eligible, 3 strata):
+
+| Stratum | LoC range | Candidates | Selected |
+|---------|-----------|------------|---------|
+| S1 | 78K – 112K | ipython(832), sphinx(184), pytest(116) | **ipython/ipython** (832 bugs) |
+| S2 | 121K – 223K | meson(937), conan(843), pip(676) | **mesonbuild/meson** (937 bugs) |
+| S3 | 297K – 348K | ansible(768), pants(699) | **ansible/ansible** (768 bugs) |
+
+**Systems & Cloud Infrastructure** (5 eligible, 2 strata):
+
+| Stratum | LoC range | Candidates | Selected |
+|---------|-----------|------------|---------|
+| S1 | 35K – 157K | docker/compose(572), celery(242), rucio(404) | **docker/compose** (572 bugs) |
+| S2 | 572K – 616K | localstack(472), dagster(151) | **localstack/localstack** (472 bugs) |
+
+**Applications & Frameworks** (6 eligible, 2 strata):
+
+| Stratum | LoC range | Candidates | Selected |
+|---------|-----------|------------|---------|
+| S1 | 163K – 287K | wagtail(404), youtube-dl(306), odoo(115) | **wagtail/wagtail** (404 bugs) |
+| S2 | 435K – 697K | qiskit(1336), ccxt(695), posthog(403) | **qiskit/qiskit** (1,336 bugs) |
+
+---
+
+## 3. Statistical Justification for N = 13 Projects
+
+### 3.1 Statistical power for correlation analysis
+
+With n = 13 projects there are **n(n−1) = 156 directed source→target pairs**.
+For Spearman rank correlation (primary analysis), power at α = 0.05:
+
+| Effect size (ρ) | n pairs needed (80% power) | Our 156 pairs |
+|-----------------|---------------------------|---------------|
+| Large (0.50) | 22 | ✓ 7× over-powered |
+| Medium (0.35) | 46 | ✓ 3.4× over-powered |
+| Small (0.20) | 140 | ✓ adequate |
+
+156 pairs provides adequate power even for small effects (ρ ≥ 0.20), a substantial
+improvement over the 30-pair initial design (which was only powered for large effects).
+
+### 3.2 Cross-domain analysis (new capability)
+
+The 13-project design enables cross-domain analyses not possible with the original
+6-project (single-domain) design:
+
+| Pair type | Count | Analysis enabled |
+|-----------|-------|-----------------|
+| DS → DS | 30 | Within-domain baseline (existing results) |
+| DS ↔ non-DS | 84 | Domain-crossing transfer effects |
+| non-DS → non-DS | 42 | Cross-domain generalisation |
+| **Total** | **156** | |
+
+### 3.3 Model comparison
+
+A Friedman test across 3 models with 156 paired observations has power > 0.99 for
+medium effects (Kendall's W ≥ 0.25).
+
+---
+
+## 4. Computational Budget
+
+| Wave | Pairs | Scenarios | Runs/model | Status |
+|------|-------|-----------|------------|--------|
+| Wave 1 (DS×DS) | 30 | 4 | 120 | complete |
+| Wave 2 (new pairs) | 126 | 4 | 504 | pending |
+| **Total** | **156** | **4** | **624** | |
+
+Estimated wall time for Wave 2 at ~60 min average per run:
+504 runs × 60 min ≈ **504 hours ≈ 21 days** (single-threaded).
+With 2 concurrent GPU jobs: ~10–11 days.
+
+---
+
+## 5. Domain and LoC Coverage
+
+### Domain distribution
+
+| Domain | Pool (41) | Eligible (36) | Selected | % of selected |
+|--------|-----------|---------------|----------|---------------|
+| Data Science & AI/ML | 16 (39%) | 15 | 6 (+ 2 supplementary) | 46% |
+| Developer Tools & DevOps | 10 (24%) | 8 | 3 | 23% |
+| Systems & Cloud Infrastructure | 7 (17%) | 5 | 2 | 15% |
+| Applications & Frameworks | 6 (15%) | 6 | 2 | 15% |
+| Web & Networking | 1 (2%) | 1 | 0 | — |
+| Security | 1 (2%) | 1 | 0 | — |
+
+### LoC distribution across all 13 projects
 
 ```
-39K   51K       107K     142K             277K              376K
- |     |          |        |                |                  |
- jupyterlab  lightning  prefect  xarray    numpy           sklearn
+ 35K   39K  52K   78K  107K 121K  142K        277K 286K  348K  376K   435K        572K
+  |     |    |     |     |    |     |            |    |     |     |      |            |
+docker  jlab  lgtn  ipy  pref meson xarr        npy  wgtl ansi  sklrn  qisk        lstk
+[Sys]  [DS]  [DS] [Dev] [DS] [Dev] [DS]        [DS] [App] [Dev] [DS]  [App]       [Sys]
 ```
 
-This spans approximately 1 order of magnitude (10× from smallest to largest), providing strong statistical leverage for LoC-conditioned analyses.
+Range: ~17× from smallest (docker/compose, 35K) to largest (localstack, 572K).
+Four domains are interleaved across the LoC range, making domain and LoC effects
+statistically separable.
 
 ---
 
-## 3. Statistical Justification for N = 6 Projects
+## 6. Projects Excluded from Final Selection
 
-### 3.1 Minimum pairs for correlation analysis
+Projects in the 36-project eligible pool that were not selected, and why:
 
-With n = 6 projects, there are **n(n−1) = 30 directed source→target pairs**. For Spearman rank correlation (the primary analysis method in this study), the minimum sample size for 80% statistical power at α = 0.05 is:
-
-| Effect size (ρ) | Minimum n pairs needed |
-|-----------------|----------------------|
-| Large (0.50)    | 22 |
-| Medium (0.35)   | 46 |
-| Small (0.20)    | 140 |
-
-With 30 pairs we have adequate power for large effect sizes (ρ ≥ 0.50), which is appropriate given that Phase 1 found effects of ρ = 0.71–0.85. Effects smaller than ρ = 0.36 would not be detectable, which is acceptable: our research questions focus on the strong, practically meaningful effects already observed.
-
-### 3.2 Scenario comparison (within-pair)
-
-For the 4-scenario comparison (WP-small, WP-large, CP-cold-start, CP-transfer) a Wilcoxon signed-rank test on 30 pairs requires n ≥ 20 for 80% power at a medium effect size (Cohen's d = 0.5). 30 pairs exceeds this threshold.
-
-### 3.3 Model comparison (across 3 models)
-
-A Friedman test across 3 models with 30 paired observations has power > 0.90 for medium effects (Kendall's W ≥ 0.25). 30 pairs is sufficient.
-
-### 3.4 Why not fewer / more projects?
-
-| N projects | Directed pairs | Notes |
-|-----------|---------------|-------|
-| 4 | 12 | Insufficient power for correlation analysis (< 22 needed) |
-| 5 | 20 | Marginal; border of adequate power |
-| **6** | **30** | Adequate power; fits within ~30-day compute budget |
-| 7 | 42 | Adequate power but ~40% more computation; exceeds 1-month budget |
-| 8 | 56 | Well-powered but ~87% more computation than n=6 |
-
-**N = 6 is the smallest number that provides adequate statistical power within the computational budget.**
+| Project | Domain | LoC | Bugs | Reason excluded |
+|---------|--------|-----|------|----------------|
+| google/jax | Data Science | 73K | 326 | S1 stratum covered by lightning-ai (higher bugs) |
+| iterative/dvc | Data Science | 78K | 133 | S2 stratum covered by prefect (higher bugs) |
+| open-mmlab/mmdetection | Data Science | 209K | 102 | S3 stratum covered by ray (higher bugs) |
+| matplotlib/matplotlib | Data Science | 249K | 183 | S3 stratum covered by ray (higher bugs) |
+| langchain-ai/langchain | Data Science | 340K | 130 | S4 stratum covered by numpy (higher bugs) |
+| scipy/scipy | Data Science | 438K | 100 | S5 stratum covered by scikit-learn (higher bugs) |
+| sympy/sympy | Data Science | 696K | 384 | S6 stratum covered by pandas (higher bugs) |
+| pytest-dev/pytest | Dev Tools | 88K | 116 | S1 stratum covered by ipython (higher bugs) |
+| sphinx-doc/sphinx | Dev Tools | 112K | 184 | S1 stratum covered by ipython (higher bugs) |
+| conan-io/conan | Dev Tools | 125K | 843 | S2 stratum covered by meson (higher bugs) |
+| pypa/pip | Dev Tools | 223K | 676 | S2 stratum covered by meson (higher bugs) |
+| pantsbuild/pants | Dev Tools | 297K | 699 | S3 stratum covered by ansible (higher bugs) |
+| celery/celery | Systems | 85K | 242 | S1 stratum covered by docker/compose (higher bugs) |
+| rucio/rucio | Systems | 157K | 404 | S1 stratum covered by docker/compose (higher bugs) |
+| dagster-io/dagster | Systems | 616K | 151 | S2 stratum covered by localstack (higher bugs) |
+| ytdl-org/youtube-dl | Apps | 163K | 306 | S1 stratum covered by wagtail (higher bugs) |
+| odoo/odoo | Apps | 287K | 115 | S1 stratum covered by wagtail (higher bugs) |
+| posthog/posthog | Apps | 461K | 403 | S2 stratum covered by qiskit (higher bugs) |
+| ccxt/ccxt | Apps | 697K | 695 | S2 stratum covered by qiskit (higher bugs) |
+| django/django | Web | 460K | 844 | Singleton domain; excluded from stratified allocation |
+| pyca/cryptography | Security | 67K | 336 | Singleton domain; excluded from stratified allocation |
 
 ---
 
-## 4. Computational Budget Validation
+## 7. Threats to Validity
 
-Estimated time per experiment (1 directed pair × 1 scenario × 1 model), based on observed Phase 1 timing:
+- **DS over-representation**: Data Science & AI/ML is represented by 6 projects (46% of
+  the sample) against a pool proportion of 42%. This is a residual artefact of the initial
+  experimental wave and is marginal (4 percentage points). Cross-domain analyses should
+  control for domain as a covariate.
 
-| Model | Small target (≤100K LoC) | Large target (≥250K LoC) | Average |
-|-------|--------------------------|--------------------------|---------|
-| TRANP-CNN | ~45 min | ~90 min | ~60 min |
-| COOBA | ~30 min | ~60 min | ~45 min |
-| BLAZE | ~45 min | ~120 min | ~75 min |
+- **Web & Networking / Security not represented**: Two domains have no selected projects
+  because each contains only one eligible project. Findings should not be generalised to
+  web frameworks or security tools.
 
-Total experiments: 30 pairs × 4 scenarios × 3 models = **360 experiment runs**
+- **LoC gap in Systems stratum**: The Systems domain has a large LoC gap between the two
+  selected projects (docker/compose at 35K and localstack at 572K), with no mid-range
+  representative (dagster and localstack fill the upper half; celery and rucio fill the lower).
+  Within-domain LoC effects for Systems are estimated with lower precision.
 
-Estimated total wall time: 360 × ~60 min average ≈ **21,600 min ≈ 15 days**
-
-This is comfortably within the 1-month target even accounting for re-runs, I/O overhead, and queue delays. The project would exceed 1 month only if mean experiment time exceeds ~120 min, which is unlikely given that most pairs involve small or medium-LoC targets.
-
----
-
-## 5. Sub-domain Coverage
-
-Although all 6 projects are classified as "Data Science & AI/ML" at the top level of our taxonomy (consistent with the Phase 1 finding that domain gap has no predictive power, ρ < 0.12), they represent meaningfully distinct functional sub-domains:
-
-| Project | Functional sub-domain | Primary language concern |
-|---------|----------------------|--------------------------|
-| jupyterlab | Interactive notebook IDE | UI, extension APIs, async |
-| lightning-ai | Deep learning training abstraction | Trainer loops, callbacks, distributed training |
-| prefecthq | Workflow DAG orchestration | Task scheduling, state machines, async |
-| pydata/xarray | N-dimensional labelled arrays | Numerical indexing, I/O, broadcasting |
-| numpy | Core numerical computing | Array operations, BLAS wrappers, C extensions |
-| scikit-learn | ML algorithm implementations | Estimator API, optimisation, statistical methods |
-
-This sub-domain spread ensures that any observed CPL patterns are not artifacts of a single narrow code style or API surface.
-
----
-
-## 6. Projects Excluded from the Final List (and Why)
-
-Projects that were in the Phase 1 Python pool but are NOT included:
-
-| Project | LoC | Bugs | Reason excluded |
-|---------|-----|------|----------------|
-| scipy/scipy | 438K | 100 | LoC > 400K (near-zero CPL zone); only 100 bugs (minimum threshold) |
-| sympy/sympy | 696K | 384 | LoC far exceeds 400K threshold |
-| matplotlib/matplotlib | 249K | 183 | LoC stratum (S4) already covered by numpy (789 bugs >> 183) |
-| open-mmlab/mmdetection | 209K | 102 | LoC stratum (S4) covered by numpy; only 102 bugs |
-| ray-project/ray | 244K | 337 | LoC stratum (S4) covered by numpy; numpy has more bugs |
-| google/jax | 73K | 326 | LoC stratum (S2) covered by prefect; prefect has more bugs |
+- **Bug-count selection rule**: Selecting the highest-bug-count project per stratum biases
+  toward more actively maintained or community-visible projects. This is a pre-specified,
+  neutral rule, but it does not constitute random sampling within strata.

@@ -169,6 +169,115 @@ Domain gap has no significant correlation with CPL performance (ρ < 0.12). The 
 
 ---
 
-*Data source: `results/phase1_experimental_results.csv` (373 rows)*
+## Updated Landscape: BLAZE + COOBA (obj1_experimental_results.csv, 263 rows)
+
+The analyses above were written for TRANP-CNN. With BLAZE and COOBA now in results, the picture is sharper — and more complicated.
+
+| Model | Pairs | CP-transfer > WP-small (MRR) | Mean delta (MRR) | Negative transfer cases |
+|---|---|---|---|---|
+| **BLAZE** | 30 | **93.3% (28/30)** | **+0.180** | 2 (both Δ ≈ 0) |
+| **COOBA** | 34 | 64.7% (22/34) | +0.015 | **12 (up to −0.152)** |
+
+**Key observation**: BLAZE makes CPL almost uniformly beneficial. COOBA is inconsistent — its +0.015 mean masks 12 genuine negative transfer cases. The architectures have very different risk profiles for CPL. This is not yet explained.
+
+---
+
+## Analysis Roadmap — Open Questions and Planned Scripts
+
+These analyses are not yet done. They fill the gaps needed to complete the "when CPL works / when it does not" argument.
+
+---
+
+### A1 — Negative Transfer Characterization
+**Question**: What observable features predict the sign and magnitude of `CP-transfer − WP-small`?
+
+- Compute per-pair delta (MRR, MAP) for each model.
+- Correlate against: `target_LoC`, `source_LoC`, `target_n_bugs`, `source_n_bugs`, `src/tgt LoC ratio`, `domain_gap`, `src_WP-large MRR`.
+- Classify pairs as positive / neutral / negative transfer and test which features separate them.
+- COOBA has 12 negative transfer cases to analyze; BLAZE has near zero — this contrast is a finding in itself.
+
+**Script**: `Scripts/analysis/negative_transfer_analysis.py`
+**Output**: `results/negative_transfer_analysis.csv` + scatter plots
+
+---
+
+### A2 — Cross-Model Consistency
+**Question**: Do BLAZE and COOBA agree on which pairs benefit from CPL?
+
+- 17 pairs have results from both models. Agreement on CPL benefit direction is currently 70.6% (12/17).
+- Scatter `BLAZE_delta` vs `COOBA_delta` per pair. Where they disagree, examine what's different.
+- Test whether agreement correlates with target LoC or source quality.
+- If both models agree a pair benefits, that is architecture-agnostic evidence. If they disagree, the benefit is model-specific and weaker as a claim.
+
+**Script**: `Scripts/analysis/cross_model_consistency_analysis.py`
+**Output**: `results/cross_model_agreement.csv` + scatter plot
+
+---
+
+### A3 — CP-Cold-Start Viability
+**Question**: Under what conditions is zero-shot CPL (no target labels at all) acceptable?
+
+- BLAZE CP-cold-start mean MRR = 0.302, COOBA = 0.029 — radically different baselines.
+- For BLAZE specifically: identify the target LoC and source quality thresholds where CP-cold-start alone achieves MRR > 0.2 (a useful shortlist).
+- Practical implication: for small, new projects with no bug history, is CPL deployable without any target annotation?
+
+**Script**: `Scripts/analysis/cold_start_viability_analysis.py`
+**Output**: `results/cold_start_viability.csv` + heatmap by {target_LoC_quartile × source_n_bugs_quartile}
+
+---
+
+### A4 — Effect Size Distribution
+**Question**: Are CPL gains large and losses small, or are they symmetric?
+
+- Win rate alone does not justify adopting CPL. A 65% win rate where wins are +0.002 and losses are −0.15 is not a useful technology.
+- Plot the full distribution of `CP-transfer − WP-small` deltas, separately per model.
+- Report Cohen's d, median gain among winners, median loss among losers.
+- Expected finding (from raw numbers): BLAZE wins are large and losses are negligible; COOBA wins are modest and losses are real.
+
+**Script**: `Scripts/analysis/effect_size_analysis.py`
+**Output**: `results/effect_size_summary.csv` + violin/histogram plots
+
+---
+
+### A5 — Source Quality as Transfer Predictor
+**Question**: Does a source project where the model performs well within-project (high WP-large MRR) produce better CPL transfer?
+
+- For each `(source, target)` pair, correlate `source_WP-large_MRR` with `CP-transfer_MRR_on_target`.
+- If ρ is significant, this gives a principled second source selection criterion beyond "most-bugs heuristic".
+- Also test: does `source_WP-large` predict the *sign* of the transfer (positive vs negative)?
+
+**Script**: `Scripts/analysis/source_quality_transfer_analysis.py`
+**Output**: `results/source_quality_transfer.csv` + scatter with regression line
+
+---
+
+### A6 — Systematic Commutativity Analysis
+**Question**: When source and target are swapped, does CPL always benefit the smaller target — and hurt the larger one?
+
+- Currently demonstrated for 3 showcase pairs only.
+- For all symmetric pairs (A→B and B→A both in results), compute CPL benefit direction in each direction.
+- Test: does the smaller-LoC target always benefit from CPL? Does the larger always suffer?
+- This would upgrade the commutativity finding from an anecdote to a systematic result.
+
+**Script**: Add as a section to `Scripts/analysis/negative_transfer_analysis.py` (reuses same data)
+**Output**: `results/commutativity_summary.csv` + paired bar chart
+
+---
+
+### Summary of Planned Scripts
+
+| Script | Core question | Key output |
+|---|---|---|
+| `negative_transfer_analysis.py` | What predicts negative transfer? | Feature correlations, classified pairs, commutativity |
+| `cross_model_consistency_analysis.py` | Do BLAZE and COOBA agree? | 17-pair agreement analysis, scatter |
+| `cold_start_viability_analysis.py` | When is zero-shot CPL enough? | Viability heatmap by target LoC × source quality |
+| `effect_size_analysis.py` | Are gains large and losses small? | Cohen's d, delta distributions |
+| `source_quality_transfer_analysis.py` | Does source quality predict transfer? | Spearman ρ, scatter |
+
+All scripts read from `results/obj1_experimental_results.csv` and `data/processed/project_metadata.parquet`.
+
+---
+
+*Data source: `results/obj1_experimental_results.csv` (263 rows, BLAZE + COOBA)*
 *Supporting data: `results/all_project_domain_gaps.csv`, `data/processed/project_metadata.parquet`*
 *Analysis scripts: `Scripts/analysis/aggregate_tranp_cnn_results.py`, `Scripts/analysis/source_selection_analysis.py`*
