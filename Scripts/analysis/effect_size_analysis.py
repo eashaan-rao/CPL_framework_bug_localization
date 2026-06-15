@@ -16,7 +16,8 @@ Questions answered
 
 Outputs
 ───────
-results/effect_size_summary.csv          — Cohen's d + Wilcoxon p per model × comparison × metric
+results/effect_size_summary.csv              — Cohen's d + Wilcoxon p per model × comparison × metric
+results/effect_size_stratified_table.csv     — Mean metrics by model × scenario × target size group
 results/images/es_delta_distributions.png
 results/images/es_delta_by_target_size.png
 results/images/es_cohens_d_heatmap.png
@@ -37,7 +38,8 @@ from scipy.stats import wilcoxon
 RESULTS_CSV  = "/home/cs21d002_eashaan/PhD/Objective1/results/obj1_experimental_results.csv"
 METADATA_PKL = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/project_metadata.parquet"
 IMG_DIR      = "/home/cs21d002_eashaan/PhD/Objective1/results/images"
-OUT_CSV      = "/home/cs21d002_eashaan/PhD/Objective1/results/effect_size_summary.csv"
+OUT_CSV            = "/home/cs21d002_eashaan/PhD/Objective1/results/effect_size_summary.csv"
+OUT_STRATIFIED_CSV = "/home/cs21d002_eashaan/PhD/Objective1/results/effect_size_stratified_table.csv"
 
 os.makedirs(IMG_DIR, exist_ok=True)
 
@@ -216,6 +218,54 @@ def plot_cohens_d_heatmap(effect_df):
     print("  ✓ es_cohens_d_heatmap.png")
 
 
+def build_stratified_table(df):
+    """Mean metrics per model × scenario × target LoC size group (Small/Medium/Large)."""
+    SCENARIOS = ['WP-small', 'WP-large', 'CP-cold-start', 'CP-transfer']
+    METRICS_ALL = ['MRR', 'MAP', 'top-1', 'top-5', 'top-10']
+
+    df = df.copy()
+    df['tgt_size_group'] = pd.cut(
+        df['tgt_LoC'], bins=SIZE_BINS, labels=SIZE_LABELS)
+
+    rows = []
+    for model, mg in df.groupby('model_name'):
+        for scenario in SCENARIOS:
+            sg = mg[mg['scenario'] == scenario]
+            # All targets combined
+            n_pairs = len(sg)
+            row = {'model': model, 'scenario': scenario, 'size_group': 'All', 'n_pairs': n_pairs}
+            for m in METRICS_ALL:
+                row[f'mean_{m}'] = sg[m].mean() if n_pairs > 0 else np.nan
+            rows.append(row)
+            # Per size group
+            for size_label in SIZE_LABELS:
+                sub = sg[sg['tgt_size_group'] == size_label]
+                n = len(sub)
+                row = {'model': model, 'scenario': scenario, 'size_group': size_label, 'n_pairs': n}
+                for m in METRICS_ALL:
+                    row[f'mean_{m}'] = sub[m].mean() if n > 0 else np.nan
+                rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
+def print_stratified_table(strat_df):
+    print("\n── Stratified Results: Mean MRR by Model × Scenario × Target Size ───────")
+    pd.set_option('display.float_format', '{:.3f}'.format)
+    pivot = strat_df[strat_df['size_group'] != 'All'].pivot_table(
+        index=['model', 'size_group'], columns='scenario',
+        values='mean_MRR', aggfunc='first')
+    scenario_order = ['WP-small', 'WP-large', 'CP-cold-start', 'CP-transfer']
+    pivot = pivot[[c for c in scenario_order if c in pivot.columns]]
+    print(pivot.to_string())
+    print()
+    print("── Pair counts by model × size group ───────────────────────────────────")
+    counts = strat_df[strat_df['scenario'] == 'CP-transfer'].pivot_table(
+        index='model', columns='size_group', values='n_pairs', aggfunc='first')
+    print(counts.to_string())
+    print()
+
+
 def print_summary(effect_df):
     print("\n── Effect Size Summary (CP-transfer vs WP-small, MRR) ──────────────")
     sub = effect_df[
@@ -248,6 +298,11 @@ def main():
 
     effect_df.to_csv(OUT_CSV, index=False)
     print(f"  ✓ {OUT_CSV}")
+
+    strat_df = build_stratified_table(df)
+    print_stratified_table(strat_df)
+    strat_df.to_csv(OUT_STRATIFIED_CSV, index=False)
+    print(f"  ✓ {OUT_STRATIFIED_CSV}")
 
 
 if __name__ == '__main__':

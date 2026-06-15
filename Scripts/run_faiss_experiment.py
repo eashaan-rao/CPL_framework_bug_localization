@@ -211,19 +211,26 @@ def run_faiss_experiment():
     #     "square/kotlinpoet"
     # ]
     
-    # We can add more repositories or precision types here later.
+    # Paper set: 13 Python projects across 4 domains (see results/PAPER_RUN_PLAN.md).
+    # All use fp32 embeddings built by build_embed_database_pipeline.py.
     experiments = [
-        {'repo_name': 'spring-projects/spring-roo', 'precision': 'fp32', 'blob_suffix': '32.pkl', 'bug_suffix': '32.pkl'},
-        # {'repo_name': 'spring-projects/spring-roo', 'precision': 'fp16', 'blob_suffix': '16.pkl', 'bug_suffix': '16.pkl'},
-        {'repo_name': 'pypa/pip', 'precision': 'fp32', 'blob_suffix': '32.pkl', 'bug_suffix': '32.pkl'},
-        # {'repo_name': 'pypa/pip', 'precision': 'fp16', 'blob_suffix': '16.pkl', 'bug_suffix': '16.pkl'},
-        {'repo_name': 'protocolbuffers/protobuf', 'precision': 'fp32', 'blob_suffix': '32.pkl', 'bug_suffix': '32.pkl'},
-        # {'repo_name': 'protocolbuffers/protobuf', 'precision': 'fp16', 'blob_suffix': '16.pkl', 'bug_suffix': '16.pkl'},
-        {'repo_name': 'nats-io/nats-server', 'precision': 'fp32', 'blob_suffix': '32.pkl', 'bug_suffix': '32.pkl'},
-        # {'repo_name': 'nats-io/nats-server', 'precision': 'fp16', 'blob_suffix': '16.pkl', 'bug_suffix': '16.pkl'},
-        {'repo_name': 'square/anvil', 'precision': 'fp32', 'blob_suffix': '32.pkl', 'bug_suffix': '32.pkl'},
-        # {'repo_name': 'square/anvil', 'precision': 'fp16', 'blob_suffix': '16.pkl', 'bug_suffix': '16.pkl'}
-        
+        # ── Data Science & AI/ML ───────────────────────────────────────────────
+        {'repo_name': 'jupyterlab/jupyterlab',    'precision': 'fp32', 'blob_suffix': '32.pkl', 'bug_suffix': '32.pkl'},
+        {'repo_name': 'lightning-ai/lightning',   'precision': 'fp32', 'blob_suffix': '32.pkl', 'bug_suffix': '32.pkl'},
+        {'repo_name': 'prefecthq/prefect',        'precision': 'fp32', 'blob_suffix': '32.pkl', 'bug_suffix': '32.pkl'},
+        {'repo_name': 'pydata/xarray',            'precision': 'fp32', 'blob_suffix': '32.pkl', 'bug_suffix': '32.pkl'},
+        {'repo_name': 'numpy/numpy',              'precision': 'fp32', 'blob_suffix': '32.pkl', 'bug_suffix': '32.pkl'},
+        {'repo_name': 'scikit-learn/scikit-learn','precision': 'fp32', 'blob_suffix': '32.pkl', 'bug_suffix': '32.pkl'},
+        # ── Developer Tools & DevOps ───────────────────────────────────────────
+        {'repo_name': 'ipython/ipython',          'precision': 'fp32', 'blob_suffix': '32.pkl', 'bug_suffix': '32.pkl'},
+        {'repo_name': 'mesonbuild/meson',         'precision': 'fp32', 'blob_suffix': '32.pkl', 'bug_suffix': '32.pkl'},
+        {'repo_name': 'ansible/ansible',          'precision': 'fp32', 'blob_suffix': '32.pkl', 'bug_suffix': '32.pkl'},
+        # ── Systems & Cloud Infrastructure ────────────────────────────────────
+        {'repo_name': 'docker/compose',           'precision': 'fp32', 'blob_suffix': '32.pkl', 'bug_suffix': '32.pkl'},
+        {'repo_name': 'localstack/localstack',    'precision': 'fp32', 'blob_suffix': '32.pkl', 'bug_suffix': '32.pkl'},
+        # ── Applications & Frameworks ─────────────────────────────────────────
+        {'repo_name': 'wagtail/wagtail',          'precision': 'fp32', 'blob_suffix': '32.pkl', 'bug_suffix': '32.pkl'},
+        {'repo_name': 'qiskit/qiskit',            'precision': 'fp32', 'blob_suffix': '32.pkl', 'bug_suffix': '32.pkl'},
     ]
 
     # Filter df_meta to include only these repositories
@@ -243,6 +250,14 @@ def run_faiss_experiment():
         language = project_row['language']
 
         print(f"\n--- Processing project: {repo_name} (Precision: {experiment['precision']}) ---")
+
+        # Skip if already computed
+        early_recall_path = os.path.join(RESULT_PATH, 'faiss_recall_results',
+                                         f'semantic_search_{repo_name.replace("/", "_")}_results.csv')
+        if os.path.exists(early_recall_path):
+            print(f"  Already computed. Skipping.")
+            continue
+
         # 3. Dynamically build the database paths based on the experiment config.
         blob_filename = repo_name.replace('/', '_') + '_blob_embeddings' + experiment['blob_suffix']
         bug_filename = repo_name.replace('/', '_') + '_bug_metadata' + experiment['bug_suffix'] # Assuming bug files are also separated

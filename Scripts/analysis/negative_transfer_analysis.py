@@ -34,8 +34,19 @@ RESULTS_CSV  = "/home/cs21d002_eashaan/PhD/Objective1/results/obj1_experimental_
 METADATA_PKL = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/project_metadata.parquet"
 DOMAIN_CSV   = "/home/cs21d002_eashaan/PhD/Objective1/results/all_project_domain_gaps.csv"
 IMG_DIR      = "/home/cs21d002_eashaan/PhD/Objective1/results/images"
-OUT_CSV      = "/home/cs21d002_eashaan/PhD/Objective1/results/negative_transfer_analysis.csv"
-OUT_COMM_CSV = "/home/cs21d002_eashaan/PhD/Objective1/results/negative_transfer_analysis_commutativity.csv"
+OUT_CSV           = "/home/cs21d002_eashaan/PhD/Objective1/results/negative_transfer_analysis.csv"
+OUT_COMM_CSV      = "/home/cs21d002_eashaan/PhD/Objective1/results/negative_transfer_analysis_commutativity.csv"
+OUT_CROSSDOMAIN_CSV = "/home/cs21d002_eashaan/PhD/Objective1/results/cross_domain_breakdown.csv"
+
+# The 6 DS projects form the within-domain group (Group A pairs in paper set).
+DS_PROJECTS = {
+    'jupyterlab/jupyterlab',
+    'lightning-ai/lightning',
+    'prefecthq/prefect',
+    'pydata/xarray',
+    'numpy/numpy',
+    'scikit-learn/scikit-learn',
+}
 
 os.makedirs(IMG_DIR, exist_ok=True)
 
@@ -236,6 +247,77 @@ def commutativity_analysis(delta):
     return comm_df
 
 
+def cross_domain_breakdown(delta):
+    """
+    Compare CPL gain for within-domain (DS×DS) vs cross-domain pairs.
+    Tests E6 from CPL_DESIRABILITY: domain gap does not prevent CPL benefit.
+    """
+    delta = delta.copy()
+    delta['domain_type'] = delta.apply(
+        lambda r: 'Within-domain (DS×DS)'
+        if r['source_project'] in DS_PROJECTS and r['target_project'] in DS_PROJECTS
+        else 'Cross-domain',
+        axis=1
+    )
+
+    rows = []
+    for model, mg in delta.groupby('model_name'):
+        for dtype, dg in mg.groupby('domain_type'):
+            n = len(dg)
+            n_pos = (dg['transfer'] == 'positive').sum()
+            n_neg = (dg['transfer'] == 'negative').sum()
+            rows.append({
+                'model': model,
+                'domain_type': dtype,
+                'n_pairs': n,
+                'mean_delta_mrr': dg['delta_mrr'].mean(),
+                'median_delta_mrr': dg['delta_mrr'].median(),
+                'win_rate': n_pos / n if n > 0 else np.nan,
+                'n_positive': int(n_pos),
+                'n_negative': int(n_neg),
+            })
+    cd_df = pd.DataFrame(rows)
+
+    print("\n── Cross-domain vs Within-domain CPL Gain ───────────────────────────")
+    pd.set_option('display.float_format', '{:.3f}'.format)
+    print(cd_df[['model', 'domain_type', 'n_pairs', 'mean_delta_mrr',
+                 'win_rate', 'n_positive', 'n_negative']].to_string(index=False))
+
+    # Plot: side-by-side boxplot per model
+    models = sorted(delta['model_name'].unique())
+    fig, axes = plt.subplots(1, len(models), figsize=(7 * len(models), 5))
+    if not hasattr(axes, '__iter__'):
+        axes = [axes]
+
+    palette = {'Within-domain (DS×DS)': '#2196F3', 'Cross-domain': '#FF9800'}
+    for ax, model in zip(axes, models):
+        sub = delta[delta['model_name'] == model].dropna(subset=['delta_mrr'])
+        groups = ['Within-domain (DS×DS)', 'Cross-domain']
+        data   = [sub[sub['domain_type'] == g]['delta_mrr'].values for g in groups]
+        bp = ax.boxplot(data, labels=[g.replace(' (DS×DS)', '\n(DS×DS)') for g in groups],
+                        patch_artist=True, widths=0.5)
+        for patch, color in zip(bp['boxes'], [palette[g] for g in groups]):
+            patch.set_facecolor(color)
+            patch.set_alpha(0.7)
+        ax.axhline(0, color='red', linewidth=1.2, linestyle='--', alpha=0.8, label='Zero gain')
+        ax.set_ylabel('CPL gain: CP-transfer − WP-small (MRR)', fontsize=10)
+        ax.set_title(f'{model}: CPL gain by domain type', fontsize=11, fontweight='bold')
+        ax.grid(axis='y', alpha=0.3)
+        for i, (g, d) in enumerate(zip(groups, data), start=1):
+            n_win  = (d > 0).sum()
+            n_loss = (d < 0).sum()
+            ax.text(i, ax.get_ylim()[0] + 0.01,
+                    f'n={len(d)}\nwin={n_win} loss={n_loss}',
+                    ha='center', va='bottom', fontsize=8,
+                    bbox=dict(boxstyle='round', facecolor='white', alpha=0.6))
+
+    plt.tight_layout()
+    fig.savefig(os.path.join(IMG_DIR, 'nt_cross_domain_breakdown.png'), dpi=150, bbox_inches='tight')
+    plt.close()
+    print("  ✓ nt_cross_domain_breakdown.png")
+    return cd_df
+
+
 def print_summary(delta):
     print("\n── Negative Transfer Summary ─────────────────────────────────────────")
     for model, g in delta.groupby('model_name'):
@@ -271,12 +353,16 @@ def main():
     plot_feature_correlations(delta)
     plot_delta_by_target_loc(delta)
     comm_df = commutativity_analysis(delta)
+    cd_df   = cross_domain_breakdown(delta)
 
     delta.to_csv(OUT_CSV, index=False)
     print(f"  ✓ {OUT_CSV}")
     if not comm_df.empty:
         comm_df.to_csv(OUT_COMM_CSV, index=False)
         print(f"  ✓ {OUT_COMM_CSV}")
+    if not cd_df.empty:
+        cd_df.to_csv(OUT_CROSSDOMAIN_CSV, index=False)
+        print(f"  ✓ {OUT_CROSSDOMAIN_CSV}")
 
 
 if __name__ == '__main__':
