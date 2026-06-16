@@ -761,3 +761,11 @@ TRANP-CNN,jupyterlab/jupyterlab,mesonbuild/meson,CP-transfer,0.0476,0.1534,0.195
 TRANP-CNN,mesonbuild/meson,jupyterlab/jupyterlab,WP-small,0.125,0.35,0.5,0.4318,0.4297
 TRANP-CNN,mesonbuild/meson,jupyterlab/jupyterlab,WP-large,0.225,0.475,0.475,0.6592,0.6783
 TRANP-CNN,mesonbuild/meson,jupyterlab/jupyterlab,CP-cold-start,0.0,0.0,0.0,0.0064,0.0062
+TRANP-CNN,mesonbuild/meson,jupyterlab/jupyterlab,CP-transfer,0.25,0.475,0.475,0.6699,0.677
+TRANP-CNN,jupyterlab/jupyterlab,localstack/localstack,WP-small,0.0421,0.2421,0.3474,0.1423,0.1781
+TRANP-CNN,jupyterlab/jupyterlab,localstack/localstack,WP-large,0.0737,0.2526,0.3474,0.1703,0.2124
+TRANP-CNN,jupyterlab/jupyterlab,localstack/localstack,CP-cold-start,0.0,0.0105,0.0211,0.015,0.0151
+TRANP-CNN,jupyterlab/jupyterlab,localstack/localstack,CP-transfer,0.0421,0.2,0.3053,0.14,0.1705
+TRANP-CNN,localstack/localstack,jupyterlab/jupyterlab,WP-small,0.275,0.4,0.475,0.6377,0.6606
+TRANP-CNN,localstack/localstack,jupyterlab/jupyterlab,WP-large,0.275,0.475,0.5,0.6979,0.6983
+TRANP-CNN,jupyterlab/jupyterlab,prefecthq/prefect,WP-small,0.122,0.2317,0.2927,0.2853,0.3658
