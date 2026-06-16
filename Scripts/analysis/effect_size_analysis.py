@@ -35,7 +35,7 @@ import seaborn as sns
 from scipy.stats import wilcoxon
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-RESULTS_CSV  = "/home/cs21d002_eashaan/PhD/Objective1/results/obj1_experimental_results.csv"
+RESULTS_CSV  = "/home/cs21d002_eashaan/PhD/Objective1/results/obj1_paper_results.csv"
 METADATA_PKL = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/project_metadata.parquet"
 IMG_DIR      = "/home/cs21d002_eashaan/PhD/Objective1/results/images"
 OUT_CSV            = "/home/cs21d002_eashaan/PhD/Objective1/results/effect_size_summary.csv"
@@ -166,7 +166,9 @@ def plot_delta_distributions(delta):
 
 
 def plot_delta_by_target_size(delta):
-    palette = {'BLAZE': '#2196F3', 'COOBA': '#FF9800'}
+    _default = {'BLAZE': '#2196F3', 'COOBA': '#FF9800', 'TRANP-CNN': '#9C27B0'}
+    models  = sorted(delta['model'].unique())
+    palette = {m: _default.get(m, '#607D8B') for m in models}
     fig, ax  = plt.subplots(figsize=(10, 6))
     sub = delta.dropna(subset=['tgt_size_group'])
 

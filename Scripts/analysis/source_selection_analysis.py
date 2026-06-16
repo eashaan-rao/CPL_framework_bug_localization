@@ -36,11 +36,14 @@ from scipy.stats import kendalltau, spearmanr
 from sklearn.preprocessing import MinMaxScaler
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-RESULTS_CSV  = "/home/cs21d002_eashaan/PhD/Objective1/results/obj1_experimental_results.csv"
+RESULTS_CSV  = "/home/cs21d002_eashaan/PhD/Objective1/results/obj1_paper_results.csv"
 METADATA_PKL = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/project_metadata.parquet"
 DOMAIN_CSV   = "/home/cs21d002_eashaan/PhD/Objective1/results/all_project_domain_gaps.csv"
+FAISS_DIR    = "/home/cs21d002_eashaan/PhD/Objective1/results/faiss_recall_results"
 IMG_DIR      = "/home/cs21d002_eashaan/PhD/Objective1/results/images"
 OUT_CSV_TMPL = "/home/cs21d002_eashaan/PhD/Objective1/results/source_selection_validation_{model}.csv"
+
+FAISS_K = 300   # candidate pool size used by TRANP-CNN/COOBA/BLAZE rerankers
 
 os.makedirs(IMG_DIR, exist_ok=True)
 
@@ -62,6 +65,31 @@ TGT_FEATURES = {
     'tgt_code_complexity':          'Target: code complexity',
 }
 ALL_FEATURES = {**TGT_FEATURES, **SRC_FEATURES}
+
+
+# ── FAISS baseline loader ─────────────────────────────────────────────────────
+
+def load_faiss_recall(k=FAISS_K):
+    """
+    Returns dict {project_name: Recall@k} for all projects that have a
+    FAISS result file. Uses Recall@300 by default (= retrieval ceiling for
+    the top-300 candidate pool used by the reranking models).
+    """
+    col = f'Recall@{k}'
+    result = {}
+    for fname in os.listdir(FAISS_DIR):
+        if not fname.startswith('semantic_search_') or not fname.endswith('_results.csv'):
+            continue
+        # semantic_search_jupyterlab_jupyterlab_results.csv → jupyterlab/jupyterlab
+        stem = fname[len('semantic_search_'):-len('_results.csv')]
+        # Only reconstruct known projects (first underscore group = owner)
+        try:
+            df = pd.read_csv(os.path.join(FAISS_DIR, fname))
+            if col in df.columns:
+                result[stem.replace('_', '/', 1)] = df[col].iloc[0]
+        except Exception:
+            pass
+    return result
 
 
 # ── Data loading ──────────────────────────────────────────────────────────────
@@ -389,7 +417,14 @@ def plot_source_ranking(val_df, model):
 
 # ── Section 4: CPL desirability evidence ─────────────────────────────────────
 
-def print_cpl_desirability_evidence(cpt, model):
+def print_cpl_desirability_evidence(cpt, model, faiss_recall):
+    """
+    faiss_recall: dict {project_name: Recall@FAISS_K} from load_faiss_recall().
+    Note: FAISS Recall@300 is the retrieval ceiling (fraction of bugs findable
+    in top-300 candidates). Model MRR measures ranking quality within those
+    candidates. The two metrics differ in scale but together tell whether
+    failures are retrieval failures vs ranking failures.
+    """
     print(f"\n{'='*60}")
     print(f"CPL DESIRABILITY EVIDENCE — {model}")
     print('='*60)
@@ -410,8 +445,29 @@ def print_cpl_desirability_evidence(cpt, model):
     print(f"    Within 0.02 of WP-large: {near}/{n_wpl} ({near/n_wpl:.1%})")
     print(f"    CP-transfer >= WP-large: {above}/{n_wpl} ({above/n_wpl:.1%})")
 
-    # E3: requires FAISS results (skip gracefully)
-    print(f"\nE3  Cold-start vs FAISS baseline: PENDING (run run_faiss_experiment.py first)")
+    # E3: CP-cold-start MRR vs FAISS Recall@300 per target
+    cpt_with_faiss = cpt.copy()
+    cpt_with_faiss['faiss_recall'] = cpt_with_faiss['target_project'].map(faiss_recall)
+    has_faiss = cpt_with_faiss['faiss_recall'].notna()
+    if has_faiss.sum() > 0:
+        sub = cpt_with_faiss[has_faiss]
+        # Per-target: mean cold-start MRR vs FAISS Recall@300
+        tgt_cs = sub.groupby('target_project').agg(
+            cs_mrr=('mrr_cpc', 'mean'),
+            faiss_r=('faiss_recall', 'first')
+        ).dropna()
+        n_tgt = len(tgt_cs)
+        # Cold-start MRR / FAISS Recall@300 ratio (how much of the ceiling is recovered)
+        ratio = tgt_cs['cs_mrr'] / (tgt_cs['faiss_r'] + 1e-9)
+        print(f"\nE3  CP-cold-start MRR vs FAISS Recall@{FAISS_K} (retrieval ceiling):")
+        print(f"    (Note: MRR and Recall@K differ in scale — ratio shows model/ceiling)")
+        print(f"    Mean cold-start MRR across targets:   {tgt_cs['cs_mrr'].mean():.4f}")
+        print(f"    Mean FAISS Recall@{FAISS_K} (ceiling): {tgt_cs['faiss_r'].mean():.4f}")
+        print(f"    Median cold-start/ceiling ratio:       {ratio.median():.3f}")
+        print(f"    Targets where cold-start MRR > 0.10:  "
+              f"{(tgt_cs['cs_mrr'] > 0.10).sum()}/{n_tgt}")
+    else:
+        print(f"\nE3  FAISS results not found for any target in {model} pairs.")
 
     # E4
     if 'tgt_total_unique_bug_reports' in cpt.columns:
@@ -421,8 +477,20 @@ def print_cpl_desirability_evidence(cpt, model):
         print(f"\nE4  CPL gain — target FEW bugs  (n={len(low)}):  {low['cpl_gain'].mean():+.4f}")
         print(f"    CPL gain — target MANY bugs (n={len(high)}): {high['cpl_gain'].mean():+.4f}")
 
-    # E5: requires FAISS
-    print(f"\nE5  Model vs FAISS ratio: PENDING (run run_faiss_experiment.py first)")
+    # E5: CP-transfer MRR vs FAISS Recall@300 — shows how much model adds over retrieval
+    if has_faiss.sum() > 0:
+        sub = cpt_with_faiss[has_faiss].dropna(subset=['model_mrr', 'faiss_recall'])
+        ratio_e5 = sub['model_mrr'] / (sub['faiss_recall'] + 1e-9)
+        above_ceiling = (sub['model_mrr'] > sub['faiss_recall']).sum()
+        print(f"\nE5  CP-transfer MRR vs FAISS Recall@{FAISS_K} — model adds over retrieval:")
+        print(f"    Mean CP-transfer MRR:         {sub['model_mrr'].mean():.4f}")
+        print(f"    Mean FAISS Recall@{FAISS_K}:   {sub['faiss_recall'].mean():.4f}")
+        print(f"    Median model/ceiling ratio:   {ratio_e5.median():.3f}")
+        print(f"    Pairs where model MRR > FAISS Recall@{FAISS_K}: "
+              f"{above_ceiling}/{len(sub)} ({above_ceiling/len(sub):.1%})")
+        print(f"    (model MRR > ceiling indicates model ranks items beyond FAISS top-{FAISS_K})")
+    else:
+        print(f"\nE5  FAISS results not found for any target in {model} pairs.")
 
     # E6
     if 'domain_gap' in cpt.columns:
@@ -439,6 +507,11 @@ def print_cpl_desirability_evidence(cpt, model):
 def main():
     print("Loading data...")
     df = load_data()
+
+    faiss_recall = load_faiss_recall(k=FAISS_K)
+    n_faiss = len(faiss_recall)
+    print(f"  FAISS Recall@{FAISS_K} loaded for {n_faiss} projects: "
+          f"{sorted(faiss_recall.keys())[:4]}{'...' if n_faiss > 4 else ''}")
 
     for model in MODELS:
         model_rows = df[df['model_name'] == model]
@@ -483,7 +556,7 @@ def main():
             valid_tau = val_df['tau_composite'].dropna()
             print(f"Targets with τ > 0 (composite): {(valid_tau > 0).sum()}/{len(valid_tau)}")
 
-        print_cpl_desirability_evidence(cpt, model)
+        print_cpl_desirability_evidence(cpt, model, faiss_recall)
 
     print(f"\n✓ Done.")
 

@@ -30,7 +30,7 @@ import matplotlib.patches as mpatches
 from scipy.stats import spearmanr, wilcoxon
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-RESULTS_CSV  = "/home/cs21d002_eashaan/PhD/Objective1/results/obj1_experimental_results.csv"
+RESULTS_CSV  = "/home/cs21d002_eashaan/PhD/Objective1/results/obj1_paper_results.csv"
 METADATA_PKL = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/project_metadata.parquet"
 DOMAIN_CSV   = "/home/cs21d002_eashaan/PhD/Objective1/results/all_project_domain_gaps.csv"
 IMG_DIR      = "/home/cs21d002_eashaan/PhD/Objective1/results/images"

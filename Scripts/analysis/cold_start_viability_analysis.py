@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-RESULTS_CSV  = "/home/cs21d002_eashaan/PhD/Objective1/results/obj1_experimental_results.csv"
+RESULTS_CSV  = "/home/cs21d002_eashaan/PhD/Objective1/results/obj1_paper_results.csv"
 METADATA_PKL = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/project_metadata.parquet"
 IMG_DIR      = "/home/cs21d002_eashaan/PhD/Objective1/results/images"
 OUT_CSV      = "/home/cs21d002_eashaan/PhD/Objective1/results/cold_start_viability.csv"
@@ -88,8 +88,8 @@ def plot_heatmap(cpc, model):
         print(f"  Skipping heatmap for {model}: no data")
         return
 
-    pivot = sub.pivot_table(values='MRR', index='src_n_bugs_q', columns='tgt_LoC_q', aggfunc='mean')
-    count = sub.pivot_table(values='MRR', index='src_n_bugs_q', columns='tgt_LoC_q', aggfunc='count')
+    pivot = sub.pivot_table(values='MRR', index='src_n_bugs_q', columns='tgt_LoC_q', aggfunc='mean', observed=False)
+    count = sub.pivot_table(values='MRR', index='src_n_bugs_q', columns='tgt_LoC_q', aggfunc='count', observed=False)
 
     fig, ax = plt.subplots(figsize=(8, 5))
     sns.heatmap(pivot, annot=True, fmt='.3f', cmap='RdYlGn',
