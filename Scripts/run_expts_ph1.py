@@ -99,7 +99,7 @@ MODELS_TO_RUN = {
 
 # Parallelism: set SHARD=0/1/2 in three terminals to run three instances.
 # CSV writes are protected by fcntl.flock so all processes can safely append.
-SHARD = 1      # <-- 0, 1, or 2 for TRANP-CNN (3 shards)
+SHARD = 2      # <-- 0, 1, or 2 for TRANP-CNN (3 shards)
 NUM_SHARDS = 3 # <-- 3 for TRANP-CNN
 
 # ── Legacy BLAZE/COOBA sharding ────────────────────────────────────────────

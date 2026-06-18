@@ -15,7 +15,7 @@ import itertools
 from sklearn.model_selection import train_test_split
 from transformers import AutoTokenizer
 import torch.nn.functional as F
-from torch.amp import autocast, GradScaler
+from torch.amp import autocast
 import time 
 import copy
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -46,7 +46,7 @@ PARAMS = {
     'max_bug_len': 512, # Added: max length for bug report text
     'stmt_kernels': 100,
     'stmt_kernel_sizes': [3, 4, 5],
-    'max_lines': 768, # Max statements per file
+    'max_lines': 512, # Statements fed to model (cache stores 768; sliced in __getitem__)
     'max_line_len': 21, # Max tokens per statement
     'file_kernels': 100,
     'file_kernel_sizes': [3, 5, 7],
@@ -54,9 +54,15 @@ PARAMS = {
     'num_classes': 2, # Buggy vs Non Buggy
     'dropout':0.5
 }
+# Lines stored per blob in existing .npy cache files.
+# MUST match the max_lines used when the cache was built (data_prep.py PARAMS).
+# Change PARAMS['max_lines'] above freely; change this only after a cache rebuild.
+CACHE_MAX_LINES = 768
+
 # Training Hyperparameters
 EPOCHS = 20
-BATCH_SIZE = 192
+BATCH_SIZE = 96
+GRAD_ACCUM_STEPS = 2  # Effective batch = BATCH_SIZE × GRAD_ACCUM_STEPS = 192 (same as original)
 LEARNING_RATE = 0.001
 WEIGHT_DECAY = 1e-5 # For regularization
 
@@ -100,10 +106,12 @@ class BugLocalizationDataset(Dataset):
             blob_idx = idx  # Old format (backward compatible)
         code_ids_flat = self.code_ids_data[blob_idx]
 
-        # Reshape the flat array back into a 2D tensor the model expects
+        # Reshape using cache dimensions, then truncate to model's max_lines.
+        # Cache stores CACHE_MAX_LINES rows; model only needs PARAMS['max_lines'].
+        # Slicing here avoids cache rebuild when tuning max_lines.
         code_ids_tensor = torch.from_numpy(code_ids_flat.copy()).reshape(
-            PARAMS['max_lines'], PARAMS['max_line_len']
-        )
+            CACHE_MAX_LINES, PARAMS['max_line_len']
+        )[:PARAMS['max_lines']]
 
         # Convert pre-tokenized data (Stored as lists/value) back to tensors
         return {
@@ -117,134 +125,121 @@ class BugLocalizationDataset(Dataset):
         }
 
 # Step 3: Training and Evaluation Functions
-def train(model, source_loader, target_loader, optimizer, criterion, epoch, device, scaler):
+def train(model, source_loader, target_loader, optimizer, criterion, epoch, device):
     model.train()
 
     # Scenario 1: Joint Training (CP-transfer)
     if source_loader and target_loader:
         print(f"\n--- Epoch {epoch + 1}: Joint Training on Source and Target Data ---")
-        progress_bar = tqdm(source_loader, desc=f'Epoch {epoch + 1}/ {EPOCHS}')
+        progress_bar = tqdm(source_loader, desc=f'Epoch {epoch + 1}/{EPOCHS}')
         iter_target = iter(itertools.cycle(target_loader))
-        batch_count = 0
         total_loss = 0.0
+        num_batches = len(source_loader)
 
-        for source_batch in progress_bar:
+        optimizer.zero_grad(set_to_none=True)
+        for step, source_batch in enumerate(progress_bar):
             target_batch = next(iter_target)
 
             bug_ids_s = source_batch['bug_ids'].to(device, non_blocking=True)
             code_ids_s = source_batch['code_ids'].to(device, non_blocking=True)
             labels_s = source_batch['label'].to(device, non_blocking=True)
-            
             bug_ids_t = target_batch['bug_ids'].to(device, non_blocking=True)
             code_ids_t = target_batch['code_ids'].to(device, non_blocking=True)
             labels_t = target_batch['label'].to(device, non_blocking=True)
-            
-            optimizer.zero_grad(set_to_none=True)
-            
-            # Mixed precision forward + loss
-            with autocast(device_type='cuda'):
-                outputs_s = model(bug_ids_s, code_ids_s, 'source')
-                loss_s = criterion(outputs_s, labels_s)
-                outputs_t = model(bug_ids_t, code_ids_t, 'target')
-                loss_t = criterion(outputs_t, labels_t)
-                combined_loss = loss_s + loss_t
-            
-        # Backward + optimizer step
-            scaler.scale(combined_loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
-            
-            # Track loss
-            total_loss += combined_loss.item()
-            batch_count += 1
 
-            # Update progress bar every 10 batches
-            if batch_count % 10 == 0:
-                avg_loss = total_loss / batch_count
-                progress_bar.set_postfix({'loss': f'{avg_loss:.4f}'})
-    
-        # Epoch summary
-        avg_loss = total_loss / batch_count
+            # Sequential backward: source graph freed before target forward begins.
+            # Divide by GRAD_ACCUM_STEPS so accumulated gradients equal a single
+            # effective-batch step (effective batch = BATCH_SIZE × GRAD_ACCUM_STEPS).
+            with autocast(device_type='cuda', dtype=torch.bfloat16):
+                outputs_s = model(bug_ids_s, code_ids_s, 'source')
+                loss_s = criterion(outputs_s, labels_s) / GRAD_ACCUM_STEPS
+            loss_s.backward()
+
+            with autocast(device_type='cuda', dtype=torch.bfloat16):
+                outputs_t = model(bug_ids_t, code_ids_t, 'target')
+                loss_t = criterion(outputs_t, labels_t) / GRAD_ACCUM_STEPS
+            loss_t.backward()
+
+            total_loss += (loss_s.item() + loss_t.item()) * GRAD_ACCUM_STEPS
+
+            is_last = (step + 1 == num_batches)
+            if (step + 1) % GRAD_ACCUM_STEPS == 0 or is_last:
+                optimizer.step()
+                optimizer.zero_grad(set_to_none=True)
+
+            if (step + 1) % 10 == 0:
+                progress_bar.set_postfix({'loss': f'{total_loss / (step + 1):.4f}'})
+
+        avg_loss = total_loss / num_batches
         print(f"Epoch {epoch + 1}: Avg Loss={avg_loss:.4f}")
         return avg_loss
 
     # Scenario 2: Source-Only Training (CP-cold-start)
     elif source_loader:
         print(f"\n--- Epoch {epoch + 1}: Training on Source Data Only ---")
-        progress_bar = tqdm(source_loader, desc=f'Epoch {epoch + 1}/ {EPOCHS}')
-        batch_count = 0
+        progress_bar = tqdm(source_loader, desc=f'Epoch {epoch + 1}/{EPOCHS}')
         total_loss = 0.0
+        num_batches = len(source_loader)
 
-        for source_batch in progress_bar:
+        optimizer.zero_grad(set_to_none=True)
+        for step, source_batch in enumerate(progress_bar):
             bug_ids_s = source_batch['bug_ids'].to(device, non_blocking=True)
             code_ids_s = source_batch['code_ids'].to(device, non_blocking=True)
             labels_s = source_batch['label'].to(device, non_blocking=True)
-            
-            optimizer.zero_grad(set_to_none=True)
-            
-            # Mixed precision forward + loss
-            with autocast(device_type='cuda'):
-                outputs_s = model(bug_ids_s, code_ids_s, 'source')
-                loss_s = criterion(outputs_s, labels_s)
-            
-            scaler.scale(loss_s).backward()
-            scaler.step(optimizer)
-            scaler.update()
-        
-            # Track loss
-            total_loss += loss_s.item()
-            batch_count += 1        
 
-            #  Update progress bar every 10 batches
-            if batch_count % 10 == 0:
-                avg_loss = total_loss / batch_count
-                progress_bar.set_postfix({'loss': f'{avg_loss:.4f}'})
-    
-        # Epoch summary
-        avg_loss = total_loss / batch_count
+            with autocast(device_type='cuda', dtype=torch.bfloat16):
+                outputs_s = model(bug_ids_s, code_ids_s, 'source')
+                loss_s = criterion(outputs_s, labels_s) / GRAD_ACCUM_STEPS
+            loss_s.backward()
+
+            total_loss += loss_s.item() * GRAD_ACCUM_STEPS
+
+            is_last = (step + 1 == num_batches)
+            if (step + 1) % GRAD_ACCUM_STEPS == 0 or is_last:
+                optimizer.step()
+                optimizer.zero_grad(set_to_none=True)
+
+            if (step + 1) % 10 == 0:
+                progress_bar.set_postfix({'loss': f'{total_loss / (step + 1):.4f}'})
+
+        avg_loss = total_loss / num_batches
         print(f"Epoch {epoch + 1}: Avg Loss={avg_loss:.4f}")
         return avg_loss
 
     # Scenario 3: Target-Only Training (WP-small, WP-large)
     elif target_loader:
         print(f"\n--- Epoch {epoch + 1}: Training on Target Data Only ---")
-        progress_bar = tqdm(target_loader, desc=f'Epoch {epoch + 1}/ {EPOCHS}')
-        batch_count = 0
+        progress_bar = tqdm(target_loader, desc=f'Epoch {epoch + 1}/{EPOCHS}')
         total_loss = 0.0
+        num_batches = len(target_loader)
 
-        for target_batch in progress_bar:
+        optimizer.zero_grad(set_to_none=True)
+        for step, target_batch in enumerate(progress_bar):
             bug_ids_t = target_batch['bug_ids'].to(device, non_blocking=True)
             code_ids_t = target_batch['code_ids'].to(device, non_blocking=True)
             labels_t = target_batch['label'].to(device, non_blocking=True)
-            
-            optimizer.zero_grad(set_to_none=True)
-            
-            # Mixed precision forward + loss
-            with autocast(device_type='cuda'):
-                outputs_t = model(bug_ids_t, code_ids_t, 'target')
-                loss_t = criterion(outputs_t, labels_t)
-            
-            scaler.scale(loss_t).backward()
-            scaler.step(optimizer)
-            scaler.update()
-        
-            # Track loss
-            total_loss += loss_t.item()
-            batch_count += 1        
 
-            #  Update progress bar every 10 batches
-            if batch_count % 10 == 0:
-                avg_loss = total_loss / batch_count
-                progress_bar.set_postfix({'loss': f'{avg_loss:.4f}'})
-    
-        # Epoch summary
-        avg_loss = total_loss / batch_count
+            with autocast(device_type='cuda', dtype=torch.bfloat16):
+                outputs_t = model(bug_ids_t, code_ids_t, 'target')
+                loss_t = criterion(outputs_t, labels_t) / GRAD_ACCUM_STEPS
+            loss_t.backward()
+
+            total_loss += loss_t.item() * GRAD_ACCUM_STEPS
+
+            is_last = (step + 1 == num_batches)
+            if (step + 1) % GRAD_ACCUM_STEPS == 0 or is_last:
+                optimizer.step()
+                optimizer.zero_grad(set_to_none=True)
+
+            if (step + 1) % 10 == 0:
+                progress_bar.set_postfix({'loss': f'{total_loss / (step + 1):.4f}'})
+
+        avg_loss = total_loss / num_batches
         print(f"Epoch {epoch + 1}: Avg Loss={avg_loss:.4f}")
         return avg_loss
 
     else:
         raise ValueError("At least one of source_loader or target_loader must be provided for training.")
-        return # No data to train on at all
 
 def evaluate(model, test_meta_path, test_code_ids_path, device, source_project, target_project, scenario):
     '''
@@ -256,7 +251,7 @@ def evaluate(model, test_meta_path, test_code_ids_path, device, source_project, 
     print("Loading pre-processed test data for evaluation...")
     # Use the same fast Dataset, but on the test cache files
     eval_dataset = BugLocalizationDataset(test_meta_path, test_code_ids_path)
-    eval_loader = DataLoader(eval_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
+    eval_loader = DataLoader(eval_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
 
     # Group samples by bug_id to evaluate each bug's ranked list
     # We can get this info from the loaded metadata
@@ -268,8 +263,9 @@ def evaluate(model, test_meta_path, test_code_ids_path, device, source_project, 
     predictions = {}
     with torch.no_grad():
         for batch in tqdm(eval_loader, desc="Scoring Test Candidates"):
-            outputs = model(batch['bug_ids'].to(device), batch['code_ids'].to(device), 'target')
-            scores = F.softmax(outputs, dim=1)[:, 1] # Get probability of being 'buggy'
+            with autocast(device_type='cuda', dtype=torch.bfloat16):
+                outputs = model(batch['bug_ids'].to(device), batch['code_ids'].to(device), 'target')
+            scores = F.softmax(outputs.float(), dim=1)[:, 1]
 
             faiss_scores_batch = batch['faiss_score'] # Get faiss scores from batch
 
@@ -454,11 +450,11 @@ def evaluate_validation(model, source_val_loader, target_val_loader, criterion, 
                 code_ids_t = target_batch['code_ids'].to(device, non_blocking=True)
                 labels_t = target_batch['label'].to(device, non_blocking=True)
 
-                # No autocast needed unless evaluation speed is critical
-                outputs_s = model(bug_ids_s, code_ids_s, 'source')
-                loss_s = criterion(outputs_s, labels_s)
-                outputs_t = model(bug_ids_t, code_ids_t, 'target')
-                loss_t = criterion(outputs_t, labels_t)
+                with autocast(device_type='cuda', dtype=torch.bfloat16):
+                    outputs_s = model(bug_ids_s, code_ids_s, 'source')
+                    loss_s = criterion(outputs_s, labels_s)
+                    outputs_t = model(bug_ids_t, code_ids_t, 'target')
+                    loss_t = criterion(outputs_t, labels_t)
                 combined_loss = loss_s + loss_t
 
                 total_val_loss += combined_loss.item()
@@ -474,11 +470,12 @@ def evaluate_validation(model, source_val_loader, target_val_loader, criterion, 
                 code_ids_s = source_batch['code_ids'].to(device, non_blocking=True)
                 labels_s = source_batch['label'].to(device, non_blocking=True)
 
-                outputs_s = model(bug_ids_s, code_ids_s, 'source')
-                loss_s = criterion(outputs_s, labels_s)
+                with autocast(device_type='cuda', dtype=torch.bfloat16):
+                    outputs_s = model(bug_ids_s, code_ids_s, 'source')
+                    loss_s = criterion(outputs_s, labels_s)
                 total_val_loss += loss_s.item()
                 val_batch_count += 1
-        
+
         # Scenario 3: Target-Only Validation
         elif target_val_loader:
             print(f" -> Evaluating on target validation set ({len(target_val_loader)} steps)...")
@@ -489,8 +486,9 @@ def evaluate_validation(model, source_val_loader, target_val_loader, criterion, 
                 code_ids_t = target_batch['code_ids'].to(device, non_blocking=True)
                 labels_t = target_batch['label'].to(device, non_blocking=True)
 
-                outputs_t = model(bug_ids_t, code_ids_t, 'target')
-                loss_t = criterion(outputs_t, labels_t)
+                with autocast(device_type='cuda', dtype=torch.bfloat16):
+                    outputs_t = model(bug_ids_t, code_ids_t, 'target')
+                    loss_t = criterion(outputs_t, labels_t)
                 total_val_loss += loss_t.item()
                 val_batch_count += 1
 
@@ -611,7 +609,7 @@ def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, t
             preprocess_and_cache_samples(source_train_samples, df_bugs, source_repo, tokenizer, source_train_meta_path, source_train_code_ids_path)
         source_train_dataset = BugLocalizationDataset(source_train_meta_path, source_train_code_ids_path)
         print(f"  - Source train samples: {len(source_train_dataset)}")
-        source_loader = DataLoader(source_train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, pin_memory=True)
+        source_loader = DataLoader(source_train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True, persistent_workers=True)
     else:
         print("  - No source training samples.")
         source_loader = None # Use None instead of [] for clarity
@@ -625,7 +623,7 @@ def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, t
         source_val_dataset = BugLocalizationDataset(source_val_meta_path, source_val_code_ids_path)
         print(f"  - Source validation samples: {len(source_val_dataset)}")
         # No shuffle for validation
-        source_val_loader = DataLoader(source_val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True) 
+        source_val_loader = DataLoader(source_val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
     else:
         print("  - No source validation samples.")
         source_val_loader = None
@@ -638,7 +636,7 @@ def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, t
             preprocess_and_cache_samples(target_train_samples, df_bugs, target_repo, tokenizer, target_train_meta_path, target_train_code_ids_path)
         target_train_dataset = BugLocalizationDataset(target_train_meta_path, target_train_code_ids_path)
         print(f"  - Target train samples: {len(target_train_dataset)}")
-        target_train_loader = DataLoader(target_train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, pin_memory=True)
+        target_train_loader = DataLoader(target_train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True, persistent_workers=True)
     else:
         print("  - No target training samples.")
         target_train_loader = None
@@ -651,7 +649,7 @@ def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, t
             preprocess_and_cache_samples(target_val_samples, df_bugs, target_repo, tokenizer, target_val_meta_path, target_val_code_ids_path)
         target_val_dataset = BugLocalizationDataset(target_val_meta_path, target_val_code_ids_path)
         print(f"  - Target validation samples: {len(target_val_dataset)}")
-        target_val_loader = DataLoader(target_val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
+        target_val_loader = DataLoader(target_val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
     else:
         print("  - No target validation samples.")
         target_val_loader = None
@@ -662,6 +660,8 @@ def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, t
     
     # 5. Initialize Model, Criterion, Optimizer
     model = TRANPCNN(PARAMS).to(device)
+    if hasattr(torch, 'compile'):
+        model = torch.compile(model)
 
     # Calculate class weights (using ONLY final training data)
     print("\nCalculating class weights for loss function...")
@@ -706,8 +706,6 @@ def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, t
     criterion = nn.CrossEntropyLoss(weight=class_weights)
     # Use AdamW with fused=True for faster CUDA kernels
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY, fused=True)
-    # Intialize mixed precision scaler
-    scaler = GradScaler("cuda")
 
     # --- Early Stopping Variables (use validation loss) ---
     best_val_loss = float('inf') # Now track validation loss
@@ -722,7 +720,7 @@ def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, t
         
         # --- Run Training Epoch ---
         # Pass the FINAL training loaders
-        _ = train(model, source_loader, target_train_loader, optimizer, criterion, epoch, device, scaler) 
+        _ = train(model, source_loader, target_train_loader, optimizer, criterion, epoch, device)
         
         # --- Run Validation Epoch ---
         # Pass the validation loaders
@@ -768,6 +766,10 @@ def run_tranp_cnn_experiment(source_project, target_project, source_train_ids, t
                                  source_project, target_project, scenario)
     
     print(f"\n Final Metrics on Target Project: \n {final_metrics}\n")
-    
+
+    # Release PyTorch allocator cache so the next experiment starts with a clean
+    # high-water mark. Critical when two shards share the same GPU.
+    torch.cuda.empty_cache()
+
     # 8. RETURN the metrics dict for the experiment runner
     return final_metrics

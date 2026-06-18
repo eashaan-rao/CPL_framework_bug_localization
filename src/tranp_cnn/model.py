@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import torch.utils.checkpoint as ckpt
 from torch.utils.data import DataLoader, Dataset
 
 class N_CNN(nn.Module):
@@ -220,48 +221,39 @@ class P_CNN_FullyParallel(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.output_dim = file_kernels * len(file_kernel_sizes)
     
+    def _stmt_conv(self, x_flat):
+        '''Statement-level convolutions. Extracted for gradient checkpointing.'''
+        stmt_features = []
+        for conv in self.statement_convs:
+            conv_out = F.relu(conv(x_flat), inplace=True)
+            pooled = F.adaptive_max_pool1d(conv_out, 1).squeeze(2)
+            stmt_features.append(pooled)
+        return torch.cat(stmt_features, dim=1)
+
     def forward(self, x):
         '''
         x: (batch_size, num_statements, statement_length)
         '''
         batch_size, num_stmts, stmt_len = x.shape
-        
-        # Embed: (batch, num_stmts, stmt_len, embed_dim)
+
         x_embed = self.embedding(x)
-        
-        # Reshape to process all statements in parallel
-        # (batch * num_stmts, stmt_len, embed_dim)
-        x_flat = x_embed.view(batch_size * num_stmts, stmt_len, -1)
-        
-        # Transpose for Conv1d: (batch * num_stmts, embed_dim, stmt_len)
-        x_flat = x_flat.transpose(1, 2)
-        
-        # Stage 1: Statement-level convolutions (fully parallel)
-        stmt_features = []
-        for conv in self.statement_convs:
-            # Conv1d is faster than Conv2d for 1D sequences
-            conv_out = F.relu(conv(x_flat), inplace=True)
-            # Global max pooling
-            pooled = F.adaptive_max_pool1d(conv_out, 1).squeeze(2)
-            stmt_features.append(pooled)
-        
-        stmt_vectors = torch.cat(stmt_features, dim=1)
-        
-        # Reshape back: (batch, num_stmts, features)
-        stmt_vectors = stmt_vectors.view(batch_size, num_stmts, -1)
-        
-        # Transpose for file-level: (batch, features, num_stmts)
-        x_file = stmt_vectors.transpose(1, 2)
-        
-        # Stage 2: File-level convolutions
+        x_flat = x_embed.view(batch_size * num_stmts, stmt_len, -1).transpose(1, 2)
+
+        # Checkpoint the statement convolutions: avoids storing large intermediate
+        # conv activations (~400-600 MB per batch) at the cost of one extra forward
+        # through _stmt_conv during backward. use_reentrant=False = modern API,
+        # compatible with torch.compile.
+        stmt_vectors = ckpt.checkpoint(self._stmt_conv, x_flat, use_reentrant=False)
+
+        x_file = stmt_vectors.view(batch_size, num_stmts, -1).transpose(1, 2)
+
         file_features = []
         for conv in self.file_convs:
             conv_out = F.relu(conv(x_file), inplace=True)
             pooled = F.adaptive_max_pool1d(conv_out, 1).squeeze(2)
             file_features.append(pooled)
-        
-        final_vector = torch.cat(file_features, dim=1)
-        return self.dropout(final_vector)
+
+        return self.dropout(torch.cat(file_features, dim=1))
 
 
 class TRANPCNN(nn.Module):
@@ -285,19 +277,21 @@ class TRANPCNN(nn.Module):
         #     params['file_kernels'], params['file_kernel_sizes'], params['dropout']
         # )
 
-        # Option1 :Chunk processing (safer, more memory efficient)
-        self.p_cnn = P_CNN_Parallelized(
+        # Conv1d fully parallel: processes all statements in one GPU call instead of 30 Python-loop
+        # chunks × 3 conv calls. Same representational capacity, ~90 kernel launches → 3.
+        self.p_cnn = P_CNN_FullyParallel(
             params['vocab_size'], params['code_embedding_dim'],
             params['stmt_kernels'], params['stmt_kernel_sizes'],
-            params['file_kernels'], params['file_kernel_sizes'], params['dropout'], chunk_size=5000
+            params['file_kernels'], params['file_kernel_sizes'],
+            params['dropout']
         )
 
-        # Option 2: Fully parallel (faster but uses more memory)
-        # self.p_cnn = P_CNN_FullyParallel(
+        # Option1 (slower): Chunk processing to avoid large intermediate tensors
+        # self.p_cnn = P_CNN_Parallelized(
         #     params['vocab_size'], params['code_embedding_dim'],
         #     params['stmt_kernels'], params['stmt_kernel_sizes'],
-        #     params['file_kernels'], params['file_kernel_sizes'], 
-        #     params['dropout'])
+        #     params['file_kernels'], params['file_kernel_sizes'], params['dropout'], chunk_size=5000
+        # )
         
         # Project_Specific Prediction Layer
         combined_dim = self.n_cnn.output_dim + self.p_cnn.output_dim
@@ -317,22 +311,29 @@ class TRANPCNN(nn.Module):
         )
     
     def forward(self, bug_report_ids, source_code_ids, project_type):
-        # Pass inputs through the shared feature extractors
         nl_features = self.n_cnn(bug_report_ids)
         pl_features = self.p_cnn(source_code_ids)
-
-        # print("Shape of nl_features:", nl_features.shape)
-        # print("Shape of pl_features:", pl_features.shape)
-
-        # Concatenate the features
         features = torch.cat([nl_features, pl_features], dim=1)
 
-        # Route to the correct project-specific prediction head
         if project_type == 'source':
             logits = self.fc_source(features)
         elif project_type == 'target':
             logits = self.fc_target(features)
         else:
             raise ValueError("project_type must be 'source' or 'target'")
-        
+
         return logits
+
+    def forward_joint(self, bug_ids_s, code_ids_s, bug_ids_t, code_ids_t):
+        '''
+        Fused forward pass for joint source+target training (CP-transfer scenario).
+        Runs the shared CNN layers once on the concatenated batch instead of twice,
+        then routes each half to its project-specific head.
+        '''
+        n_source = bug_ids_s.size(0)
+        all_nl = self.n_cnn(torch.cat([bug_ids_s, bug_ids_t], dim=0))
+        all_pl = self.p_cnn(torch.cat([code_ids_s, code_ids_t], dim=0))
+        all_features = torch.cat([all_nl, all_pl], dim=1)
+        logits_s = self.fc_source(all_features[:n_source])
+        logits_t = self.fc_target(all_features[n_source:])
+        return logits_s, logits_t
