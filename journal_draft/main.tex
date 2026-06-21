@@ -84,8 +84,9 @@ five evaluation metrics (win rate: 90.3\%, Cohen's $d = 1.20$, $p < 0.001$), wit
 a gain-to-loss asymmetry of 27:1 --- expected gains are 27 times larger than expected
 losses when CPL does not help. For structure-based models, gains are small ($d =
 0.28$), negative transfer occurs in 24.2\% of pairs, and cross-model direction
-agreement is only 41\%, confirming that CPL outcomes are architecture-dependent
-rather than a universal property of the project pair.
+agreement on whether CPL helps or hurts is only 41\% across shared pairs, confirming
+that CPL outcomes are architecture-dependent rather than a universal property of the
+project pair.
 
 For data-scarce projects using embedding-based bug localization, CPL is a viable
 and low-risk substitute for limited within-project training, with zero-label
@@ -176,7 +177,7 @@ a newly active project actually has --- not the ample-data ceiling that prior wo
 has used.
 
 A core methodological contribution, independent of the empirical findings, is the
-evaluation protocol itself. No existing CPL study evaluates more than one model:
+evaluation protocol itself. To our knowledge, no existing CPL study evaluates more than one model:
 each prior paper proposes its own architecture, selects its own project corpus, and
 defines its own within-project comparator independently. Cross-paper comparisons
 therefore conflate architectural differences with differences in experimental
@@ -205,18 +206,32 @@ agreement is only 41\%, one of the three models studied shows frequent performan
 degradation under cross-project transfer, and source quality on the donor project
 does not reliably predict transfer success.
 
-The contributions of this work are:
+Answering this question rigorously is non-trivial, presenting three distinct
+challenges. \textbf{(C1)} Attributing CPL outcomes to model architecture rather than
+experimental conditions requires eliminating heterogeneity in training data, evaluation
+corpora, and baselines across architectures --- a standard that no prior CPL study
+has enforced. \textbf{(C2)} Choosing an appropriate primary baseline is conceptually
+subtle: practitioners in the data-scarce regime cannot reach the ample-data ceiling
+used in prior work, so any comparison against that ceiling answers the wrong question.
+\textbf{(C3)} Assembling a project corpus large enough for statistical power across
+diverse source$\to$target pairs without exceeding a fixed compute budget requires a
+principled structured pair selection strategy rather than a na\"{i}ve all-pairs design.
+
+The contributions of this work directly address these challenges:
 \begin{itemize}
   \item A \textbf{controlled multi-instrument evaluation framework} in which three
         architecturally distinct bug localization models are assessed under an
         identical experimental protocol --- the same project pairs, bug reports,
-        data splits, retrieval indexes, and primary baseline. No prior CPL study
-        provides this; the framework is itself a methodological contribution that
-        enables attribution of CPL outcomes to model architecture rather than
-        experimental heterogeneity.
+        data splits, FAISS retrieval indexes (verified at 100\% recall, eliminating
+        retrieval ceiling as a confound), and primary baseline. To our knowledge,
+        no prior CPL study provides this; the framework is itself a methodological
+        contribution that enables attribution of CPL outcomes to model architecture
+        rather than experimental heterogeneity (addressing C1).
   \item The first systematic empirical comparison of CPL against the
-        practically relevant baseline of within-project limited training, across
-        63 source$\to$target pairs and 13 projects.
+        practically relevant baseline of within-project limited training (addressing
+        C2), across 63 source$\to$target pairs drawn from 13 projects via a
+        principled structured selection that maximises analytical coverage within
+        a fixed compute budget (addressing C3).
   \item Evidence that zero-label cross-project deployment (CP-cold-start) is
         viable for embedding-based bug localization, matching within-project
         limited training without any target annotations.
@@ -278,21 +293,40 @@ Cross-project bug localization (CPL) addresses data scarcity by transferring
 knowledge from a source project to a target. \citet{huo2019deep} proposed
 TRANP-CNN, the first deep learning CPL model: a convolutional network that
 learns shared representations of bug-report--code pairs from a source project
-and applies them to a target. \citet{zhu2020cooba} introduced COOBA, which
-uses adversarial domain adaptation \citep{ganin2016domain} via a gradient
-reversal layer to learn domain-invariant representations from AST-structured
-code embeddings. \citet{zhu2022bl} proposed BL-GAN, a semi-supervised approach
-using generative adversarial networks to augment scarce target labels.
-\citet{chakraborty2025blaze} proposed BLAZE, a dual-encoder contrastive model
-using dynamic chunking and hard-negative mining that evaluates cross-project and
-cross-language transfer.
+and applies them to a target --- but evaluates only against an ample-data
+within-project baseline, leaving the practically relevant data-scarce comparison
+unanswered. \citet{zhu2020cooba} introduced COOBA, which uses adversarial domain
+adaptation \citep{ganin2016domain} via a gradient reversal layer to learn
+domain-invariant representations from AST-structured code embeddings --- but, as
+we demonstrate empirically, the adversarial objective requires target-side signal
+at training time and collapses to near-zero performance without it.
+\citet{zhu2022bl} proposed BL-GAN, a semi-supervised approach using generative
+adversarial networks to augment scarce target labels --- but does not test whether
+CPL helps when the practitioner has only limited within-project data as the
+available alternative. \citet{chakraborty2025blaze} proposed BLAZE, a
+dual-encoder contrastive model using dynamic chunking and hard-negative mining
+that evaluates cross-project and cross-language transfer --- but evaluates a
+single architecture, leaving cross-model CPL consistency unknown.
 
 Despite this body of work, a critical gap remains: each paper proposes and
 evaluates its own model, typically comparing against within-project ample-data
-baselines or earlier CPL methods. \emph{No existing study} (i) uses multiple CPL
-models as independent instruments, (ii) evaluates against the practitioner-relevant
-limited within-project baseline, (iii) characterises the conditions governing CPL
-success at scale, or (iv) tests cross-model consistency of CPL findings.
+baselines or earlier CPL methods. To our knowledge, \emph{no existing study}
+(i) uses multiple CPL models as independent instruments, (ii) evaluates against
+the practitioner-relevant limited within-project baseline, (iii) characterises
+the conditions governing CPL success at scale, or (iv) tests cross-model
+consistency of CPL findings.
+
+A distinct emerging paradigm employs large language models in agentic interactive
+workflows~--- such as SWE-agent and Agentless~--- that bypass labeled-data
+requirements by leveraging the model's pre-training directly for fault localisation
+and patch generation. While these agent-based approaches are promising for projects
+willing to accept cloud-inference costs and privacy implications, the supervised CPL
+setting studied here remains directly relevant for offline-deployable, cost-sensitive,
+or privacy-constrained projects, and for settings where fine-grained ranking across a
+large codebase is required rather than targeted patch generation. The conditions
+governing CPL success identified in this study --- domain alignment, embedding
+quality, and inference-time adaptation mechanisms --- may also inform future work on
+how agents select which code to prioritise during fault localisation.
 
 \subsection{Transfer Learning in Software Engineering}
 
@@ -318,26 +352,29 @@ learning settings, but its effectiveness for cross-project code understanding
 depends critically on whether the feature extractor captures representations that
 are genuinely domain-invariant --- an assumption we test empirically.
 
-\subsection{Embedding-Based Code Representations}
+\subsection{Pre-trained Code Embeddings: Background and Design Motivation}
 
-Recent advances in pre-trained code embeddings have substantially raised the
-quality of representations available to both within-project and cross-project
-models. The \texttt{BAAI/bge-code-v1} model \citep{bge_code} --- a 1536-dimensional
+Recent advances in pre-trained code embeddings have substantially raised the quality
+of representations available to both within-project and cross-project models. This
+subsection describes the embedding backbone used in our study and motivates why it
+serves as a controlled baseline shared across all three architectures.
+
+The \texttt{BAAI/bge-code-v1} model \citep{bge_code} --- a 1536-dimensional
 Qwen2-based decoder pre-trained on a diverse multilingual code corpus --- provides
 the embedding backbone for all three models in this study, ensuring that representation
 quality is not a confound when comparing architectures. The high-dimensional, semantically
 rich embeddings produced by this model are sufficient to support dense retrieval
 (FAISS inner-product search) that achieves 100\% recall on the target file within
-top-300 candidates across all 13 projects. This finding, reported in Section~\ref{sec:results},
-establishes that embedding quality is not the performance bottleneck, focusing
-attention on the reranking and adaptation stages where model-architectural differences
-are consequential.
+top-300 candidates across all 13 projects --- a property we verify empirically and
+report in Section~\ref{sec:results}. This establishes that embedding quality is not
+the performance bottleneck, focusing attention on the reranking and adaptation stages
+where model-architectural differences are consequential.
 
 Together, these four subsections of the literature frame the design choices in
-Section~\ref{sec:design}: the shared BGE backbone controls for representation
-quality, the three architecturally distinct models serve as independent instruments
-for testing CPL consistency, and the limited within-project baseline directly
-addresses the evaluation gap identified in the CPL literature.
+Section~\ref{sec:design}: the shared BGE backbone controls for representation quality
+(eliminating it as a confound), the three architecturally distinct models serve as
+independent instruments for testing CPL consistency, and the limited within-project
+baseline directly addresses the evaluation gap identified in the CPL literature.
 
 %% ===================================================================
 %% SECTION 3 — STUDY DESIGN
@@ -354,9 +391,20 @@ the four-scenario training framework, the choice of primary baseline, and the
 structured pair selection --- follows from this principle and is justified
 explicitly below.
 
-No existing CPL study in bug localization evaluates more than one model against
-a common experimental protocol. Each prior paper proposes its own model, selects
-its own projects and bug corpora, and defines its own within-project comparator.
+A critical element of this controlled design is the shared retrieval infrastructure.
+A \textbf{FAISS IndexFlatIP} retrieval stage, built from identical BGE embeddings
+across all target projects, serves as the first stage for TRANP-CNN and COOBA and
+is verified to achieve 100\% recall on the ground-truth file within the top-300
+candidates across all 13 projects (reported in Section~\ref{sec:results}). This
+verification ensures that every failure in the pipeline is a reranking failure, not
+a retrieval failure --- making the comparison between models a direct measurement
+of their reranking mechanisms rather than of differential access to candidates.
+BLAZE bypasses this stage via full-scan dual-encoding, and its performance is
+therefore not bounded by any retrieval ceiling.
+
+To our knowledge, no existing CPL study in bug localization evaluates more than one
+model against a common experimental protocol. Each prior paper proposes its own model,
+selects its own projects and bug corpora, and defines its own within-project comparator.
 Under this fragmented evaluation practice, cross-paper comparisons conflate
 differences in model architecture with differences in experimental conditions,
 making it impossible to attribute observed CPL outcomes to any specific cause.
@@ -464,8 +512,9 @@ The candidate pool was assembled by consolidating projects from five established
 bug localization benchmarks: \textbf{Bench4BL} \citep{lee2018bench4bl},
 \textbf{BeetleBox} \citep{chakraborty2025blaze}, \textbf{LCA} \citep{bogomolov2024long},
 \textbf{SWE-bench} \citep{jimenez2023swe}, and the dataset of \citet{ye2014learning}.
-Drawing from multiple sources avoids the selection bias of any single benchmark.
-The initial pool comprised over 500 unique repositories across multiple languages.
+Drawing from multiple sources avoids the selection bias of any single benchmark and
+maximises diversity of project types and domains. The initial pool comprised over 500
+unique repositories across multiple languages.
 
 \paragraph{Filtering Criteria.}
 Projects were filtered by language-stratified thresholds ensuring statistically
@@ -473,17 +522,22 @@ adequate bug report volumes. Python and Java projects required at least 100 uniq
 bug reports with verified ground-truth file mappings (commit SHAs); under-represented
 languages required at least 20. Reports with missing annotations, ambiguous multi-file
 patches ($> 10$ files), or non-source patches (documentation, CI configuration) were
-discarded. This produced a curated pool of 98 repositories (41 Python, 34 Java, 9
-Kotlin, 6 JavaScript, 5 C++, 3 Go). Although the pool spans six languages, Phase 1
-restricts to Python to establish a language-homogeneous baseline; cross-language
-extension is deferred to future work (Section~\ref{sec:conclusion}).
+discarded. This filtering step reduced the pool from over 500 repositories to
+\textbf{98 curated repositories} (41 Python, 34 Java, 9 Kotlin, 6 JavaScript, 5
+C++, 3 Go). Although the pool spans six languages, Phase 1 restricts to Python to
+establish a language-homogeneous baseline; cross-language extension is deferred to
+future work (Section~\ref{sec:conclusion}).
 
 \paragraph{Phase 1 Scope: 13 Python Projects.}
-For Phase 1 we restrict to \textbf{13 Python projects} to establish a
-language-homogeneous baseline, avoiding confounds from cross-language syntactic
-differences. The 13 projects satisfy three diversity criteria simultaneously:
-(i) \emph{codebase size}: 35K--572K lines of code; (ii) \emph{domain}: four
-distinct application domains; (iii) \emph{bug corpus size}: 110--1,336 bug reports.
+Of the 41 qualifying Python repositories, \textbf{13 projects} simultaneously
+satisfy three diversity criteria that together ensure the corpus spans meaningful
+variation in the factors most likely to affect CPL outcomes:
+(i) \emph{codebase size}: 35K--572K lines of code (spanning one order of magnitude);
+(ii) \emph{domain}: four distinct application domains (Data Science/ML, Developer Tools,
+Systems/Cloud, Applications); (iii) \emph{bug corpus size}: 110--1,336 bug reports.
+Critically, these 13 projects constitute the \textbf{complete} qualifying set from
+the 41-project Python pool: every project satisfying all three criteria simultaneously
+is included, and none were excluded after the filtering stage.
 Table~\ref{tab:dataset} summarises the 13 projects.
 
 The Python-only scope is also motivated by the computational scale of the study.
@@ -601,9 +655,13 @@ representation quality.
 Both models use a two-stage pipeline. In the retrieval stage, a \textbf{FAISS
 IndexFlatIP} index is built from L2-normalised file embeddings (inner product =
 cosine similarity). Each bug report is encoded, normalised, and queried to retrieve
-the top-$K = 300$ candidates. In the reranking stage, the respective model processes
-each (bug report, candidate) pair and re-sorts by relevance score. Evaluation
-metrics are computed over the re-sorted list.
+the top-$K = 300$ candidates. We verified empirically that this retrieval stage
+achieves \textbf{100\% recall} on the ground-truth file within the top-300 candidates
+across all 13 projects --- every failure in the pipeline is therefore a reranking
+failure, not a retrieval failure, ruling out retrieval ceiling as a performance
+confound. In the reranking stage, the respective model processes each (bug report,
+candidate) pair and re-sorts by relevance score. Evaluation metrics are computed
+over the re-sorted list.
 
 \paragraph{BLAZE: Full-Scan Dual-Encoder.}
 BLAZE bypasses the FAISS retrieval stage: at evaluation time it scores every file in
@@ -1339,15 +1397,23 @@ direction not addressed by existing proposals.
 
 \paragraph{Internal validity.}
 Results for TRANP-CNN and COOBA depend on the quality of FAISS retrieval at the
-first stage. We verified that retrieval recall reaches 100\% across all projects
-at $K = 300$ --- every failure in the pipeline is a reranking failure, not a
-retrieval failure. This rules out retrieval ceiling as a confound.
+first stage. As reported in Section~\ref{sec:pipeline}, retrieval recall reaches
+100\% across all 13 projects at $K = 300$, ruling out retrieval ceiling as a
+confound. All train/test splits use a single fixed random seed (42); results
+could vary under different seeds, though with 62--63 source$\to$target pairs per
+model, the aggregated statistics are unlikely to be seed-sensitive.
 
 \paragraph{Construct validity.}
 MRR and Top-$K$ measure file-level localisation. Finer-grained (function- or
 line-level) localisation may show different transfer patterns if fine-grained
 labels are available and the model architecture exploits them. The current
 evaluation is aligned with the benchmarks used in prior CPL literature.
+Additionally, the BLAZE architecture uses a frozen BGE backbone (adapter-only
+fine-tuning), whereas TRANP-CNN and COOBA fine-tune projection layers on top of
+BGE features. This asymmetry in backbone treatment is a design property of the
+original model architectures rather than an experimental choice; it is a potential
+source of differential expressivity that readers should consider when interpreting
+the large effect-size gap between BLAZE and the other two models.
 
 \paragraph{External validity.}
 The study covers 13 Python open-source projects. Generalisability to other
@@ -1357,7 +1423,10 @@ is by design: cross-language CPL introduces additional syntactic and semantic
 variation that is a distinct research question deferred to future work.
 Additionally, only open-source projects with publicly accessible commit histories
 are included; proprietary codebases may have different bug-report characteristics
-or code organisation patterns.
+or code organisation patterns. The embedding backbone (\texttt{BAAI/bge-code-v1})
+is specific to the version used at evaluation time; a different or updated backbone
+may produce different absolute numbers while leaving the relative architectural
+conclusions intact.
 
 \paragraph{Conclusion validity.}
 The cross-model consistency finding is based on the shared pairs evaluated by all
@@ -1365,7 +1434,12 @@ three models. TRANP-CNN represents a third architectural data point intermediate
 between the large-effect embedding-based and small-effect structure-based results.
 The Wilcoxon tests for each model are conducted independently per metric; the
 Bonferroni correction applied within each test family controls the familywise
-error rate across five metrics per model.
+error rate across five metrics per model. The 63-pair set is a structured rather
+than random sample of the 156 possible directed pairs: it over-represents DS$\times$DS
+pairs (Group A, 30 pairs) relative to the full pair distribution. Aggregate statistics
+over all 63 pairs should be interpreted in light of this design choice, though the
+stratified analysis in RQ2 (Tables~\ref{tab:stratified} and~\ref{tab:crossdomain})
+isolates within-domain from cross-domain effects.
 
 %% ===================================================================
 %% SECTION 6 — CONCLUSION
