@@ -1410,12 +1410,16 @@ near-oracle robustness to source choice despite heuristic selection failures.}
 
 \begin{figure*}[h]
 \centering
-\includegraphics[width=0.49\textwidth]{figs/fig_ss_quality_blaze.png}
+\includegraphics[width=0.32\textwidth]{figs/fig_ss_quality_blaze.png}
 \hfill
-\includegraphics[width=0.49\textwidth]{figs/fig_ss_quality_cooba.png}
-\caption{Source selection ranking quality for BLAZE (left) and COOBA (right).
+\includegraphics[width=0.32\textwidth]{figs/fig_ss_quality_cooba.png}
+\hfill
+\includegraphics[width=0.32\textwidth]{figs/fig_ss_quality_tranpcnn.png}
+\caption{Source selection ranking quality for BLAZE (left), COOBA (centre), and TRANP-CNN (right).
 Bubble size proportional to target bug count; colour indicates oracle rank of the
-selected source. TRANP-CNN follows a similar pattern to BLAZE (Hit@1 = 31\%, 87\% oracle).}
+selected source. BLAZE and TRANP-CNN achieve 7.7\% and 31\% Hit@1 respectively with
+82--87\% oracle performance. COOBA achieves 38.5\% Hit@1 but due to low absolute CPL
+gains the oracle gap is larger (pct-oracle: 15--93\% depending on target).}
 \label{fig:ss_quality}
 \end{figure*}
 
