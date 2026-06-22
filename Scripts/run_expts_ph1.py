@@ -78,33 +78,26 @@ PROJECTS = [
     {'name': 'qiskit/qiskit',            'language': 'python'},  # AP S2 — 435K LoC, 1336 bugs
 ]
 
-# ── Active model config (paper submission run) ────────────────────────────
-# Phase 2b: TRANP-CNN — 252 runs across 63 pairs (~3 days, 3 shards)
-# Phase 2a BLAZE is complete (62/63 pairs; ipython->qiskit still needs 3 runs)
+# ── Active model config ───────────────────────────────────────────────────
+# COOBA: 1 pair remaining (scikit-learn→numpy: WP-large, CP-cold-start, CP-transfer)
+# NUM_SHARDS=1 sweeps all pairs; skip logic skips everything already done.
 MODELS_TO_RUN = {
-    'TRANP-CNN': run_tranp_cnn_experiment,
+    'COOBA': run_cooba_experiment,
 }
 
-# ── Legacy BLAZE config (Phase 2a — 62/63 pairs complete 2026-06-08) ───────
-# MODELS_TO_RUN = {
-#     'BLAZE': run_blaze_experiment,
-# }
-# To finish the one missing BLAZE pair (ipython/ipython -> qiskit/qiskit,
-# 3 scenarios), run with SHARD=0, NUM_SHARDS=1 alongside TRANP-CNN.
-
-# ── Legacy COOBA config (stopped 2026-05-24, 121/156 pairs complete) ───────
-# MODELS_TO_RUN = {
-#     'COOBA': run_cooba_experiment,
-# }
+# ── Legacy configs (all other models complete) ────────────────────────────
+# MODELS_TO_RUN = {'TRANP-CNN': run_tranp_cnn_experiment}
+# MODELS_TO_RUN = {'BLAZE': run_blaze_experiment}
+# MODELS_TO_RUN = {'TRANP-CNN': run_tranp_cnn_experiment, 'BLAZE': run_blaze_experiment}
 
 # Parallelism: set SHARD=0/1/2 in three terminals to run three instances.
 # CSV writes are protected by fcntl.flock so all processes can safely append.
-SHARD = 2      # <-- 0, 1, or 2 for TRANP-CNN (3 shards)
-NUM_SHARDS = 3 # <-- 3 for TRANP-CNN
+SHARD = 0      # single process — sweeps all pairs, skips completed ones
+NUM_SHARDS = 1
 
-# ── Legacy BLAZE/COOBA sharding ────────────────────────────────────────────
-# SHARD = 0      # 0 or 1 for BLAZE (2 shards)
-# NUM_SHARDS = 2
+# ── Legacy sharding configs ────────────────────────────────────────────────
+# SHARD = 2; NUM_SHARDS = 3  # TRANP-CNN 3-shard setup
+# SHARD = 0; NUM_SHARDS = 2  # BLAZE 2-shard setup
 
 # ── Paper pair set: 63 directional pairs for journal submission ───────────
 # Group A (30): all DS×DS bidirectional pairs
