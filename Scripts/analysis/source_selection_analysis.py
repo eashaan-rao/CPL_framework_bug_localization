@@ -36,7 +36,7 @@ from scipy.stats import kendalltau, spearmanr
 from sklearn.preprocessing import MinMaxScaler
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-RESULTS_CSV  = "/home/cs21d002_eashaan/PhD/Objective1/results/obj1_paper_results.csv"
+RESULTS_CSV  = "/home/cs21d002_eashaan/PhD/Objective1/results/paper_results_complete.csv"
 METADATA_PKL = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/project_metadata.parquet"
 DOMAIN_CSV   = "/home/cs21d002_eashaan/PhD/Objective1/results/all_project_domain_gaps.csv"
 FAISS_DIR    = "/home/cs21d002_eashaan/PhD/Objective1/results/faiss_recall_results"
