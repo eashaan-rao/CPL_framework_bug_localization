@@ -47,7 +47,7 @@ FAISS_K = 300   # candidate pool size used by TRANP-CNN/COOBA/BLAZE rerankers
 
 os.makedirs(IMG_DIR, exist_ok=True)
 
-MODELS = ['BLAZE', 'COOBA']
+MODELS = ['BLAZE', 'COOBA', 'TRANP-CNN']
 
 # Source features available without bug/code similarity files
 SRC_FEATURES = {
@@ -331,9 +331,12 @@ def rank_sources(cpt, model):
             idx = grp[col].idxmax()
             return grp.loc[idx, 'model_mrr'], grp.loc[idx, 'source_project']
 
-        bugs_mrr, bugs_src = best_by('src_total_unique_bug_reports')
-        comp_mrr, comp_src = best_by('composite')
-        loc_mrr,  loc_src  = best_by('src_LoC')
+        bugs_mrr, bugs_src         = best_by('src_total_unique_bug_reports')
+        comp_mrr, comp_src         = best_by('composite')
+        loc_mrr,  loc_src          = best_by('src_LoC')
+        # domain-gap heuristic: select source with lowest domain_gap (most similar)
+        # domain_gap_inv = 1 - scaled_domain_gap, so highest value = most similar
+        domaingap_mrr, domaingap_src = best_by('domain_gap_inv')
 
         def tau_score(rank_col):
             if rank_col not in grp.columns or grp[rank_col].isna().all():
@@ -341,28 +344,34 @@ def rank_sources(cpt, model):
             t, p = kendalltau(grp[rank_col].rank(ascending=False), grp['model_mrr'].rank())
             return t, p
 
-        tau_bugs, p_bugs = tau_score('src_total_unique_bug_reports')
-        tau_comp, p_comp = tau_score('composite')
-        tau_loc,  p_loc  = tau_score('src_LoC')
+        tau_bugs,      p_bugs      = tau_score('src_total_unique_bug_reports')
+        tau_comp,      p_comp      = tau_score('composite')
+        tau_loc,       p_loc       = tau_score('src_LoC')
+        tau_domaingap, p_domaingap = tau_score('domain_gap_inv')
 
         results.append({
-            'target_project':          tgt,
-            'short_name':              tgt.split('/')[-1],
-            'n_sources':               len(grp),
-            'oracle_mrr':              oracle_mrr,
-            'oracle_src':              oracle_src,
-            'random_mrr':              rand_mrr,
-            'bugs_heuristic_mrr':      bugs_mrr,
-            'bugs_heuristic_src':      bugs_src,
-            'loc_heuristic_mrr':       loc_mrr,
-            'composite_mrr':           comp_mrr,
-            'composite_src':           comp_src,
-            'pct_oracle_composite':    comp_mrr / (oracle_mrr + 1e-9),
-            'tau_bugs':                tau_bugs,
-            'tau_composite':           tau_comp,
-            'tau_loc':                 tau_loc,
-            'hit1_bugs':               int(bugs_src == oracle_src),
-            'hit1_composite':          int(comp_src == oracle_src),
+            'target_project':           tgt,
+            'short_name':               tgt.split('/')[-1],
+            'n_sources':                len(grp),
+            'oracle_mrr':               oracle_mrr,
+            'oracle_src':               oracle_src,
+            'random_mrr':               rand_mrr,
+            'bugs_heuristic_mrr':       bugs_mrr,
+            'bugs_heuristic_src':       bugs_src,
+            'loc_heuristic_mrr':        loc_mrr,
+            'composite_mrr':            comp_mrr,
+            'composite_src':            comp_src,
+            'pct_oracle_composite':     comp_mrr / (oracle_mrr + 1e-9),
+            'domaingap_heuristic_mrr':  domaingap_mrr,
+            'domaingap_heuristic_src':  domaingap_src,
+            'pct_oracle_domaingap':     domaingap_mrr / (oracle_mrr + 1e-9),
+            'tau_bugs':                 tau_bugs,
+            'tau_composite':            tau_comp,
+            'tau_loc':                  tau_loc,
+            'tau_domaingap':            tau_domaingap,
+            'hit1_bugs':                int(bugs_src == oracle_src),
+            'hit1_composite':           int(comp_src == oracle_src),
+            'hit1_domaingap':           int(domaingap_src == oracle_src),
         })
 
     return pd.DataFrame(results)
@@ -549,10 +558,14 @@ def main():
                     'bugs_heuristic_mrr', 'random_mrr', 'tau_composite', 'tau_bugs', 'hit1_composite']
             cols = [c for c in cols if c in val_df.columns]
             print(val_df[cols].to_string(index=False))
-            print(f"\nOverall Hit@1 (composite):  {val_df['hit1_composite'].mean():.1%}")
-            print(f"Overall Hit@1 (most bugs):  {val_df['hit1_bugs'].mean():.1%}")
-            print(f"Mean Kendall τ (composite): {val_df['tau_composite'].mean():.3f}")
-            print(f"Mean Kendall τ (most bugs): {val_df['tau_bugs'].mean():.3f}")
+            print(f"\nOverall Hit@1 (composite):   {val_df['hit1_composite'].mean():.1%}")
+            print(f"Overall Hit@1 (most bugs):   {val_df['hit1_bugs'].mean():.1%}")
+            print(f"Overall Hit@1 (domain-gap):  {val_df['hit1_domaingap'].mean():.1%}")
+            print(f"Mean Kendall τ (composite):  {val_df['tau_composite'].mean():.3f}")
+            print(f"Mean Kendall τ (most bugs):  {val_df['tau_bugs'].mean():.3f}")
+            print(f"Mean Kendall τ (domain-gap): {val_df['tau_domaingap'].mean():.3f}")
+            print(f"% oracle (most bugs):        {val_df['bugs_heuristic_mrr'].mean() / val_df['oracle_mrr'].mean():.1%}")
+            print(f"% oracle (domain-gap):       {val_df['domaingap_heuristic_mrr'].mean() / val_df['oracle_mrr'].mean():.1%}")
             valid_tau = val_df['tau_composite'].dropna()
             print(f"Targets with τ > 0 (composite): {(valid_tau > 0).sum()}/{len(valid_tau)}")
 
