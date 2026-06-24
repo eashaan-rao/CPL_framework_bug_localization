@@ -61,3 +61,4 @@ ipython/ipython,docker/compose,0.07619999999999999,-0.02982502678243737,positive
 docker/compose,ipython/ipython,0.06669999999999998,0.0022018664402950958,positive,neutral,False,True,77778,832
 wagtail/wagtail,docker/compose,0.044499999999999984,-0.07420884074008072,positive,negative,False,False,34586,572
 ipython/ipython,qiskit/qiskit,0.036099999999999965,0.015399600324703402,positive,positive,True,True,435173,1336
+scikit-learn/scikit-learn,numpy/numpy,0.06390000000000001,-0.009219758007398202,positive,neutral,False,False,276548,789

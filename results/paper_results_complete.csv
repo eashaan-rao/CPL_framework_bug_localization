@@ -743,3 +743,15 @@ TRANP-CNN,ipython/ipython,qiskit/qiskit,CP-transfer,0.0772,0.1654,0.239,0.2324,0
 BLAZE,ipython/ipython,qiskit/qiskit,WP-large,0.3272,0.5919,0.6912,0.3877,0.4571
 BLAZE,ipython/ipython,qiskit/qiskit,CP-cold-start,0.1287,0.3272,0.4154,0.1801,0.2362
 BLAZE,ipython/ipython,qiskit/qiskit,CP-transfer,0.3199,0.5515,0.6618,0.3679,0.4386
+BLAZE,scikit-learn/scikit-learn,numpy/numpy,WP-small,0.2547,0.5342,0.6087,0.331,0.3644
+BLAZE,scikit-learn/scikit-learn,numpy/numpy,WP-large,0.2857,0.5714,0.7019,0.3811,0.429
+BLAZE,scikit-learn/scikit-learn,numpy/numpy,CP-cold-start,0.2981,0.528,0.6149,0.3692,0.4093
+BLAZE,scikit-learn/scikit-learn,numpy/numpy,CP-transfer,0.323,0.5404,0.6087,0.3736,0.4283
+COOBA,scikit-learn/scikit-learn,numpy/numpy,WP-small,0.031055900621118,0.093167701863354,0.1801242236024844,0.0704607008172774,0.0786873408073392
+COOBA,scikit-learn/scikit-learn,numpy/numpy,WP-large,0.0559006211180124,0.1304347826086956,0.2422360248447205,0.0888428329349767,0.1045001232161865
+COOBA,scikit-learn/scikit-learn,numpy/numpy,CP-cold-start,0.0,0.0,0.0062111801242236,0.0026024372101913,0.0025553832157401
+COOBA,scikit-learn/scikit-learn,numpy/numpy,CP-transfer,0.0124223602484472,0.1180124223602484,0.1490683229813664,0.0653616365395896,0.069467582799941
+TRANP-CNN,scikit-learn/scikit-learn,numpy/numpy,WP-small,0.0497,0.118,0.1988,0.1996,0.2183
+TRANP-CNN,scikit-learn/scikit-learn,numpy/numpy,WP-large,0.0311,0.0994,0.1366,0.1487,0.1594
+TRANP-CNN,scikit-learn/scikit-learn,numpy/numpy,CP-cold-start,0.0062,0.0186,0.0311,0.0353,0.0463
+TRANP-CNN,scikit-learn/scikit-learn,numpy/numpy,CP-transfer,0.0435,0.1615,0.2236,0.213,0.2364
