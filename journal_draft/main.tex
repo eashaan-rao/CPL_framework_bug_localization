@@ -23,24 +23,20 @@
 \shorttitle{Cross-Project Bug Localisation: What Works, What Doesn't, and Why}
 \shortauthors{Rao and Chimalakonda}
 
-\title[]{Cross-Project Bug Localisation: What Works, What Doesn't, and Why. An Empirical Investigation}
+\title[]{What Works, What Doesn't, and Why: An Empirical Investigation of Cross-Project Bug Localisation}
 
 \tnotemark[1]
 \tnotetext[1]{This work was supported by Indian Institute of Technology Tirupati.}
 
-\author[1]{A Eashaan Rao}
+%% TODO before submission: add ORCID iDs for both authors via orcid={...}
+\author[1]{A Eashaan Rao}[orcid=0000-0000-0000-0000] %TODO: replace with real ORCID
+\cormark[1]
 \ead{cs21d002@iittp.ac.in}
 
-\author[2]{Sridhar Chimalakonda}
+\author[1]{Sridhar Chimalakonda}[orcid=0000-0000-0000-0000] %TODO: replace with real ORCID
 \ead{ch@iittp.ac.in}
 
 \affiliation[1]{organization={Indian Institute of Technology Tirupati},
-            city={Tirupati},
-            postcode={517619},
-            state={Andhra Pradesh},
-            country={India}}
-
-\affiliation[2]{organization={Indian Institute of Technology Tirupati},
             city={Tirupati},
             postcode={517619},
             state={Andhra Pradesh},
@@ -52,37 +48,26 @@
 %% ABSTRACT
 %% ===================================================================
 \begin{abstract}
-Whether cross-project bug localisation (CPL) succeeds depends more on model architecture
-than on the source-to-target project pair.
-This is the central finding of the first controlled multi-instrument CPL evaluation.
-
-Prior CPL studies evaluate a single model against ample-data within-project baselines,
-a standard that data-scarce projects cannot reach.
-No prior work tests multiple CPL architectures under identical conditions,
-or compares CPL against the limited within-project data that newly active projects actually have.
-
-We assess three architecturally distinct bug localisation models,
-embedding-based dual-encoding (BLAZE), convolutional reranking (TRANP-CNN),
-and GNN-based adversarial adaptation (COOBA),
-across 63 source$\to$target project pairs from 13 open-source Python projects.
-The primary baseline is within-project limited training
-(WP-small, $\sim$20\% of target labels): the data a newly active project has.
-
-CPL with minimal target labels outperforms WP-small for \textbf{2 of 3} architectures.
-BLAZE achieves a large effect ($d = 1.19$, win rate 90.5\%, $p < 0.001$);
-a zero-annotation source-trained model is statistically indistinguishable from WP-small
-in 74.6\% of pairs ($p = 0.415$, two-sided).
-TRANP-CNN achieves a medium effect ($d = 0.59$, win rate 68.3\%, $p < 0.001$);
-with 20\% target fine-tuning, it is statistically indistinguishable from
-full within-project training ($p = 0.19$), the only architecture approaching the ample-data ceiling.
-COOBA shows marginal benefit ($d = 0.27$) with 31.7\% negative transfer risk.
-Cross-model direction agreement ranges from 41\% to 67\%,
-confirming that the same project pair can yield opposite outcomes across architectures.
-
-CPL is viable for data-scarce projects in 2 of 3 tested paradigms.
-Model architecture appears to be a stronger determinant of CPL viability
-than the source-to-target pair.
-Practitioners must validate the benefit empirically for their chosen model.
+Whether cross-project bug localisation (CPL) succeeds appears to depend more on model
+architecture than on the source-to-target project pair. This is the central finding of a
+controlled multi-instrument evaluation in which three architecturally distinct bug
+localisation models, embedding-based dual-encoding (BLAZE), convolutional reranking
+(TRANP-CNN), and GNN-based adversarial adaptation (COOBA), are evaluated across
+63 source$\to$target pairs from 13 open-source Python projects under identical bug
+corpora, data splits, retrieval candidates, and baselines. Prior CPL studies evaluate a
+single model against ample-data within-project baselines that data-scarce projects cannot
+reach; our primary baseline is within-project limited training (WP-small, $\sim$20\% of
+target labels), the data a newly active project actually has. CPL with a matched
+target-label budget outperforms WP-small for 2 of 3 architectures: BLAZE with a large
+effect (Cohen's $d = 1.19$, win rate 90.5\%, $p < 0.001$) and TRANP-CNN with a medium
+effect ($d = 0.59$, win rate 68.3\%, $p < 0.001$), while COOBA shows marginal gains
+($d = 0.27$) with a 31.7\% negative transfer rate. Two further findings sharpen the
+deployment picture: a source-trained BLAZE model applied with zero target annotations is
+statistically equivalent to WP-small within a 0.05 MRR margin (TOST $p = 0.007$), and
+TRANP-CNN with 20\% target labels is equivalent to full within-project training within
+the same margin (TOST $p < 0.001$). Cross-model direction agreement ranges from 41\% to
+67\%: the same pair can help one architecture and harm another. Practitioners should
+therefore validate CPL empirically for their chosen model.
 \end{abstract}
 
 \begin{keywords}
@@ -130,7 +115,7 @@ BLAZE~\citep{chakraborty2025blaze} extends contrastive cross-project transfer to
 
 Despite this body of work, a fundamental question remains unanswered: does CPL effectively help the practitioners it is designed to serve?
 Each of these studies demonstrates that its CPL model outperforms an ablated baseline or an earlier CPL method.
-However, their within-project comparators consistently rely on the majority of the target project's available labelled history.
+However, their within-project comparators rely on the majority of the target project's available labelled history.
 Practitioners in the data-scarce regime simply cannot match this data volume.
 These experiments establish that CPL surpasses a standard they cannot reach.
 Whether CPL outperforms the limited within-project training they \emph{can} perform is never the comparison made.
@@ -166,25 +151,6 @@ the same train/test splits, the same FAISS retrieval indexes, and the same prima
 We treat these three architecturally distinct models as \textbf{independent scientific instruments under an identical experimental protocol}.
 This uniform design allows conclusions about \emph{why} CPL succeeds or fails to be drawn with confidence.
 
-Our results answer the practitioner's question with empirical evidence across three independent architectural instruments.
-Cross-project transfer with minimal target labels significantly outperforms within-project limited training
-for \textbf{2 of 3} benchmarked architectural paradigms.
-Embedding-based dual-encoders show a large effect (win rate 90.5\%, Cohen's $d = 1.19$, $p < 0.001$).
-CNN-based rerankers show a medium effect (win rate 68.3\%, $d = 0.59$, $p < 0.001$).
-With 20\% target fine-tuning, CNN-based rerankers are statistically indistinguishable from full within-project training ($p = 0.19$, n.s.).
-This is the only condition where cross-project transfer closes the ample-data gap.
-For small-codebase targets, it exceeds the within-project ceiling.
-Beyond these labelled-data results, embedding-based models support zero-label deployment.
-A source-trained model applied \emph{with zero target annotations} matches within-project limited training
-in 74.6\% of pairs ($p = 0.415$, two-sided).
-GNN-based adversarial models show smaller marginal gains ($d = 0.27$) with a steeper negative transfer risk (31.7\% of pairs).
-The three-model negative transfer spectrum, 3.2\% (BLAZE), 27.0\% (TRANP-CNN), and 31.7\% (COOBA),
-provides a practical risk ranking for CPL adoption.
-Cross-model direction agreement ranges from 41\% to 67\%.
-Source within-project quality does not reliably predict transfer success for any model.
-This architecture-dependence has direct practical implications: a practitioner deploying CPL must validate the benefit empirically for their chosen model.
-The same project pair can yield large gains for one architecture and active harm for another.
-
 Answering this question rigorously presents three distinct challenges.
 \textbf{(C1)} Attributing CPL outcomes to model architecture requires eliminating heterogeneity
 in training data, evaluation corpora, and baselines across architectures.
@@ -195,6 +161,22 @@ Any comparison against that ceiling therefore answers the wrong question.
 \textbf{(C3)} Assembling a project corpus large enough for statistical power across diverse source$\to$target pairs
 requires a principled structured pair selection strategy.
 A na\"{i}ve all-pairs design would exceed any realistic compute budget.
+
+Our results answer the practitioner's question across three independent architectural instruments.
+Cross-project transfer with minimal target labels outperforms within-project limited training
+for 2 of 3 benchmarked paradigms: embedding-based dual-encoders show a large effect
+(win rate 90.5\%, Cohen's $d = 1.19$, $p < 0.001$) and CNN-based rerankers a medium effect
+(win rate 68.3\%, $d = 0.59$, $p < 0.001$), while GNN-based adversarial models show marginal
+gains ($d = 0.27$) with a 31.7\% negative transfer rate. Two equivalence results extend the
+picture. A source-trained embedding-based model applied with zero target annotations is
+statistically equivalent to within-project limited training within a 0.05 MRR margin
+(TOST $p = 0.007$). CNN-based rerankers with 20\% target fine-tuning are equivalent to
+full within-project training within the same margin (TOST $p < 0.001$), the only
+architecture to close the ample-data gap. Cross-model direction agreement ranges from
+41\% to 67\%, and source within-project quality does not reliably predict transfer success
+for any model. A practitioner deploying CPL must therefore validate the benefit
+empirically for their chosen model: the same project pair can yield large gains for one
+architecture and active harm for another.
 
 The contributions of this work address these challenges:
 \begin{itemize}
@@ -210,9 +192,11 @@ The contributions of this work address these challenges:
         structured strategy that maximises analytical coverage within a fixed compute budget (addressing C3).
         CPL outperforms this baseline for 2 of 3 architectural paradigms with large-to-medium effect sizes ($p < 0.001$ for both).
   \item Evidence that zero-label cross-project deployment is viable for embedding-based bug localisation.
-        A source-trained model matches within-project limited training without any target annotations in 74.6\% of pairs.
-        Additionally, CNN-based rerankers with 20\% target fine-tuning achieve performance
-        statistically indistinguishable from full within-project training.
+        A source-trained model applied without any target annotations is statistically
+        equivalent to within-project limited training within a 0.05 MRR margin
+        (TOST $p = 0.007$) and produces practically useful rankings (MRR $\geq 0.20$)
+        in 74.6\% of pairs. Additionally, CNN-based rerankers with 20\% target fine-tuning
+        are statistically equivalent to full within-project training within the same margin.
         This is the highest CPL ceiling observed in this study (both findings are quantified relative to the C2 baseline).
   \item Characterisation of the conditions under which CPL is most and least effective.
         Key moderating factors include target codebase size, domain alignment, and model architecture.
@@ -241,12 +225,12 @@ Section~\ref{sec:conclusion} concludes.
 Bug localisation is the task of ranking source files (or functions) by their
 likelihood of containing the defect described in a natural-language bug report.
 Early approaches relied on information-retrieval similarity between bug report text
-and source file content \citep{saha2013improving,ye2014learning}, using measures
+and source file content \citep{zhou2012should,saha2013improving,ye2014learning}, using measures
 such as BM25 or VSM over code tokens. These methods are simple and require no
 training data, but their ranking quality is limited by vocabulary mismatch between
 bug report prose and code identifiers.
 
-Deep learning approaches substantially improved on IR baselines by learning
+Deep learning approaches improved on IR baselines by learning
 joint representations of bug reports and code. \citet{lam2017bug} (DNNLOC)
 introduced a multi-layer neural network that combines textual similarity, file
 change history, and structural features. It achieved notable improvements over
@@ -296,14 +280,16 @@ the conditions governing CPL success at scale, or (iv) tests cross-model
 consistency of CPL findings.
 
 A distinct emerging paradigm employs large language models in agentic interactive
-workflows, such as SWE-agent and Agentless. These systems bypass labelled-data
+workflows, such as SWE-agent~\citep{yang2024sweagent} and Agentless~\citep{xia2024agentless}.
+These systems bypass labelled-data
 requirements by leveraging the model's pre-training directly for fault localisation
-and patch generation. Agent-based approaches are evaluated primarily on SWE-bench,
+and patch generation. Agent-based approaches are evaluated primarily on
+SWE-bench~\citep{jimenez2023swe},
 which selects for well-documented issues on popular repositories with existing test suites.
 The CPL setting addressed here is the complement: newly open-sourced projects,
 proprietary codebases, privacy-constrained deployments, and repositories with sparse
 bug reports lacking associated tests. Agent-based approaches are therefore promising for projects willing to
-accept cloud-inference costs and privacy implications. The supervised CPL setting studied here remains directly relevant for
+accept cloud-inference costs and privacy implications. The supervised CPL setting studied here remains relevant for
 offline-deployable, cost-sensitive, or privacy-constrained projects.
 It also applies wherever fine-grained ranking across a large codebase is required
 rather than targeted patch generation. The conditions
@@ -320,7 +306,7 @@ studied systematically over many years. \citet{hosseini2017systematic} survey
 90 such studies and conclude that cross-project transfer is context-dependent.
 It helps in some conditions and hurts in others, with no single factor reliably
 predicting transfer success across all settings. This finding from the defect
-prediction literature directly motivates our characterisation of the conditions
+prediction literature motivates our characterisation of the conditions
 governing CPL success in bug localisation, and our focus on negative transfer
 as a deployment risk. The methodological parallel is informative: like defect
 prediction, bug localisation is a within-project learning task where CPL is
@@ -337,21 +323,25 @@ are genuinely domain-invariant, an assumption we test empirically.
 
 \subsection{Pre-trained Code Embeddings: Background and Design Motivation}
 
-Recent advances in pre-trained code embeddings have substantially raised the quality
+Recent advances in pre-trained code embeddings have raised the quality
 of representations available to both within-project and cross-project models. This
-subsection describes the embedding backbone used in our study and motivates why it
-serves as a controlled baseline shared across all three architectures.
+subsection describes the embedding backbone used in our study and motivates its role.
 
 The \texttt{BAAI/bge-code-v1} model \citep{bge_code} is a 1536-dimensional
-Qwen2-based decoder pre-trained on a diverse multilingual code corpus. It provides
-the embedding backbone for all three models in this study. This shared backbone
-ensures that representation quality is not a confound when comparing architectures.
-It focuses attention on the reranking and adaptation stages where model-architectural
-differences are consequential.
+Qwen2-based decoder pre-trained on a diverse multilingual code corpus. In this study
+it powers the shared first-stage retrieval infrastructure: every bug report and source
+file is embedded once with BGE, and all three models rerank the same BGE-derived FAISS
+candidate pool (Section~\ref{sec:pipeline}). BLAZE additionally uses BGE as its
+reranking backbone, whereas TRANP-CNN and COOBA rerank with the input representations
+of their original designs (learned token embeddings and GloVe-300 with AST graphs,
+respectively; Section~\ref{sec:models}). The shared retrieval stage ensures that the
+candidate pool each model sees is identical, so differences in reranking behaviour are
+attributable to the models themselves, of which the native input representation is a
+constituent part.
 
 Together, these four subsections of the literature frame the design choices in
-Section~\ref{sec:design}. The shared BGE backbone controls for representation quality,
-eliminating it as a confound. The three architecturally distinct models serve as
+Section~\ref{sec:design}. The shared BGE retrieval stage controls the candidate pool.
+The three architecturally distinct models serve as
 independent instruments for testing CPL consistency. The limited within-project
 baseline addresses the evaluation gap identified in the CPL literature.
 
@@ -361,83 +351,6 @@ baseline addresses the evaluation gap identified in the CPL literature.
 \section{Study Design}
 \label{sec:design}
 
-% \begin{figure*}[t]
-% \centering
-% \begin{tikzpicture}[
-%   node distance=0.45cm and 0.55cm,
-%   box/.style={draw, rectangle, rounded corners=2pt, minimum width=2.0cm,
-%               minimum height=0.75cm, align=center, font=\small\strut, inner sep=4pt},
-%   wbox/.style={draw, rectangle, rounded corners=2pt, minimum width=7.5cm,
-%                minimum height=0.75cm, align=center, font=\small\strut, inner sep=4pt},
-%   scbox/.style={draw, dashed, rectangle, rounded corners=2pt, minimum width=13cm,
-%                 minimum height=0.85cm, align=center, font=\small\strut, inner sep=5pt},
-%   arr/.style={-{Stealth[length=5pt]}, thick},
-%   lbl/.style={font=\footnotesize, midway, above=1pt},
-% ]
-
-% %% Row 1 — Corpus construction and pair selection
-% \node[box] (bench) {5 Benchmarks};
-% \node[box, right=of bench] (pool) {98 repos\\(41 Python)};
-% \node[box, right=of pool] (projs) {13 Python\\Projects};
-% \node[box, right=of projs] (pairs) {63 Directed\\Pairs (A/B/C)};
-
-% \draw[arr] (bench) -- (pool) node[lbl]{filter};
-% \draw[arr] (pool)  -- (projs) node[lbl]{3 diversity criteria};
-% \draw[arr] (projs) -- (pairs) node[lbl]{structured selection};
-
-% %% Row 2 — Shared infrastructure (fits under pairs and beyond)
-% \node[box, right=1.0cm of pairs] (bge) {BGE-code-v1\\embeddings};
-% \node[box, right=of bge] (faiss) {FAISS top-300\\candidates};
-
-% \draw[arr] (pairs) -- (bge) node[lbl]{embed};
-% \draw[arr] (bge)   -- (faiss) node[lbl]{index};
-
-% %% Bracket label for shared backbone
-% \node[font=\footnotesize\itshape, above=0.15cm of bge, xshift=0.6cm]
-%   {shared backbone (one per target project)};
-
-% %% Row 3 — Three parallel model branches
-% \node[box, below=1.2cm of faiss, xshift=-2.4cm]  (blaze)    {BLAZE\\{\footnotesize cosine adapter}};
-% \node[box, below=1.2cm of faiss]                  (tranpcnn) {TRANP-CNN\\{\footnotesize CNN reranker}};
-% \node[box, below=1.2cm of faiss, xshift=+2.4cm]  (cooba)    {COOBA\\{\footnotesize GNN + GRL}};
-
-% \draw[arr] (faiss) -- (blaze);
-% \draw[arr] (faiss) -- (tranpcnn);
-% \draw[arr] (faiss) -- (cooba);
-
-% %% Row 4 — Four training scenarios (band spanning all three branches)
-% \node[scbox, below=1.0cm of tranpcnn]
-%   (scenarios) {WP-small \quad$|$\quad WP-large \quad$|$\quad CP-cold-start \quad$|$\quad CP-transfer
-%                \quad\textbf{(same held-out test set: 20\% target bugs, seed 42)}};
-
-% \draw[arr] (blaze)    -- (blaze    |- scenarios.north);
-% \draw[arr] (tranpcnn) -- (tranpcnn |- scenarios.north);
-% \draw[arr] (cooba)    -- (cooba    |- scenarios.north);
-
-% %% Row 5 — Evaluation
-% \node[box, below=0.8cm of scenarios, xshift=-1.5cm] (metrics)
-%   {5 metrics\\{\footnotesize MRR, MAP, Top-1/5/10}};
-% \node[box, right=0.6cm of metrics] (rq1) {RQ1\\CPL vs.\ WP-small};
-% \node[box, right=0.4cm of rq1]     (rq2) {RQ2\\Moderators};
-% \node[box, right=0.4cm of rq2]     (rq3) {RQ3\\Cross-model};
-
-% \draw[arr] (scenarios.south) -- (metrics);
-% \draw[arr] (metrics) -- (rq1);
-% \draw[arr] (rq1) -- (rq2);
-% \draw[arr] (rq2) -- (rq3);
-
-% \end{tikzpicture}
-% \caption{End-to-end study design. Five benchmarks feed a filter funnel to 13 Python
-% projects, which are paired into 63 directed pairs via structured selection.
-% All target projects share one BGE-code-v1 embedding and one FAISS top-300 retrieval stage (the
-% controlled backbone). Three architecturally distinct models (BLAZE, TRANP-CNN, COOBA)
-% rerank the same candidate pool in four training scenarios, with the held-out test set
-% held constant throughout. The uniform protocol makes CPL outcomes attributable to
-% model architecture rather than experimental heterogeneity.}
-% \label{fig:study_design}
-% \end{figure*}
-% Required package in preamble: \usepackage{tikz}
-% \usetikzlibrary{positioning, arrows.meta}
 
 \begin{figure*}[t]
 \centering
@@ -517,12 +430,13 @@ model architecture rather than experimental heterogeneity.}
 \label{fig:study_design}
 \end{figure*}
 
+Figure~\ref{fig:study_design} summarises the end-to-end design.
 The study is organised around a single methodological principle: to make CPL
 benefit attributable to the cross-project paradigm and to model architecture,
-rather than to incidental differences in training data, input representations,
+rather than to incidental differences in training data, candidate pools,
 or evaluation conditions. Every design choice documented in this section follows
 from this principle and is justified explicitly below. These choices include
-the shared embedding backbone, the identical datasets and held-out test splits,
+the shared retrieval backbone, the identical datasets and held-out test splits,
 the four-scenario training framework, the choice of primary baseline, and the
 structured pair selection.
 
@@ -531,19 +445,14 @@ A \textbf{FAISS IndexFlatIP} retrieval stage, built from identical BGE embedding
 across all target projects, serves as the first-stage candidate pool shared across
 all three models.
 
-We are not aware of any CPL study in bug localisation that evaluates more than one
-model against a common experimental protocol. Each prior paper proposes its own model,
-selects its own projects and bug corpora, and defines its own within-project comparator.
-Under this fragmented evaluation practice, cross-paper comparisons conflate
-differences in model architecture with differences in experimental conditions.
-This makes it impossible to attribute observed CPL outcomes to any specific cause.
+As argued in Section~\ref{sec:intro}, prior CPL papers each propose one model with
+its own corpus and comparator, conflating architecture with experimental conditions.
 We depart from this practice by treating three architecturally distinct models
 as \textbf{independent scientific instruments}, all evaluated under an identical
 experimental protocol: the same projects, the same bug reports, the same
 train/test splits, the same FAISS retrieval indexes, the same evaluation metrics,
 and the same primary baseline. This controlled, multi-instrument design allows
 conclusions about \emph{why} CPL succeeds or fails, not just \emph{that} it does.
-We are not aware of such a design in the prior CPL bug localisation literature.
 
 \subsection{Research Questions}
 
@@ -593,8 +502,8 @@ success is context-dependent and that no single project feature reliably predict
 it~\citep{hosseini2017systematic}. We expect analogous conditions to govern CPL,
 but make no a priori prediction about which moderating factors will dominate or
 whether negative transfer rates will be uniform across architectures.
-For \textbf{RQ3}, since no existing CPL study evaluates more than one model,
-cross-architecture consistency is empirically unknown. We expect CPL outcomes to
+For \textbf{RQ3}, since we are not aware of a CPL study that evaluates more than
+one model, cross-architecture consistency is empirically unknown. We expect CPL outcomes to
 be at least partially architecture-mediated, given the fundamental differences in
 inference-time adaptation across BLAZE, COOBA, and TRANP-CNN, but make no
 prediction about the degree of divergence or whether source quality metrics will
@@ -622,22 +531,26 @@ is advantageous for large codebases.
 
 \paragraph{COOBA \citep{zhu2020cooba}.}
 COOBA is a graph neural network model that encodes source files as Abstract Syntax
-Tree (AST) graphs processed by graph convolutional layers (GCNConv) with global
-mean pooling. Bug reports are encoded by a bidirectional LSTM over GloVe-300 token
-embeddings. A shared BGE-based extractor produces domain-invariant representations
-via a Gradient Reversal Layer \citep{ganin2016domain} placed before a binary project
-discriminator. The shared extractor is simultaneously optimised to minimise ranking
-loss and to prevent the discriminator from distinguishing source from target project
-representations. This adversarial objective ($\lambda_\mathrm{adv} = 0.1$) is the
-core CPL mechanism. COOBA uses FAISS top-300 retrieval as a first stage.
+Tree (AST) graphs with GloVe-300 node features, processed by graph convolutional
+layers (GCNConv) with global mean pooling. Bug reports are encoded by a bidirectional
+LSTM over GloVe-300 token embeddings, faithful to the original design. A shared
+feature extractor over these text and AST representations produces domain-invariant
+features via a Gradient Reversal Layer \citep{ganin2016domain} placed before a binary
+project discriminator. The shared extractor is simultaneously optimised to minimise
+ranking loss and to prevent the discriminator from distinguishing source from target
+project representations. This adversarial objective ($\lambda_\mathrm{adv} = 0.1$) is
+the core CPL mechanism. COOBA reranks the shared FAISS top-300 candidate pool.
 
 \paragraph{TRANP-CNN \citep{huo2019deep}.}
 TRANP-CNN is a CNN-based reranker that processes (bug report, candidate file) pairs
 through parallel convolutional feature extractors (kernel sizes 3, 4, 5) and produces
-scalar relevance scores. It is trained with a margin ranking loss on FAISS top-300
-candidates. TRANP-CNN represents the earliest deep learning CPL approach in our benchmark.
-It provides a third architectural perspective, convolutional text-code alignment,
-that complements the embedding-based and graph-structural paradigms of BLAZE and COOBA.
+scalar relevance scores. Inputs are tokenised with the BGE tokeniser vocabulary and
+mapped through embedding layers trained from scratch, following the original design's
+learned-representation approach. It is trained with a margin ranking loss on FAISS
+top-300 candidates. TRANP-CNN represents the earliest deep learning CPL approach in
+our benchmark. It provides a third architectural perspective, convolutional text-code
+alignment, that complements the embedding-based and graph-structural paradigms of
+BLAZE and COOBA.
 
 Table~\ref{tab:models} summarises the three models' key properties. Together they
 span the dominant implementation paradigms in the current CPL literature:
@@ -646,7 +559,7 @@ embedding-based dual-encoding (BLAZE), graph-neural-network structural encoding
 a robust basis for testing whether CPL viability is a property of the paradigm or
 of specific architectural choices.
 
-\begin{table*}[h]
+\begin{table*}[t]
 \centering
 \caption{Summary of the three benchmarked bug localisation models.}
 \label{tab:models}
@@ -657,6 +570,41 @@ of specific architectural choices.
 BLAZE \citep{chakraborty2025blaze} & Dual-encoder (BGE adapters) & Contrastive adapter fine-tuning & FAISS top-300 \\
 COOBA \citep{zhu2020cooba}          & GNN on AST graphs          & Adversarial domain adaptation   & FAISS top-300 \\
 TRANP-CNN \citep{huo2019deep}       & CNN reranker               & Shared representation learning  & FAISS top-300 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\paragraph{Adaptations and training configuration.}
+TRANP-CNN and COOBA predate the retrieval-augmented setup used here and were
+re-implemented for this study. Both are architecturally faithful to their original
+publications (loss functions, encoder structures, and adaptation mechanisms are
+preserved) with two deliberate departures: all three models rerank the shared FAISS
+top-300 candidate pool, and TRANP-CNN tokenises inputs with the BGE tokeniser
+vocabulary while training its embedding layers from scratch. Because of these
+adaptations, absolute scores are not directly comparable to those in the original
+papers; Section~\ref{sec:threats} discusses the construct implications.
+Table~\ref{tab:hyperparams} lists the training configuration of each model,
+held fixed across all scenarios and pairs.
+
+\begin{table*}[t]
+\centering
+\caption{Training configuration used for all 756 experiment runs. LR = learning rate;
+effective batch = batch size $\times$ gradient-accumulation steps. Early stopping
+monitors validation loss.}
+\label{tab:hyperparams}
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Setting} & \textbf{BLAZE} & \textbf{COOBA} & \textbf{TRANP-CNN} \\
+\midrule
+Optimiser       & AdamW & AdamW & AdamW \\
+Learning rate   & $1\times10^{-4}$ & $1\times10^{-3}$ (discriminator $5\times10^{-4}$) & $1\times10^{-3}$ \\
+Weight decay    & $10^{-2}$ & $10^{-5}$ & $10^{-5}$ \\
+Effective batch & 8 (4 $\times$ 2) & 16 & 192 (96 $\times$ 2) \\
+Max epochs      & 10 & 10 & 20 \\
+Stopping        & Early stop, patience 3 & Fixed epoch budget & Early stop, patience 3 \\
+Loss            & NTXent ($\tau = 0.3$) & Margin ranking $+$ adversarial ($\lambda_\mathrm{adv} = 0.1$) & Margin ranking \\
+LR schedule     & Linear, 10\% warm-up & Constant & Constant \\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -714,7 +662,7 @@ five to six months of continuous wall-clock time on NVIDIA L40S GPU systems.
 Extending to the Java projects available in SWE-bench and BeetleBox would more than
 triple this compute budget; it is therefore scoped as a future phase.
 
-\begin{table*}[h]
+\begin{table*}[t]
 \centering
 \caption{The 13 Python projects used in Phase 1. Size categories: Small ($<$100K LoC),
 Medium (100--300K LoC), Large ($>$300K LoC). Source indicates the benchmark from which
@@ -756,15 +704,17 @@ within-domain conditions and enabling systematic commutativity analysis.
 
 \textbf{Group B (14 pairs):} Both directions between jupyterlab (39K LoC, the
 second-smallest project after docker/compose at 35K) and each of the seven non-DS projects (ipython, meson, ansible,
-docker, localstack, wagtail, qiskit). Fixing a small-LoC target isolates domain
-crossing from the confound of target size.
+docker, localstack, wagtail, qiskit). In the seven directions where jupyterlab is
+the target, fixing a small-LoC target isolates domain crossing from the confound of
+target size; the seven reverse directions provide complementary large-target
+observations.
 
 \textbf{Group C (19 pairs):} Strategically selected cross-domain pairs filling
 analytical gaps left by Groups A and B: large-to-large cross-domain transfers,
 Systems/Applications interactions, and pairs ensuring every target project has at
 least three distinct candidate sources for the source selection analysis in RQ3.
 
-\begin{table*}[h]
+\begin{table*}[t]
 \centering
 \caption{Structure of the structured 63-pair set.}
 \label{tab:pairs}
@@ -790,7 +740,7 @@ project-level databases, avoiding redundant recomputation across the 756 experim
 runs.
 
 \paragraph{Bug Report Curation.}
-Raw bug reports are extracted from the five benchmarks and cross-referenced against
+Raw bug reports are extracted from the two source benchmarks and cross-referenced against
 repository commit history to obtain ground-truth file mappings. Each report is
 uniquely identified by its commit SHA. Reports with missing SHAs, ambiguous patches
 ($>10$ files), or non-source patches are discarded. The resulting bug metadata
@@ -810,9 +760,8 @@ GPU inference (batch size 256), processing all 13 projects in approximately
 Per-project outputs are two binary databases. The \emph{blob embedding database}
 maps each source file's blob SHA to its 1536-dimensional embedding. The
 \emph{bug metadata database} maps each bug ID to its embedding and ground-truth
-annotation. All three models use these same databases, ensuring that any observed
-performance differences are attributable to model architecture rather than input
-representation quality.
+annotation. All three models draw their first-stage retrieval candidates from these
+same databases, ensuring the candidate pool is identical across models.
 
 \subsection{Evaluation Pipeline}
 \label{sec:pipeline}
@@ -829,7 +778,10 @@ relevance score. TRANP-CNN and COOBA process (bug report, candidate file) pairs
 and output relevance scores. BLAZE re-ranks the top-300 candidates by maximum
 cosine similarity between the fine-tuned bug report embedding and each file's
 chunk embeddings (MaxSim aggregation). Evaluation metrics are computed over the
-re-sorted list.
+re-sorted list. The raw FAISS ranking over file-level embeddings is itself weak
+(mean MRR $= 0.029$; Table~\ref{tab:scenario_means}), largely because averaging
+chunk embeddings dilutes the signal of long files: its role is candidate
+\emph{recall}, while ranking precision is the rerankers' task.
 
 \subsection{Training Scenarios}
 \label{sec:scenarios}
@@ -860,7 +812,7 @@ supervision precisely.
     throughout the study. Choosing WP-small rather than WP-large as the primary
     baseline is a deliberate departure from prior CPL work. CPL is designed to help
     data-scarce projects. Measuring its benefit relative to a data-scarce baseline
-    directly tests whether it delivers on that design intent.
+    tests whether it delivers on that design intent.
 
   \item \textbf{WP-large} (Within-Project, Ample): Model trained on 80\% of the
     target bug corpus. It is included as the performance ceiling achievable with
@@ -894,7 +846,7 @@ themselves, not from heterogeneous experimental conditions.
 
 Table~\ref{tab:scenarios} provides a compact summary.
 
-\begin{table*}[h]
+\begin{table*}[t]
 \centering
 \caption{Four evaluation scenarios with data configurations and roles. All share
 the same held-out test set (20\% of target bugs, seed 42).}
@@ -966,12 +918,26 @@ paired test is appropriate for two reasons. First, observations are naturally pa
 each source$\to$target pair contributes one CPT and one WPS result under identical
 test conditions. Second, the distribution of improvements cannot be assumed normal
 across such a diverse corpus. A one-sided alternative is tested ($H_1$: CPT $>$ WPS).
-Effect sizes are reported as Cohen's $d$ \citep{cohen1988statistical}:
-$d \geq 0.8$ large, $\geq 0.5$ medium, $\geq 0.2$ small.
+Effect sizes are reported as Cohen's $d$ \citep{cohen1988statistical}
+($d \geq 0.8$ large, $\geq 0.5$ medium, $\geq 0.2$ small) for comparability with
+prior literature, alongside the matched-pairs rank-biserial correlation $r_{rb}$,
+the effect size aligned with the signed-rank test and free of normality assumptions.
 
-Significance thresholds: $\star\star\star$ ($p < 0.001$), $\star\star$ ($p < 0.01$),
-$\star$ ($p < 0.05$), n.s. ($p \geq 0.05$). Bonferroni correction is applied where
-multiple comparisons are made within a single test family.
+Significance markers denote unadjusted $p$-values: $\star\star\star$ ($p < 0.001$),
+$\star\star$ ($p < 0.01$), $\star$ ($p < 0.05$), n.s. ($p \geq 0.05$). Where five
+metrics are tested within one model family, the Bonferroni-adjusted threshold is
+$\alpha/5 = 0.010$; the text states explicitly which comparisons survive this
+correction.
+
+\paragraph{Equivalence Testing (TOST).}
+Claims that two conditions perform equivalently cannot rest on a non-significant
+difference test, since absence of evidence is not evidence of absence. Wherever the
+paper reports equivalence, we apply \textbf{two one-sided tests} (TOST) implemented
+as Wilcoxon signed-rank tests against null hypotheses shifted by $\pm\delta$, with an
+equivalence margin of $\delta = 0.05$ MRR. This margin is approximately the smallest
+mean CPL gain treated as practically meaningful in this study (TRANP-CNN's $+0.054$
+MRR); differences smaller than this are of little practical consequence for adoption
+decisions. Equivalence is declared when both one-sided tests reject at $\alpha = 0.05$.
 
 \paragraph{RQ2, Spearman Rank Correlation.}
 To identify project-level features predictive of CPL gain, \textbf{Spearman's $\rho$}
@@ -993,7 +959,7 @@ $>$99\% power to detect a medium effect ($d = 0.5$) at $\alpha = 0.05$, and
 $>$80\% power to detect a small effect ($d = 0.2$). The study corpus is therefore
 adequately powered for all comparisons reported in RQ1. Power was estimated
 via simulation under a normal approximation to the signed-rank statistic,
-using $10^{4}$ replications over a two-parameter effect-size grid.
+using $10^{4}$ replications across a grid of effect sizes and sample sizes.
 
 %% ===================================================================
 %% SECTION 4 — RESULTS
@@ -1010,7 +976,7 @@ Cross-project transfer with minimal target labels (CP-transfer) achieves MRR = 0
 for embedding-based models (BLAZE) versus MRR = 0.256 for within-project limited
 training (WP-small), a mean absolute gain of $+0.137$ representing a 53\% relative
 improvement. The scenario ordering WP-large $>$ CP-transfer $>$ CP-cold-start
-$\approx$ WP-small holds consistently across all five metrics for this model class.
+$\approx$ WP-small holds across all five metrics for this model class.
 This confirms that CPL provides a measurable advantage over the data the target
 project already has. In practical terms, a team using CP-transfer can expect to rank the correct file
 in the top~5 in roughly 53\% of queries (BLAZE CPT Top-5 = 0.527).
@@ -1019,18 +985,19 @@ This is a concrete improvement for developer triage workflows.
 
 For CNN-based rerankers (TRANP-CNN), CP-transfer achieves MRR = 0.380 versus
 WP-small MRR = 0.326, a mean gain of $+0.054$ (17\% relative). Crucially, this
-CP-transfer result is \emph{statistically indistinguishable from WP-large}
-(MRR = 0.389; Wilcoxon $p = 0.19$, 49.2\% win rate). TRANP-CNN is the only model
-in this study for which cross-project transfer with 20\% target fine-tuning matches
+CP-transfer result is \emph{statistically equivalent to WP-large} (MRR = 0.389):
+a TOST equivalence test bounds the difference within $\pm 0.05$ MRR ($p < 0.001$;
+two-sided Wilcoxon $p = 0.37$, 49.2\% win rate). TRANP-CNN is the only model
+in this study for which cross-project transfer with 20\% target fine-tuning reaches
 the performance achievable with full within-project training.
 
 For GNN-based adversarial models (COOBA), the corresponding gain is $+0.018$ MRR
-(13\% relative), substantially smaller in both absolute and relative terms, and
+(13\% relative), smaller in both absolute and relative terms, and
 CP-cold-start collapses to near-zero (MRR = 0.027), indicating that zero-shot
 transfer fails without any target-side signal for this architecture class.
 Table~\ref{tab:scenario_means} details the full per-scenario, per-model means.
 
-\begin{table*}[h]
+\begin{table*}[t]
 \centering
 \caption{Mean bug localisation performance across source$\to$target pairs per model and
 scenario. WP-small is the primary baseline; CP-transfer is the primary CPL condition.
@@ -1076,76 +1043,85 @@ for the CP-transfer versus WP-small comparison across all metrics and models.
 For embedding-based models (BLAZE), cross-project transfer significantly outperforms
 within-project limited training across all five metrics ($p < 0.001$, $\star\star\star$
 on all metrics). Win rates range from 82.5\% (Top-1) to 93.7\% (MAP). Effect sizes
-are large by Cohen's convention on all metrics ($d = 1.04$--$1.19$), indicating that
+are large by Cohen's convention on all metrics ($d = 1.04$--$1.19$; rank-biserial
+$r_{rb} = 0.95$--$0.98$), indicating that
 the CPL advantage is not only statistically reliable but practically substantial.
 A large effect ($d > 1$) means the CPL gain is detectable even in studies with as
 few as 10 project pairs: the benefit is unmistakable in scale.
 
 For CNN-based rerankers (TRANP-CNN), cross-project transfer also significantly
 outperforms within-project limited training across all five metrics. Win rates range
-from 54.0\% (Top-1) to 71.4\% (MAP). Effect sizes are medium ($d = 0.32$--$0.59$),
+from 54.0\% (Top-1) to 71.4\% (MAP). Effect sizes are medium ($d = 0.32$--$0.59$;
+$r_{rb} = 0.37$--$0.58$),
 with $p < 0.001$ on MRR, MAP, and Top-5; $p < 0.01$ on Top-1; and $p < 0.05$ on
-Top-10. These results establish TRANP-CNN as the second model, alongside BLAZE,
+Top-10, the only TRANP-CNN metric not surviving the Bonferroni-adjusted threshold
+of $0.010$. These results establish TRANP-CNN as the second model, alongside BLAZE,
 for which CPL is statistically significant and practically meaningful across the full
 metric set. A medium effect means the advantage is real and reproducible, though
 a larger sample would be needed to detect it reliably in a smaller study.
 
 For GNN-based adversarial models (COOBA), the CPL advantage is present but marginal:
-significant on MRR, MAP, Top-1, and Top-10 ($p = 0.010$--$0.043$, $\star$) and
-borderline on Top-5 ($p = 0.058$). Win rates range from 43.5\% (Top-1) to
+nominally significant on MRR, MAP, Top-1, and Top-10 ($p = 0.012$--$0.046$, $\star$)
+and borderline on Top-5 ($p = 0.052$). None of the five metrics survives the
+Bonferroni-adjusted threshold of $0.010$. Win rates range from 43.5\% (Top-1) to
 60.3\% (MRR/MAP), close to chance on several metrics. Effect sizes are small
-($d = 0.20$--$0.31$), statistically detectable at 63 pairs but too small to
-provide consistent benefit across individual deployments.
+($d = 0.20$--$0.31$; $r_{rb} = 0.24$--$0.39$), statistically detectable at 63 pairs
+but too small to provide consistent benefit across individual deployments.
 
 We classify an architectural paradigm as exhibiting \emph{practically beneficial}
-CPL if it meets both criteria: statistical significance ($p < 0.05$, Bonferroni-adjusted)
+CPL if it meets both criteria: statistical significance on the primary metrics
+(MRR and MAP) at the Bonferroni-adjusted threshold ($p < 0.010$)
 \emph{and} at least a medium effect size ($d \geq 0.5$). The medium-effect threshold
 is the conventional minimum for consistent individual-deployment benefit. A small
 effect is statistically detectable at $n = 63$ but too small to reliably manifest
 in any single project pair. Under this criterion, BLAZE ($d = 1.19$) and TRANP-CNN
-($d = 0.59$) meet both criteria. COOBA ($d = 0.27$, $p < 0.05$ on most metrics)
-is statistically detectable but falls below the practical-benefit threshold.
+($d = 0.59$) meet both criteria. COOBA ($d = 0.27$; no metric surviving correction)
+meets neither.
 
 Taken together, \textbf{2 of 3 benchmarked architectural paradigms show statistically
 significant CPL benefit with a medium-to-large effect size.} This cross-architecture
 replication is the primary evidence that CPL is a viable strategy for data-scarce
 projects, rather than an artefact of any particular model's inductive bias.
 The three-tier effect size profile ($d \approx 1.19$ for BLAZE, $0.59$ for
-TRANP-CNN, $0.27$ for COOBA) maps directly to deployment risk. BLAZE and
+TRANP-CNN, $0.27$ for COOBA) maps to deployment risk. BLAZE and
 TRANP-CNN are architectures where CPL can be recommended with confidence.
 COOBA requires empirical validation before adoption.
 
-\begin{table*}[h]
+\begin{table*}[t]
 \centering
-\caption{Wilcoxon signed-rank test results, Cohen's $d$, and 95\% CI for CP-transfer vs.\ WP-small
-(one-sided, $H_1$: CPT $>$ WPS). Significance: $\star\star\star$ ($p < 0.001$), $\star\star$ ($p < 0.01$), $\star$ ($p < 0.05$), n.s.
-Bonferroni-adjusted significance threshold within each 5-metric family: $\alpha/5 = 0.010$.}
+\caption{Wilcoxon signed-rank test results, Cohen's $d$ with 95\% CI, and matched-pairs
+rank-biserial correlation $r_{rb}$ for CP-transfer vs.\ WP-small
+(one-sided, $H_1$: CPT $>$ WPS). Stars denote unadjusted $p$-values:
+$\star\star\star$ ($p < 0.001$), $\star\star$ ($p < 0.01$), $\star$ ($p < 0.05$), n.s.
+The Bonferroni-adjusted threshold within each 5-metric family is $\alpha/5 = 0.010$;
+all BLAZE metrics and TRANP-CNN MRR/MAP/Top-1/Top-5 survive it, while all COOBA
+metrics and TRANP-CNN Top-10 do not.}
 \label{tab:wilcoxon}
 \small
-\begin{tabular}{@{}llrrrrrrr@{}}
+\begin{tabular}{@{}llrrrrrrrr@{}}
 \toprule
-\textbf{Model} & \textbf{Metric} & \textbf{$n$} & \textbf{Win \%} & \textbf{$\Delta$ (mean)} & \textbf{$\Delta$ (median)} & \textbf{Cohen's $d$} & \textbf{95\% CI ($d$)} & \textbf{Sig.} \\
+\textbf{Model} & \textbf{Metric} & \textbf{$n$} & \textbf{Win \%} & \textbf{$\Delta$ (mean)} & \textbf{$\Delta$ (median)} & \textbf{Cohen's $d$} & \textbf{95\% CI ($d$)} & \textbf{$r_{rb}$} & \textbf{Sig.} \\
 \midrule
 \multirow{5}{*}{BLAZE}
-  & MRR    & 63 & 90.5\% & $+0.137$ & $+0.118$ & 1.19 & $[{+}0.87,{+}1.51]$ & $\star\star\star$ \\
-  & MAP    & 63 & 93.7\% & $+0.112$ & $+0.085$ & 1.18 & $[{+}0.85,{+}1.50]$ & $\star\star\star$ \\
-  & Top-1  & 63 & 82.5\% & $+0.111$ & $+0.100$ & 1.13 & $[{+}0.81,{+}1.45]$ & $\star\star\star$ \\
-  & Top-5  & 63 & 90.5\% & $+0.179$ & $+0.150$ & 1.14 & $[{+}0.82,{+}1.46]$ & $\star\star\star$ \\
-  & Top-10 & 63 & 88.9\% & $+0.181$ & $+0.115$ & 1.04 & $[{+}0.72,{+}1.36]$ & $\star\star\star$ \\
+  & MRR    & 63 & 90.5\% & $+0.137$ & $+0.118$ & 1.19 & $[{+}0.87,{+}1.51]$ & 0.97 & $\star\star\star$ \\
+  & MAP    & 63 & 93.7\% & $+0.112$ & $+0.085$ & 1.18 & $[{+}0.85,{+}1.50]$ & 0.98 & $\star\star\star$ \\
+  & Top-1  & 63 & 82.5\% & $+0.111$ & $+0.100$ & 1.13 & $[{+}0.81,{+}1.45]$ & 0.95 & $\star\star\star$ \\
+  & Top-5  & 63 & 90.5\% & $+0.179$ & $+0.150$ & 1.14 & $[{+}0.82,{+}1.46]$ & 0.97 & $\star\star\star$ \\
+  & Top-10 & 63 & 88.9\% & $+0.181$ & $+0.115$ & 1.04 & $[{+}0.72,{+}1.36]$ & 0.95 & $\star\star\star$ \\
 \midrule
 \multirow{5}{*}{COOBA}
-  & MRR    & 63 & 60.3\% & $+0.018$ & $+0.003$ & 0.27 & $[{+}0.02,{+}0.52]$ & $\star$ \\
-  & MAP    & 63 & 60.3\% & $+0.014$ & $+0.008$ & 0.24 & $[{-}0.01,{+}0.49]$ & $\star$ \\
-  & Top-1  & 63 & 43.5\% & $+0.018$ & $+0.000$ & 0.31 & $[{+}0.05,{+}0.56]$ & $\star$ \\
-  & Top-5  & 63 & 55.6\% & $+0.021$ & $+0.009$ & 0.20 & $[{-}0.05,{+}0.45]$ & n.s. \\
-  & Top-10 & 63 & 55.6\% & $+0.026$ & $+0.009$ & 0.30 & $[{+}0.04,{+}0.55]$ & $\star$ \\
+  & MRR    & 63 & 60.3\% & $+0.018$ & $+0.003$ & 0.27 & $[{+}0.02,{+}0.52]$ & 0.26 & $\star$ \\
+  & MAP    & 63 & 60.3\% & $+0.014$ & $+0.008$ & 0.24 & $[{-}0.01,{+}0.49]$ & 0.24 & $\star$ \\
+  & Top-1  & 63 & 43.5\% & $+0.018$ & $+0.000$ & 0.31 & $[{+}0.05,{+}0.56]$ & 0.39 & $\star$ \\
+  & Top-5  & 63 & 55.6\% & $+0.021$ & $+0.009$ & 0.20 & $[{-}0.05,{+}0.45]$ & 0.25 & n.s. \\
+  & Top-10 & 63 & 55.6\% & $+0.026$ & $+0.009$ & 0.30 & $[{+}0.04,{+}0.55]$ & 0.28 & $\star$ \\
 \midrule
 \multirow{5}{*}{TRANP-CNN}
-  & MRR    & 63 & 68.3\% & $+0.054$ & $+0.041$ & 0.59 & $[{+}0.32,{+}0.87]$ & $\star\star\star$ \\
-  & MAP    & 63 & 71.4\% & $+0.049$ & $+0.029$ & 0.56 & $[{+}0.29,{+}0.84]$ & $\star\star\star$ \\
-  & Top-1  & 63 & 54.0\% & $+0.027$ & $+0.010$ & 0.45 & $[{+}0.19,{+}0.72]$ & $\star\star$ \\
-  & Top-5  & 63 & 60.3\% & $+0.032$ & $+0.022$ & 0.53 & $[{+}0.25,{+}0.80]$ & $\star\star\star$ \\
-  & Top-10 & 63 & 46.0\% & $+0.019$ & $+0.000$ & 0.32 & $[{+}0.05,{+}0.58]$ & $\star$ \\
+  & MRR    & 63 & 68.3\% & $+0.054$ & $+0.041$ & 0.59 & $[{+}0.32,{+}0.87]$ & 0.58 & $\star\star\star$ \\
+  & MAP    & 63 & 71.4\% & $+0.049$ & $+0.029$ & 0.56 & $[{+}0.29,{+}0.84]$ & 0.58 & $\star\star\star$ \\
+  & Top-1  & 63 & 54.0\% & $+0.027$ & $+0.010$ & 0.45 & $[{+}0.19,{+}0.72]$ & 0.46 & $\star\star$ \\
+  & Top-5  & 63 & 60.3\% & $+0.032$ & $+0.022$ & 0.53 & $[{+}0.25,{+}0.80]$ & 0.58 & $\star\star\star$ \\
+  & Top-10 & 63 & 46.0\% & $+0.019$ & $+0.000$ & 0.32 & $[{+}0.05,{+}0.58]$ & 0.37 & $\star$ \\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -1158,7 +1134,7 @@ practically more important than win rate alone. A model that wins 60\% of the ti
 but loses catastrophically in the other 40\% is worse than one that wins 80\% with
 smaller, negligible losses. The CPL gain distribution for embedding-based models
 (BLAZE) shows a pronounced asymmetry. When CP-transfer outperforms WP-small it
-does so substantially (median win $= +0.134$ MRR), but when it does not, the loss
+does so (median win $= +0.134$ MRR), but when it does not, the loss
 is negligible (median loss $= -0.005$ MRR). The asymmetry ratio, median gain
 divided by median loss magnitude, is $27\times$ for MRR. BLAZE's expected benefit
 of adoption is 27 times larger than the expected cost of failure, making it a
@@ -1169,7 +1145,7 @@ win $= +0.068$ MRR vs.\ median loss $= -0.025$ MRR). This is a moderate asymmetr
 that still favours adoption, but with meaningfully higher loss exposure than
 embedding-based models. Practitioners using TRANP-CNN should expect that roughly one in three
 deployments will underperform limited within-project training, though the gains
-in the remaining deployments are substantially larger.
+in the remaining deployments are larger.
 
 For GNN-based adversarial models (COOBA), the asymmetry ratio falls to only
 $1.5\times$ (median win $= +0.032$ MRR vs.\ median loss $= -0.022$ MRR), a
@@ -1202,24 +1178,25 @@ the annotation bottleneck entirely. Testing whether it is viable is therefore
 central to the utility case for CPL.
 
 For embedding-based models, CP-cold-start achieves MRR = 0.262 versus WP-small
-MRR = 0.256, a difference that is not statistically significant (Wilcoxon,
-$p = 0.415$, two-sided). A source-trained model applied to a new project
-\emph{without any target annotations} is statistically equivalent to training on
-20\% of the target project's own data. This finding holds across all five
-evaluation metrics.
+MRR = 0.256. No difference is detectable on any of the five metrics (two-sided
+Wilcoxon, all $p \geq 0.58$), and a TOST equivalence test establishes equivalence
+within a $\pm 0.05$ MRR margin ($p = 0.007$). A source-trained model applied to a
+new project \emph{without any target annotations} is therefore statistically
+equivalent, up to a practically negligible margin, to training on 20\% of the
+target project's own data.
 
 Figure~\ref{fig:coldstart_heatmap} shows the cold-start viability heatmap across
 all source$\to$target combinations. In 74.6\% of pairs (47/63), the cold-start
-model achieves an MRR of at least 0.20. This threshold corresponds to the median
-FAISS-only retrieval performance, below which ranking quality is negligible for
-practical developer triage. It suggests that annotation effort can be eliminated
+model achieves an MRR of at least 0.20, which corresponds to the ground-truth file
+appearing around rank five on average, the shortlist depth a developer can
+reasonably inspect during triage. It suggests that annotation effort can be eliminated
 entirely for the majority of deployment scenarios when an appropriate source project
 is available. For a newly open-sourced project with no labelled bugs at all, a BLAZE
 model trained on any within-domain source project can be deployed immediately at
 near within-project performance, with zero annotation cost.
 
 GNN-based adversarial models (COOBA) collapse to near-zero performance in cold-start
-(MRR = 0.027), statistically indistinguishable from the raw FAISS retrieval baseline
+(MRR = 0.027), essentially identical to the raw FAISS retrieval baseline
 (MRR = 0.029) and far below WP-small (MRR = 0.138, $p < 0.001$). CNN-based rerankers
 (TRANP-CNN) also fail cold-start, though to a lesser degree: MRR = 0.075 versus
 WP-small MRR = 0.326 ($p < 0.001$). TRANP-CNN cold-start is 2.6$\times$ the FAISS
@@ -1249,14 +1226,16 @@ within-project limited training for \textbf{2 of 3} benchmarked architectural
 paradigms.
 \begin{itemize}[noitemsep,topsep=2pt]
   \item \textbf{Embedding-based (BLAZE):} large effect ($d = 1.19$, win rate 90.5\%,
-        $p < 0.001$). Zero-label deployment matches within-project limited training,
-        eliminating annotation cost in 74.6\% of pairs. 27:1 gain-to-loss asymmetry.
+        $p < 0.001$). Zero-label deployment is statistically equivalent to
+        within-project limited training (TOST, $\pm 0.05$ MRR, $p = 0.007$) and
+        practically viable (MRR $\geq 0.20$) in 74.6\% of pairs. 27:1 gain-to-loss asymmetry.
   \item \textbf{CNN-based reranker (TRANP-CNN):} medium effect ($d = 0.59$, win rate
-        68.3\%, $p < 0.001$). CP-transfer is statistically indistinguishable from
-        WP-large ($p = 0.19$), the only architecture approaching the ample-data ceiling
-        with just 20\% target labels. 2.8:1 gain-to-loss asymmetry.
-  \item \textbf{GNN-based adversarial (COOBA):} small marginal effect ($d = 0.27$,
-        $p < 0.05$ on most metrics). Cold-start fails. Near-symmetric risk (1.5:1).
+        68.3\%, $p < 0.001$). CP-transfer is statistically equivalent to
+        WP-large (TOST, $\pm 0.05$ MRR, $p < 0.001$), the only architecture reaching
+        the ample-data ceiling with just 20\% target labels. 2.8:1 gain-to-loss asymmetry.
+  \item \textbf{GNN-based adversarial (COOBA):} small marginal effect ($d = 0.27$;
+        unadjusted $p < 0.05$ on most metrics, none surviving Bonferroni correction).
+        Cold-start fails. Near-symmetric risk (1.5:1).
 \end{itemize}
 The CPL paradigm is independently replicated across two architecturally distinct
 benchmarked models.
@@ -1267,8 +1246,8 @@ benchmarked models.
 
 \subsubsection{Target Codebase Size}
 
-Target codebase size is the single strongest observable moderator of CPL benefit
-in this study. Knowing a project's LoC category provides a practitioner with a reliable
+Target codebase size is the strongest observable moderator of CPL benefit
+in this study. Knowing a project's LoC category gives a practitioner an indicative
 upper bound on expected gain. Table~\ref{tab:stratified} presents CPL gain stratified
 by target codebase size.
 
@@ -1279,8 +1258,9 @@ across all target size groups in this corpus, making BLAZE a viable choice even 
 
 For CNN-based rerankers (TRANP-CNN), the LoC pattern reveals a notable finding.
 CP-transfer \emph{exceeds} WP-large for small targets (CPT = 0.532 vs.\
-WPL = 0.518), the only condition in this study where cross-project transfer
-surpasses the within-project performance ceiling. The cross-project initialisation
+WPL = 0.518), the only size-group aggregate in this study where cross-project
+transfer surpasses the within-project performance ceiling (individual pairs also
+cross this line; see Section~\ref{sec:cases}). The cross-project initialisation
 teaches the model what bug-localisation signal looks like. The 20\% target
 fine-tuning then calibrates it, together outperforming training from scratch on
 four times more local data. Medium and large targets show modest gains ($+0.024$
@@ -1302,11 +1282,12 @@ The within-model CPL comparison (CPT vs.\ WPS) is unaffected because both condit
 face the same retrieval constraint, but the absolute gain magnitudes for large targets
 should be read as suggestive rather than definitive.
 
-\begin{table*}[h]
+\begin{table*}[t]
 \centering
 \caption{CP-transfer vs.\ WP-small MRR gain by target codebase size group.
-$\Delta$ = CP-transfer MRR $-$ WP-small MRR. WP-large MRR shown for TRANP-CNN to highlight
-the CPT $\approx$ WPL finding for small targets.}
+$\Delta$ = CP-transfer MRR $-$ WP-small MRR. WP-large MRR is shown for all models;
+the dagger marks the only size-group aggregate where mean CP-transfer exceeds mean
+WP-large.}
 \label{tab:stratified}
 \small
 \begin{tabular}{@{}llrrrrr@{}}
@@ -1314,21 +1295,21 @@ the CPT $\approx$ WPL finding for small targets.}
 \textbf{Model} & \textbf{Size Group} & \textbf{$n$} & \textbf{WP-small MRR} & \textbf{WP-large MRR} & \textbf{CP-transfer MRR} & \textbf{$\Delta$ MRR} \\
 \midrule
 \multirow{3}{*}{BLAZE}
-  & Small ($<$100K LoC)   & 25 & 0.219 & N/A & 0.398 & $+0.179$ \\
-  & Medium (100K--300K)   & 24 & 0.278 & N/A & 0.388 & $+0.110$ \\
-  & Large ($>$300K LoC)   & 14 & 0.283 & N/A & 0.389 & $+0.106$ \\
+  & Small ($<$100K LoC)   & 25 & 0.219 & 0.498 & 0.398 & $+0.179$ \\
+  & Medium (100K--300K)   & 24 & 0.278 & 0.459 & 0.388 & $+0.110$ \\
+  & Large ($>$300K LoC)   & 14 & 0.283 & 0.444 & 0.389 & $+0.106$ \\
 \midrule
 \multirow{3}{*}{COOBA}
-  & Small ($<$100K LoC)   & 25 & 0.219 & N/A & 0.243 & $+0.025$ \\
-  & Medium (100K--300K)   & 24 & 0.099 & N/A & 0.116 & $+0.018$ \\
-  & Large ($>$300K LoC)   & 14 & 0.062 & N/A & 0.068 & $+0.006$ \\
+  & Small ($<$100K LoC)   & 25 & 0.219 & 0.294 & 0.243 & $+0.025$ \\
+  & Medium (100K--300K)   & 24 & 0.099 & 0.152 & 0.116 & $+0.018$ \\
+  & Large ($>$300K LoC)   & 14 & 0.062 & 0.080 & 0.068 & $+0.006$ \\
 \midrule
 \multirow{3}{*}{TRANP-CNN}
   & Small ($<$100K LoC)   & 25 & 0.454 & \textbf{0.518} & \textbf{0.532}$^{\dagger}$ & $+0.079$ \\
   & Medium (100K--300K)   & 24 & 0.278 & 0.340 & 0.302 & $+0.024$ \\
   & Large ($>$300K LoC)   & 14 & 0.181 & 0.242 & 0.243 & $+0.062$ \\
 \bottomrule
-\multicolumn{7}{l}{\footnotesize $^{\dagger}$CP-transfer exceeds WP-large for small targets (0.532 vs.\ 0.518), the only condition in this study}\\
+\multicolumn{7}{l}{\footnotesize $^{\dagger}$CP-transfer exceeds WP-large for small targets (0.532 vs.\ 0.518), the only size-group aggregate in this study}\\
 \multicolumn{7}{l}{\footnotesize where cross-project transfer surpasses the within-project ceiling.}
 \end{tabular}
 \end{table*}
@@ -1344,10 +1325,10 @@ For TRANP-CNN, all groups are positive, with the small group exceeding the WP-la
 \caption{Distribution of CP-transfer minus WP-small MRR gain by target codebase
 size group (Small $<$100K, Medium 100K--300K, Large $>$300K LoC). Each violin shows
 the spread of pair-level gains for a given model (colour) and size group. BLAZE
-(blue) shows consistently positive gains across all size groups with only mild
+(blue) shows positive gains across all size groups with only mild
 degradation for large targets. COOBA (orange) shows near-zero gain for medium and
 large targets: gains collapse with LoC. TRANP-CNN (purple) shows positive gains in all groups.
-Notably, the small-target group is the only condition in this study where
+Notably, the small-target group is the only size-group aggregate in this study where
 CP-transfer MRR (0.532) exceeds WP-large (0.518), shown with a dagger ($\dagger$) in
 Table~\ref{tab:stratified}.}
 \label{fig:gain_by_size}
@@ -1395,7 +1376,10 @@ metadata features and CPL gain. A key finding is that no single measured feature
 reliably predicts CPL success or failure at the pair level for any model class.
 None of LoC ratio ($\rho < 0.15$), domain gap accuracy ($|\rho| < 0.12$), source
 bug count ($|\rho| < 0.08$), or bug report verbosity provides a reliable predictor
-when considered in isolation. Negative transfer is not predictable from project
+when considered in isolation. This does not contradict the size-stratified finding
+above: target LoC stratifies \emph{mean} gain into coarse categorical bands, whereas
+no continuous feature, including the source-to-target LoC ratio, ranks
+\emph{individual pairs} reliably. Negative transfer is not predictable from project
 metadata alone. Empirical validation is the safest guard against deployment risk.
 
 \begin{figure*}
@@ -1414,7 +1398,8 @@ projects based on observable metadata.}
 
 Table~\ref{tab:crossdomain} presents CPL gain broken down by whether source and
 target belong to the same domain (within-domain, Group A pairs) or different domains
-(cross-domain, Groups B and C).
+(cross-domain, Groups B and C); Figure~\ref{fig:cross_domain} shows the
+corresponding gain distributions.
 
 For embedding-based models (BLAZE), within-domain pairs gain more on average
 ($+0.180$ MRR, 93.3\% win rate) than cross-domain pairs ($+0.097$ MRR,
@@ -1451,7 +1436,7 @@ capture the domain alignment that governs TRANP-CNN outcomes. The domain binary
 (same vs.\ different application category) is a stronger signal than the continuous
 domain gap metric for TRANP-CNN, but a non-signal for COOBA.
 
-\begin{table*}[h]
+\begin{table*}[t]
 \centering
 \caption{CPL gain by domain alignment (within-domain = same application category;
 cross-domain = different category). $\Delta$MRR = mean CP-transfer $-$ WP-small MRR.
@@ -1485,7 +1470,7 @@ BLAZE shows moderate degradation (14.5pp drop) but remains strong cross-domain
 \includegraphics[width=\textwidth]{figs/fig_cross_domain.png}
 \caption{CPL gain distributions (CP-transfer $-$ WP-small MRR) for within-domain
 (DS$\times$DS) versus cross-domain pairs across all three models. BLAZE (blue) gains
-more within-domain but cross-domain gains remain clearly positive (78.8\% win rate).
+more within-domain but cross-domain gains remain positive (78.8\% win rate).
 TRANP-CNN (purple) shows a marked 28pp win-rate drop cross-domain, with the
 cross-domain distribution centred near zero. COOBA (orange) shows near-identical
 distributions for within- and cross-domain ($-$2pp difference), confirming that
@@ -1542,7 +1527,7 @@ evaluated on the same 63 source$\to$target pairs, we report pairwise direction
 agreement across all three model combinations.
 Table~\ref{tab:model_agreement} summarises the results.
 
-\begin{table}[h]
+\begin{table}[t]
 \centering
 \caption{Pairwise cross-model direction agreement on CPL gain (CPT$-$WPS MRR, $n = 63$).
 Agreement = fraction of pairs where both models show the same directional outcome
@@ -1657,15 +1642,16 @@ particularly striking. Domain similarity provides essentially no signal for rank
 sources when the CPL mechanism is adversarial domain adaptation, which already
 attempts to erase domain-specific features from the learned representations.
 
-The practical takeaway is consistent across both heuristics and all three models.
-No tested heuristic reliably ranks sources ($\tau < 0.2$ in all cases), yet all
-three models achieve 79--93\% of oracle performance with any heuristic. Practitioners
+The practical takeaway is consistent across both heuristics and all three models
+(Figure~\ref{fig:ss_quality} visualises ranking quality under the most-bugs
+heuristic). No tested heuristic reliably ranks sources ($\tau < 0.2$ in all cases),
+yet all three models achieve 79--93\% of oracle performance with any heuristic. Practitioners
 do not need sophisticated source selection for BLAZE or TRANP-CNN. For COOBA, source
 selection matters more (lower absolute oracle recovery), but neither heuristic is
 reliable. Empirical holdout validation on a small target sample remains the safest
 strategy.
 
-\begin{table*}[h]
+\begin{table*}[t]
 \centering
 \caption{Source selection heuristic evaluation. Two heuristics tested: \emph{most-bugs}
 (source with largest bug corpus) and \emph{domain-gap} (source with lowest embedding-space
@@ -1719,7 +1705,7 @@ learned-ranker paradigms agreeing nearly as often as either agrees with the adve
 Source within-project quality does not reliably predict transfer success for any
 model (BLAZE: $\rho \approx 0$; TRANP-CNN: $\rho = -0.208$ n.s.; COOBA: $\rho = -0.296$,
 statistically significant negative predictor). All three models achieve near-oracle
-robustness to source selection (79--89\% of oracle with any source), making heuristic
+robustness to source selection (79--93\% of oracle with any source), making heuristic
 source ranking low-priority compared to domain-gap validation and empirical holdout
 testing.
 \end{tcolorbox}
@@ -1728,47 +1714,30 @@ testing.
 %% CROSS-MODEL SYNTHESIS
 %% ===================================================================
 \subsection{Cross-Model Synthesis: What the Evidence Says About CPL}
-% \begin{tcolorbox}[colback=black!10, colframe=gray!50, title=\textbf{Cross-Model Synthesis: What the Evidence Says About CPL}]
 Across all three model architectures and 63 project pairs, the empirical evidence
 points to a consistent conclusion. \textbf{Cross-project learning is a viable
 strategy for data-scarce bug localisation in 2 of 3 architectural paradigms tested,
 but its effectiveness and risk profile are architecture-dependent.}
 
 \begin{itemize}[noitemsep,topsep=2pt]
-  \item \textit{\textbf{CPL delivers meaningful benefit in 2 of 3 models tested.}}
-        Embedding-based models (BLAZE, $d = 1.19$) and CNN-based rerankers
-        (TRANP-CNN, $d = 0.59$) both show statistically significant, practically
-        substantial CPL benefit across all five evaluation metrics. Only
-        the GNN-based adversarial model (COOBA) shows smaller marginal gains
-        ($d = 0.27$) that border on practical irrelevance for individual deployments.
-
-  \item \textit{\textbf{Cold-start deployment (zero target annotations) is viable for
-        embedding-based models only.}} BLAZE matches within-project limited training
-        without any target data in 74.6\% of pairs. Both scalar-ranking models
-        (TRANP-CNN and COOBA) require at least some target-side calibration to
+  \item \textit{\textbf{CPL delivers meaningful benefit in 2 of 3 models tested}}
+        (BLAZE $d = 1.19$, TRANP-CNN $d = 0.59$, across all five metrics); COOBA's
+        marginal gains ($d = 0.27$) border on practical irrelevance for individual
+        deployments.
+  \item \textit{\textbf{Cold-start deployment is viable for embedding-based models
+        only}}; the two scalar-ranking models require target-side calibration to
         produce useful rankings.
-
   \item \textit{\textbf{With minimal target fine-tuning, CPL can match or exceed full
-        within-project training.}} For BLAZE, CP-transfer significantly outperforms
-        WP-small (the practical baseline) with a large effect. For TRANP-CNN,
-        CP-transfer (MRR = 0.380) is statistically indistinguishable from WP-large
-        (MRR = 0.389, $p = 0.19$). Cross-project transfer effectively closes the
-        gap to the ample-data ceiling, particularly for small-codebase targets where
-        CPT actually exceeds WPL.
-
-  \item \textit{\textbf{Negative transfer is a substantial risk for CNN and GNN models.}}
-        Rates are 3.2\% (BLAZE), 27.0\% (TRANP-CNN), and 31.7\% (COOBA), roughly
-        one in three deployments for the latter two. Negative transfer concentrates
-        in cross-domain pairs for TRANP-CNN, while COOBA's negative transfer is
-        LoC-driven and domain-agnostic. Practitioners should treat TRANP-CNN and
-        COOBA CPL as requiring empirical validation, not a universally safe upgrade.
-
-  \item \textit{\textbf{CPL outcome is not predictable from the project pair alone. Model architecture is a first-class variable.}} Pairwise cross-model agreement
-        ranges from 41\% to 67\%, meaning the same source$\to$target pair can benefit
-        one architecture and harm another. Practitioners cannot generalise a CPL
-        result from one tool to another without empirical validation.
+        within-project training}}: TRANP-CNN CP-transfer is equivalent to WP-large
+        (TOST, $\pm 0.05$ MRR), and exceeds it for small-codebase targets.
+  \item \textit{\textbf{Negative transfer is a material risk for CNN and GNN models}}
+        (27.0\% and 31.7\% of pairs respectively, versus 3.2\% for BLAZE):
+        cross-domain-driven for TRANP-CNN, LoC-driven and domain-agnostic for COOBA.
+  \item \textit{\textbf{CPL outcome is not predictable from the project pair alone.}}
+        Cross-model agreement of 41--67\% means the same pair can benefit one
+        architecture and harm another; a CPL result does not generalise from one
+        tool to another without empirical validation.
 \end{itemize}
-% \end{tcolorbox}
 
 %% ===================================================================
 %% ILLUSTRATIVE CASES
@@ -1831,7 +1800,12 @@ TRANP-CNN & 0.654 & 0.760 & 0.130 & 0.800$^{\ddagger}$ \\ \bottomrule
 worst outcome on the identical target. A practitioner using COOBA would correctly conclude
 that ansible is a harmful source project for jupyterlab. A practitioner using BLAZE would
 correctly conclude it is the optimal source project. No model-agnostic CPL viability
-judgment is possible for this pair: the result is entirely architecture-dependent.
+judgment is possible for this pair: the result is architecture-dependent.
+One caveat applies: BLAZE's WP-small run for this pair (MRR $= 0.022$) lies at the low
+end of the twelve identically configured WP-small runs recorded for the jupyterlab
+target (median 0.101, maximum 0.275; see Section~\ref{sec:threats} on run-to-run
+variance). Measured against the median run instead, the BLAZE gain remains large
+($+0.30$ MRR), so the divergence pattern is robust to this variance.
 
 \paragraph{Case 3: TRANP-CNN CP-transfer exceeds full within-project training (jupyterlab\,$\to$\,scikit-learn).}
 \texttt{jupyterlab/jupyterlab} (39K LoC) is used as the source project for
@@ -1867,15 +1841,16 @@ before a meaningful labelled history has accumulated.
 
 \subsection{Practical Implications}
 
-The results support four concrete recommendations for practitioners considering
+The results support five concrete recommendations for practitioners considering
 CPL deployment.
 
 \paragraph{1. CPL is a low-risk, high-reward strategy for embedding-based architectures.}
 If a project has few labelled bug reports and an embedding-based bug localisation
 tool is available, cross-project transfer is beneficial in 90\% of deployment
 scenarios, with a 27:1 gain-to-loss asymmetry. Critically,
-\emph{no target-project annotations are required}: zero-label deployment matches
-within-project limited training, eliminating the annotation cost entirely. The
+\emph{no target-project annotations are required}: zero-label deployment is
+statistically equivalent to within-project limited training (TOST, $\pm 0.05$ MRR),
+removing the annotation cost. The
 recommended strategy is immediate deployment, with annotations accumulated subsequently
 as target data becomes available for fine-tuning.
 
@@ -1887,47 +1862,32 @@ beyond medium-sized codebases ($+0.006$ MRR for large targets). Practitioners wi
 large-codebase targets and COOBA-style tools should validate CPL empirically before
 relying on it.
 
-\paragraph{3. Source selection has low stakes for BLAZE and TRANP-CNN; use holdout validation for COOBA.}
-The most intuitive heuristic (selecting the source with the most bug reports) fails
-to rank sources reliably. Hit@1 ranges from 15.4 to 38.5\% across models.
-BLAZE and COOBA show negative $\tau$, while TRANP-CNN has weakly positive $\tau = +0.110$.
-Yet all three models achieve 79--89\% of oracle performance regardless of source choice.
-Practitioners should select the most conveniently available \emph{within-domain}
-source rather than investing in complex selection procedures for BLAZE and TRANP-CNN.
-For COOBA, where oracle recovery is lowest (78.8\%) and negative transfer is highest
-(31.7\%), empirical holdout validation on a small target sample is advisable.
+\paragraph{3. Choose sources by domain, not by ranking heuristics or within-project quality.}
+No tested heuristic reliably ranks source projects for any model ($|\tau| < 0.2$ and
+Hit@1 of 15.4--38.5\% across all model-heuristic combinations), yet all three models
+achieve 79--93\% of oracle CP-transfer performance regardless of source choice, so
+source selection has low stakes for BLAZE and TRANP-CNN. The most actionable
+criterion is domain category membership: same-domain sources produce a 28
+percentage-point higher win rate for CNN-based rerankers, and selecting any
+conveniently available \emph{within-domain} source is preferable to investing in
+source ranking by bug corpus size or embedding-space proximity. Source
+within-project quality should not be used as a selection criterion for any
+architecture; for GNN-based adversarial models it is actively misleading, since
+higher source within-project MRR is a statistically significant \emph{negative}
+predictor of transfer quality ($\rho = -0.296$, $p = 0.019$), reflecting
+overfitting to source-specific AST patterns. For COOBA, where oracle recovery is
+lowest (78.8\%) and negative transfer is highest (31.7\%), empirical holdout
+validation on a small target sample is advisable.
 
-\paragraph{4. For the highest CPL ceiling, CNN-based rerankers with 20\% target labels approach full within-project training performance.}
+\paragraph{4. For the highest CPL ceiling, CNN-based rerankers with 20\% target labels reach full within-project training performance.}
 When a project has at least 20\% of its bug reports labelled and domain-aligned sources
-are available, TRANP-CNN achieves CP-transfer performance statistically indistinguishable
-from WP-large ($p = 0.19$). For small-codebase targets it actually exceeds WP-large.
+are available, TRANP-CNN achieves CP-transfer performance statistically equivalent
+to WP-large (TOST, $\pm 0.05$ MRR). For small-codebase targets it actually exceeds WP-large.
 This provides the highest absolute CPL performance of the three models, but carries
 27.0\% negative transfer risk concentrated in cross-domain pairs. Practitioners
 should validate domain alignment before deploying CNN-based CPL cross-domain.
 
-\paragraph{5. Within-domain source selection is the most actionable practical criterion.}
-No tested heuristic reliably ranks source projects for any model ($|\tau| < 0.2$ across
-all model-heuristic combinations). However, domain category membership (same versus
-different application domain) is the strongest observable predictor of CPL risk for
-CNN-based rerankers, producing a 28 percentage-point drop in win rate for cross-domain
-pairs. The practical observation is that selecting any conveniently available
-\emph{within-domain} source is preferable to investing in source ranking by bug corpus
-size or embedding-space proximity. For embedding-based models, source selection has low
-stakes regardless: even a poorly chosen source achieves 88--93\% of oracle CP-transfer
-performance.
-
-\paragraph{6. Source within-project quality is not a useful selection criterion and
-is actively misleading for adversarial GNN models.}
-A natural intuition is to prefer sources on which the chosen model performs well
-within-project. This study observes the opposite for GNN-based adversarial models:
-higher source within-project MRR is a statistically significant \emph{negative}
-predictor of transfer quality ($\rho = -0.296$, $p = 0.019$). High within-project
-performance in COOBA reflects overfitting to source-specific AST patterns, which
-then conflict with the target's code structure rather than aiding transfer.
-Source within-project performance should not be used as a selection criterion for
-any of the three architectures studied.
-
-\paragraph{7. Empirical holdout validation is the safest guard against negative transfer.}
+\paragraph{5. Empirical holdout validation is the safest guard against negative transfer.}
 No project-level metadata feature (LoC ratio, domain gap score, source bug count,
 or bug report verbosity) reliably predicts pair-level CPL gain for any model
 ($|\rho| < 0.15$ for all feature-model combinations). When deployment risk is high,
@@ -1942,16 +1902,18 @@ roughly one in three deployments yields negative transfer.
 The three models in this study span three distinct paradigms of how a bug
 localisation model evaluates candidate files at inference time. The experimental
 design was structured to make architectural attribution possible rather than merely
-correlational. All three models share the same embedding backbone (\texttt{BAAI/bge-code-v1}).
-They are evaluated on identical datasets with identical train/test splits (random seed~42),
-retrieve candidates from the same FAISS indexes, and are benchmarked across the same
-63 project pairs. Representation quality,
-training data access, retrieval candidates, and pair selection are all held constant
-across the three model evaluations. The only free variable distinguishing the three
-CPL profiles is each model's \textbf{evaluation mechanism}: what its learned
-parameters do to rank candidates at test time. This controlled design is what allows
-the performance differences to be attributed to architectural choices rather than to
-confounding experimental conditions.
+correlational. All three models are evaluated on identical datasets with identical
+train/test splits (random seed~42), retrieve candidates from the same BGE-based
+FAISS indexes, and are benchmarked across the same 63 project pairs. Training data
+access, retrieval candidates, and pair selection are held constant across the three
+model evaluations. Each model consumes its native input representation (BGE
+embeddings for BLAZE, learned token embeddings for TRANP-CNN, GloVe-300 text and
+AST features for COOBA), which we treat as a constituent of the architecture under
+test. The variable distinguishing the three CPL profiles is therefore each model's
+\textbf{evaluation mechanism}: what its learned parameters and representations do to
+rank candidates at test time. This controlled design is what allows the performance
+differences to be attributed to architectural choices rather than to confounding
+experimental conditions.
 
 The divergent CPL profiles map cleanly onto that mechanism.
 
@@ -1960,7 +1922,7 @@ BLAZE scores candidate files at inference time using cosine similarity between
 frozen BGE backbone embeddings. No learned scalar weight is applied at ranking time.
 The ordering is determined entirely by pre-trained representations built on a diverse
 multilingual code corpus that already carry cross-project semantics before any
-fine-tuning begins. Cold-start viability follows directly from this mechanism:
+fine-tuning begins. Cold-start viability follows from this mechanism:
 there is nothing project-specific to calibrate, because no target-specific ranking
 weights exist. The 27:1 gain-to-loss asymmetry follows from the same property.
 Similarity-based ranking is inherently smooth. A suboptimal source project produces
@@ -1969,29 +1931,28 @@ magnitude. Gains from well-aligned source-target embedding spaces can be large.
 Source selection therefore has low stakes: even a poorly chosen source project
 produces rankings that are only marginally off.
 
-Two competing hypotheses warrant consideration. \textit{(i) Frozen backbone}: BLAZE differs
-from COOBA and TRANP-CNN in that its BGE backbone is \emph{frozen} during training
-(adapter-only fine-tuning), while COOBA and TRANP-CNN fine-tune projection layers
-on top of BGE features. One might ask whether BLAZE's superior CPL profile is
-driven by frozen backbone expressivity rather than its evaluation mechanism.
-\textit{(ii) Model age}: BLAZE (2025) is four to six years newer than COOBA (2021)
-and TRANP-CNN (2019). One might ask whether the performance gap reflects progress
-in pre-trained representations rather than architectural differences.
-This second concern is addressed by the shared backbone design. All three models
-receive the same \texttt{BAAI/bge-code-v1} embeddings as input, equalising absolute
-representation quality. Any performance difference arises in how each model uses
-those embeddings at ranking time, not in the quality of embeddings they receive.
-The frozen-backbone hypothesis is addressed as follows. Two observations make the
-evaluation-mechanism account more parsimonious. First, if the frozen backbone were the key factor, cold-start performance should be
-near-optimal even without adapter training. However, CP-cold-start achieves only
-MRR = 0.262 versus CP-transfer MRR = 0.392. This gap indicates that adapter
-fine-tuning on source data still provides meaningful signal. Second, the 27:1 gain-to-loss \emph{asymmetry}, the ratio of
-expected gain to expected loss when CPL does not help, is a property of ranking
-smoothness, not of backbone capacity. A frozen backbone can produce arbitrarily bad
-rankings if source and target embedding distributions are misaligned, but it produces
-smooth, bounded losses by virtue of the cosine similarity's range. Both effects
-point to the evaluation mechanism as the primary driver, though the frozen-backbone
-and evaluation-mechanism explanations are not mutually exclusive.
+Two competing hypotheses warrant consideration. \textit{(i) Representation quality}:
+BLAZE reranks with modern, frozen BGE embeddings (adapter-only fine-tuning), while
+TRANP-CNN and COOBA rerank with the representations of their original designs
+(learned token embeddings and GloVe-300, respectively). One might ask whether
+BLAZE's superior CPL profile is driven by representation quality rather than its
+evaluation mechanism. \textit{(ii) Model age}: BLAZE (2025) is four to six years
+newer than COOBA (2021) and TRANP-CNN (2019). One might ask whether the performance
+gap reflects general progress rather than architectural differences.
+Three observations make the evaluation-mechanism account more parsimonious, though
+the explanations are not mutually exclusive. First, if representation quality were
+the sole factor, cold-start performance should be near-optimal even without adapter
+training. However, CP-cold-start achieves only MRR = 0.262 versus CP-transfer
+MRR = 0.392, indicating that adapter fine-tuning on source data still provides
+meaningful signal beyond the pre-trained representations. Second, the 27:1
+gain-to-loss \emph{asymmetry}, the ratio of expected gain to expected loss when CPL
+does not help, is a property of ranking smoothness, not of representation capacity.
+A strong backbone can produce arbitrarily bad rankings if source and target
+embedding distributions are misaligned, but cosine similarity produces smooth,
+bounded losses by virtue of its range. Third, the two non-BGE rerankers differ
+from each other in CPL profile ($d = 0.59$ vs.\ $0.27$), so
+representation vintage alone does not determine transfer behaviour. Section~\ref{sec:threats}
+records the residual representation asymmetry as a construct threat.
 
 \paragraph{COOBA (GNN with adversarial domain adaptation).}
 COOBA trains a Gradient Reversal Layer discriminator to erase project-specific
@@ -2021,14 +1982,14 @@ With 20\% target fine-tuning (CP-transfer), TRANP-CNN benefits from source
 pre-training and recalibrates to the target's ranking difficulty. This yields a
 medium-effect CPL profile ($d = 0.59$, $p < 0.001$ across all metrics), intermediate between
 COOBA ($d = 0.27$) and BLAZE ($d = 1.19$). Notably, this recalibrated CP-transfer
-result is statistically indistinguishable from WP-large ($p = 0.19$). Source
+result is statistically equivalent to WP-large (TOST, $\pm 0.05$ MRR). Source
 pre-training provides a quality of initialisation that closes the gap to the
 ample-data ceiling once target calibration is provided.
 
 A particularly important cross-check on the architectural interpretation is the
 chronological ordering of the three models. COOBA (2021) employs a more
 sophisticated adversarial adaptation mechanism than TRANP-CNN (2019), yet achieves
-substantially worse CPL outcomes across nearly all metrics. If model age or
+worse CPL outcomes across nearly all metrics. If model age or
 methodological sophistication were the explanatory variable, COOBA should outperform
 TRANP-CNN. It does not. This rules out publication year and architectural complexity
 as confounds, leaving the evaluation mechanism as the consistent explanatory
@@ -2043,13 +2004,9 @@ independent of training-time sophistication.
 
 The low cross-model agreement (41--67\% across the three model pairs) is a
 methodological contribution for the CPL research community. It establishes that
-CPL benefit cannot be assumed to generalise across model architectures. A finding
+CPL benefit cannot be assumed to generalise across model architectures: a finding
 from one CPL model does not reliably predict outcomes from a different architecture
-on the same project pairs. Future CPL model papers should evaluate against the
-limited within-project baseline (WP-small) rather than, or in addition to,
-within-project ample-data baselines. Reporting results against WP-large alone
-creates an inflated impression of CPL benefit by comparing against a standard that
-data-scarce practitioners cannot reach.
+on the same project pairs.
 
 The counter-intuitive negative predictor for source quality in GNN-based adversarial
 models (COOBA), where better within-project performance predicts worse transfer,
@@ -2082,7 +2039,7 @@ fine-tuning-only evaluation protocol.
 
 \paragraph{Internal validity.}
 All three models depend on FAISS retrieval at the first stage. FAISS recall at
-$K = 300$ varies substantially across the 13 projects in this study: from 31.3\%
+$K = 300$ varies across the 13 projects in this study: from 31.3\%
 (ansible) to 100\% (xarray), with a median of approximately 70\%. Three projects
 fall below 50\% recall: ansible (31.3\%), wagtail (34.6\%), and meson (45.5\%).
 For these projects, the reranking model never sees the ground-truth file in roughly
@@ -2093,10 +2050,22 @@ performance degradation observed in Table~\ref{tab:stratified} therefore conflat
 model architectural limitation with retrieval ceiling. Disentangling the two would
 require re-ranking-only evaluation over gold-standard candidate sets and is left to
 future work. This ceiling does not threaten the within-model CPL comparison
-(CPT vs.\ WPS), where both conditions face the same retrieval constraint. All
-train/test splits use a single fixed random seed (42). Results could vary under
-different seeds, though with 63 source$\to$target pairs per model, the aggregated
-statistics are unlikely to be seed-sensitive.
+(CPT vs.\ WPS), where both conditions face the same retrieval constraint.
+
+\textbf{Training stochasticity and the fixed split.}
+All train/test splits use a single fixed random seed (42), and every scenario was
+retrained independently for each pair-run. The repeated WP-small runs provide a
+direct estimate of run-to-run training variance: for a fixed target project,
+identically configured WP-small runs differ by a mean min--max MRR spread of
+0.07--0.10 across the three models (maximum 0.29). This variance is of the same
+order as the mean CPL gains, so gain values for \emph{individual} pairs carry a
+substantial noise floor. Two properties protect the aggregate conclusions. The
+Wilcoxon analysis is paired at the run level, and re-testing CP-transfer against
+each target's \emph{median} WP-small MRR across all of its runs preserves every
+RQ1 conclusion (BLAZE $p < 0.001$, $r_{rb} = 0.96$; TRANP-CNN $p < 0.001$,
+$r_{rb} = 0.69$; COOBA $p = 0.007$, $r_{rb} = 0.35$). Pair-level results, including
+the illustrative cases in Section~\ref{sec:cases}, should nonetheless be read with
+this noise floor in mind.
 
 \paragraph{Construct validity.}
 MRR and Top-$K$ measure file-level localisation. Finer-grained (function- or
@@ -2104,15 +2073,26 @@ line-level) localisation may show different transfer patterns if fine-grained
 labels are available and the model architecture exploits them. The current
 evaluation is aligned with the benchmarks used in prior CPL literature.
 
-The BLAZE architecture uses a frozen BGE backbone (adapter-only
-fine-tuning), whereas TRANP-CNN and COOBA fine-tune projection layers on top of
-BGE features. This asymmetry is a design property of the
-original model architectures rather than an experimental choice. It is a potential
-source of differential expressivity. Section~\ref{sec:architecture} addresses this
-directly: the cold-start gap (MRR $= 0.262$ vs.\ CP-transfer $= 0.392$) shows
-that adapter fine-tuning carries signal beyond the frozen backbone alone, and the
-27:1 gain-to-loss asymmetry is a smoothness property of cosine ranking rather than
-a backbone capacity effect. Both arguments support the evaluation-mechanism account.
+\textbf{Input-representation asymmetry.}
+BLAZE reranks with modern frozen BGE embeddings (adapter-only fine-tuning), whereas
+TRANP-CNN trains token embeddings from scratch and COOBA uses GloVe-300 features,
+both faithful to their original designs. Representation quality therefore differs
+across the rerankers and is bundled into each architecture under test rather than
+controlled out. Three observations bound this threat: the candidate pool is
+identical for all models, so retrieval quality is controlled; the two non-BGE
+rerankers differ from each other ($d = 0.59$ vs.\ $0.27$), so
+representation vintage alone does not determine CPL profile; and the cold-start
+dichotomy is mechanism-driven, as detailed in Section~\ref{sec:architecture}.
+
+\textbf{Re-implementation fidelity.}
+TRANP-CNN and COOBA were re-implemented for this study (Section~\ref{sec:models}).
+Loss functions, encoder structures, and adaptation mechanisms follow the original
+publications, but the shared FAISS candidate stage and, for TRANP-CNN, the BGE
+tokeniser vocabulary are departures from the original setups. The evaluated systems
+are therefore faithful architectural adaptations rather than exact replicas, and
+absolute scores are not directly comparable to those reported in the original
+papers. The within-study comparisons are unaffected, since all models are evaluated
+under the same adapted protocol.
 
 \textbf{Pre-training data leakage.}
 \texttt{BAAI/bge-code-v1} was pre-trained on a large multilingual code corpus that very
@@ -2141,7 +2121,7 @@ The mechanism-based explanations in Section~\ref{sec:architecture} are grounded
 in inference-time properties (similarity-based vs.\ scalar-ranking) that are
 language-agnostic in principle. However, COOBA's AST-based encoder is sensitive
 to the structure of the AST vocabulary, including identifier namespaces, call-graph depth,
-and type hierarchies, which differs substantially between Python and Java. Whether
+and type hierarchies, which differs between Python and Java. Whether
 the COOBA CPL failure mode (near-zero cold-start, LoC-driven ceiling) replicates
 in Java, where ASTs are more verbose and richly type-annotated, is an open
 empirical question that the present study cannot answer.
@@ -2188,11 +2168,13 @@ Our answers to the three research questions are:
 \textbf{RQ1.} Cross-project transfer significantly outperforms within-project limited
 training for 2 of 3 architectural paradigms: embedding-based ($d = 1.19$, win rate
 90.5\%, $p < 0.001$) and CNN-based reranker ($d = 0.59$, win rate 68.3\%, $p < 0.001$).
-Zero-label deployment matches within-project limited training for embedding-based
-models, eliminating annotation cost in 74.6\% of pairs. CNN-based rerankers uniquely
-achieve CP-transfer performance statistically indistinguishable from, though not formally
-shown equivalent to, full within-project training ($p = 0.19$). GNN-based adversarial models show only marginal benefit ($d \approx 0.27$,
-$p < 0.05$), with near-zero cold-start performance.
+For embedding-based models, zero-label deployment is statistically equivalent to
+within-project limited training (TOST, $\pm 0.05$ MRR) and practically viable in
+74.6\% of pairs, removing the annotation cost. CNN-based rerankers uniquely
+achieve CP-transfer performance statistically equivalent to full within-project
+training (TOST, $\pm 0.05$ MRR). GNN-based adversarial models show only marginal
+benefit ($d \approx 0.27$, unadjusted $p < 0.05$), with near-zero cold-start
+performance.
 
 \textbf{RQ2.} CPL benefit is largest for small-codebase targets and within-domain
 pairs, but neither is a prerequisite for embedding-based models. The three models
@@ -2218,16 +2200,15 @@ need to wait years to accumulate sufficient labelled data before deploying bug
 localisation. The deployment pathways revealed by this study are concrete.
 Embedding-based tools can be applied immediately using any within-domain source
 project with zero target annotations. CNN-based rerankers require only 20\% of
-target labels and then achieve performance statistically indistinguishable from
+target labels and then achieve performance statistically equivalent to
 full within-project training. The replication of CPL benefit across two independently designed
 architectures (BLAZE and TRANP-CNN) strengthens the evidence beyond any single-model
-study, establishing CPL as a reliable paradigm rather than an artefact of a
-particular model's inductive bias. The architecture-dependence of CPL outcomes,
-specifically the failure of GNN-based adversarial models to reliably benefit from
-CPL, establishes that architectural choice is a first-class variable in CPL
-deployment. This motivates empirical validation for each architectural choice before
-production use, and informs future CPL model design that explicitly targets
-cross-project robustness at inference time.
+study, supporting CPL as a viable paradigm rather than an artefact of a
+particular model's inductive bias. At the same time, the failure of GNN-based
+adversarial models to reliably benefit from CPL establishes that architectural
+choice is a first-class variable in CPL deployment. This motivates empirical
+validation for each architectural choice before production use, and informs future
+CPL model design that explicitly targets cross-project robustness at inference time.
 
 Future work will pursue four directions. First, extend the study to multi-language
 CPL (Java, Python cross-language pairs, and Kotlin/Go) to test whether findings
@@ -2238,6 +2219,24 @@ that support fine-grained localisation. Fourth, investigate whether the
 CPT$\approx$WPL ceiling for CNN-based rerankers can be matched by GNN-based models
 through modified training objectives that decouple within-project and cross-project
 performance.
+
+%% ===================================================================
+%% BACK MATTER
+%% ===================================================================
+\section*{CRediT authorship contribution statement}
+%% TODO: confirm role attribution with both authors before submission
+\textbf{A Eashaan Rao:} Conceptualisation, Methodology, Software, Data curation,
+Investigation, Formal analysis, Visualisation, Writing -- original draft.
+\textbf{Sridhar Chimalakonda:} Conceptualisation, Methodology, Supervision,
+Writing -- review \& editing.
+
+\section*{Declaration of competing interest}
+The authors declare that they have no known competing financial interests or
+personal relationships that could have appeared to influence the work reported in
+this paper.
+
+\section*{Acknowledgements}
+This work was supported by the Indian Institute of Technology Tirupati.
 
 %% ===================================================================
 %% DATA AVAILABILITY
