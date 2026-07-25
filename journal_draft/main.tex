@@ -86,7 +86,7 @@ Empirical Study \sep Software Maintenance
 Bug localisation is the task of automatically identifying the source files responsible for a reported defect.
 It is a critical and labour-intensive activity in software maintenance.
 Deep learning-based bug localisation models have demonstrated strong performance on
-established benchmarks~\citep{lam2017bug,liang2022modeling,ciborowska2022fast}.
+established benchmarks~\citep{lam2017bug,liang2022modeling,ciborowska2022fast,hossain2024deepdive,zhu2025funloc}.
 However, their effectiveness depends on a prerequisite that is readily overlooked.
 These models require substantial labelled training data: paired examples of bug reports and the
 ground-truth source files modified to resolve each defect.
@@ -120,7 +120,7 @@ Practitioners in the data-scarce regime simply cannot match this data volume.
 These experiments establish that CPL surpasses a standard they cannot reach.
 Whether CPL outperforms the limited within-project training they \emph{can} perform is never the comparison made.
 In the analogous task of cross-project defect prediction, a systematic survey of 90 studies found that cross-project transfer is context-dependent~\citep{hosseini2017systematic}.
-It helps in some conditions and hurts in others.
+It helps in some conditions and hurts in others~\citep{zhang2022negative}.
 No single factor reliably predicts success.
 The question ``does CPL help teams that already have limited within-project data?''
 is not answered anywhere in the existing bug localisation literature.
@@ -225,7 +225,7 @@ Section~\ref{sec:conclusion} concludes.
 Bug localisation is the task of ranking source files (or functions) by their
 likelihood of containing the defect described in a natural-language bug report.
 Early approaches relied on information-retrieval similarity between bug report text
-and source file content \citep{zhou2012should,saha2013improving,ye2014learning}, using measures
+and source file content \citep{zhou2012should,saha2013improving,ye2014learning,wong2016survey,wong2014brtracer,wang2014amalgam,wang2016amalgamplus}, using measures
 such as BM25 or VSM over code tokens. These methods are simple and require no
 training data, but their ranking quality is limited by vocabulary mismatch between
 bug report prose and code identifiers.
@@ -236,14 +236,14 @@ introduced a multi-layer neural network that combines textual similarity, file
 change history, and structural features. It achieved notable improvements over
 IR on Java benchmarks. \citet{liang2022modeling} extended this to function-level
 localisation using a graph neural network that captures call dependencies.
-\citet{ciborowska2022fast} replaced conventional encoders with pre-trained BERT
+\citet{ciborowska2022fast} replaced conventional encoders with pre-trained BERT~\citep{devlin2019bert}
 representations over code changesets. This demonstrated that transfer from large
 pre-trained models reduces the labelled-data requirement. A recent survey by
 \citet{niu2025deep} covers the full landscape of deep learning approaches and
 confirms that labelled within-project data remains the standard assumption across
 this literature. The benchmark of \citet{lee2018bench4bl} provides standardised
 evaluation corpora covering 51 Java projects, and has become a reference point
-for comparing bug localisation methods.
+for comparing bug localisation methods~\citep{bogomolov2024long}.
 
 A consistent limitation of all within-project approaches is that they assume
 the target project has accumulated sufficient labelled bug reports for training.
@@ -258,7 +258,7 @@ TRANP-CNN, the first deep learning CPL model. It is a convolutional network that
 learns shared representations of bug-report--code pairs from a source project
 and applies them to a target. However, it evaluates only against an ample-data
 within-project baseline, leaving the practically relevant data-scarce comparison
-unanswered. \citet{zhu2020cooba} introduced COOBA, which uses adversarial domain
+unanswered~\citep{zhu2021trobo}. \citet{zhu2020cooba} introduced COOBA, which uses adversarial domain
 adaptation \citep{ganin2016domain} via a gradient reversal layer to learn
 domain-invariant representations from AST-structured code embeddings. As we
 demonstrate empirically, the adversarial objective requires target-side signal
@@ -269,7 +269,7 @@ CPL helps when the practitioner has only limited within-project data as the
 available alternative. \citet{chakraborty2025blaze} proposed BLAZE, a
 dual-encoder contrastive model using dynamic chunking and hard-negative mining.
 It evaluates cross-project and cross-language transfer but tests only a
-single architecture, leaving cross-model CPL consistency unknown.
+single architecture, leaving cross-model CPL consistency unknown~\citep{chandramohan2024supporting,li2025knowledge,reddy2025swerank}.
 
 Despite this body of work, a critical gap remains. Each paper proposes and
 evaluates its own model, typically comparing against within-project ample-data
@@ -280,7 +280,7 @@ the conditions governing CPL success at scale, or (iv) tests cross-model
 consistency of CPL findings.
 
 A distinct emerging paradigm employs large language models in agentic interactive
-workflows, such as SWE-agent~\citep{yang2024sweagent} and Agentless~\citep{xia2024agentless}.
+workflows, such as SWE-agent~\citep{yang2024sweagent} and Agentless~\citep{xia2024agentless,zhang2024autocoderover,hossain2024deepdive}.
 These systems bypass labelled-data
 requirements by leveraging the model's pre-training directly for fault localisation
 and patch generation. Agent-based approaches are evaluated primarily on
@@ -300,12 +300,12 @@ how agents select which code to prioritise during fault localisation.
 \subsection{Transfer Learning in Software Engineering}
 
 The broader literature on cross-project transfer in software engineering provides
-useful context. Cross-project defect prediction (predicting whether a software
+useful context~\citep{pan2010survey}. Cross-project defect prediction (predicting whether a software
 module will be defective using training data from another project) has been
 studied systematically over many years. \citet{hosseini2017systematic} survey
 90 such studies and conclude that cross-project transfer is context-dependent.
 It helps in some conditions and hurts in others, with no single factor reliably
-predicting transfer success across all settings. This finding from the defect
+predicting transfer success across all settings~\citep{sottomayor2024survey}. This finding from the defect
 prediction literature motivates our characterisation of the conditions
 governing CPL success in bug localisation, and our focus on negative transfer
 as a deployment risk. The methodological parallel is informative: like defect
@@ -324,7 +324,7 @@ are genuinely domain-invariant, an assumption we test empirically.
 \subsection{Pre-trained Code Embeddings: Background and Design Motivation}
 
 Recent advances in pre-trained code embeddings have raised the quality
-of representations available to both within-project and cross-project models. This
+of representations available to both within-project and cross-project models~\citep{feng2020codebert,guo2021graphcodebert,wang2021codet5,guo2022unixcoder}. This
 subsection describes the embedding backbone used in our study and motivates its role.
 
 The \texttt{BAAI/bge-code-v1} model \citep{bge_code} is a 1536-dimensional
@@ -351,84 +351,90 @@ baseline addresses the evaluation gap identified in the CPL literature.
 \section{Study Design}
 \label{sec:design}
 
-
-\begin{figure*}[t]
-\centering
-\begin{tikzpicture}[
-  node distance=0.45cm and 0.55cm,
-  box/.style={draw, rectangle, rounded corners=2pt, minimum width=2.0cm,
-              minimum height=0.75cm, align=center, font=\small\strut, inner sep=4pt},
-  wbox/.style={draw, rectangle, rounded corners=2pt, minimum width=7.5cm,
-               minimum height=0.75cm, align=center, font=\small\strut, inner sep=4pt},
-  scbox/.style={draw, dashed, rectangle, rounded corners=2pt, minimum width=12cm, % Trimmed slightly to fit text width
-                minimum height=0.85cm, align=center, font=\small\strut, inner sep=5pt},
-  arr/.style={-{Stealth[length=5pt]}, thick},
-  lbl/.style={font=\footnotesize, midway, above=1pt},
-]
-
-%% Row 1 — Corpus construction and pair selection
-\node[box] (bench) {SWE-bench +\\BeetleBox};
-\node[box, right=of bench] (pool) {qualifying\\Python repos};
-\node[box, right=of pool] (projs) {13 Python\\Projects};
-\node[box, right=of projs] (pairs) {63 Directed\\Pairs (A/B/C)};
-
-\draw[arr] (bench) -- (pool) node[lbl]{$\geq$100 bug reports};
-\draw[arr] (pool)  -- (projs) node[lbl]{diversity criteria};
-\draw[arr] (projs) -- (pairs) node[lbl]{selection};
-
-%% Row 2 — Shared infrastructure (Moved DOWN to prevent horizontal overflow)
-\node[box, below=1.2cm of projs, xshift=0.5cm] (bge) {BGE-code-v1\\embeddings};
-\node[box, right=of bge] (faiss) {FAISS top-300\\candidates};
-
-% Arrow wrapping from Row 1 down to Row 2
-\draw[arr] (pairs.south) -- ++(0,-0.4) -| (bge.north) node[pos=0.2, right, font=\footnotesize] {embed};
-\draw[arr] (bge)   -- (faiss) node[lbl]{index};
-
-%% Bracket label for shared backbone
-\node[font=\footnotesize\itshape, above=0.12cm of bge, xshift=0.8cm]
-  {shared backbone (one per target project)};
-
-%% Row 3 — Three parallel model branches (Centered perfectly below FAISS)
-\node[box, below=1.2cm of faiss, xshift=-2.6cm]  (blaze)    {BLAZE\\{\footnotesize cosine adapter}};
-\node[box, below=1.2cm of faiss]                  (tranpcnn) {TRANP-CNN\\{\footnotesize CNN reranker}};
-\node[box, below=1.2cm of faiss, xshift=+2.6cm]  (cooba)    {COOBA\\{\footnotesize GNN + GRL}};
-
-\draw[arr] (faiss.south) -- ++(0,-0.3) -| (blaze.north);
-\draw[arr] (faiss.south) -- (tranpcnn.north);
-\draw[arr] (faiss.south) -- ++(0,-0.3) -| (cooba.north);
-
-%% Row 4 — Four training scenarios
-\node[scbox, below=1.0cm of tranpcnn]
-  (scenarios) {WP-small \quad$|$\quad WP-large \quad$|$\quad CP-cold-start \quad$|$\quad CP-transfer
-               \quad\textbf{(same held-out test set: 20\% target bugs, seed 42)}};
-
-\draw[arr] (blaze)    -- (blaze    |- scenarios.north);
-\draw[arr] (tranpcnn) -- (tranpcnn |- scenarios.north);
-\draw[arr] (cooba)    -- (cooba    |- scenarios.north);
-
-%% Row 5 — Evaluation
-\node[box, below=0.8cm of scenarios, xshift=-2.0cm] (metrics)
-  {5 metrics\\{\footnotesize MRR, MAP, Top-1/5/10}};
-\node[box, right=0.5cm of metrics] (rq1) {RQ1\\CPL vs.\ WP};
-\node[box, right=0.4cm of rq1]     (rq2) {RQ2\\Mods};
-\node[box, right=0.4cm of rq2]     (rq3) {RQ3\\Cross-model};
-
-\draw[arr] (scenarios.south) -- (metrics);
-\draw[arr] (metrics) -- (rq1);
-\draw[arr] (rq1) -- (rq2);
-\draw[arr] (rq2) -- (rq3);
-
-\end{tikzpicture}
-\caption{End-to-end study design. Python projects from SWE-bench and BeetleBox are
-filtered by bug-report volume and diversity criteria to yield 13 projects, which are
-paired into 63 directed pairs via structured selection.
-All target projects share one BGE-code-v1 embedding and one FAISS top-300 retrieval stage (the
-controlled backbone). Three architecturally distinct models (BLAZE, TRANP-CNN, COOBA)
-rerank the same candidate pool in four training scenarios, with the held-out test set
-held constant throughout. The uniform protocol makes CPL outcomes attributable to
-model architecture rather than experimental heterogeneity.}
-\label{fig:study_design}
+\begin{figure*}
+    \centering
+    \includegraphics[width=0.80\linewidth]{obj1/figs/Study_design.png}
+    \caption{End-to-end study design. Python projects from SWE-bench and BeetleBox are filtered by bug-report volume and diversity criteria to yield 13 projects, which are paired into 63 directed pairs via structured selection. All target projects share one BGE-code-v1 embedding and one FAISS top-300 retrieval stage (the controlled backbone). Three architecturally distinct models (BLAZE, TRANP-CNN, COOBA) rerank the same candidate pool in four training scenarios, with the held-out test set held constant throughout. The uniform protocol makes CPL outcomes attributable to model architecture rather than experimental heterogeneity.}
+    \label{fig:study_design}
 \end{figure*}
+
+% \begin{figure*}[t]
+% \centering
+% \begin{tikzpicture}[
+%   node distance=0.45cm and 0.55cm,
+%   box/.style={draw, rectangle, rounded corners=2pt, minimum width=2.0cm,
+%               minimum height=0.75cm, align=center, font=\small\strut, inner sep=4pt},
+%   wbox/.style={draw, rectangle, rounded corners=2pt, minimum width=7.5cm,
+%                minimum height=0.75cm, align=center, font=\small\strut, inner sep=4pt},
+%   scbox/.style={draw, dashed, rectangle, rounded corners=2pt, minimum width=12cm, % Trimmed slightly to fit text width
+%                 minimum height=0.85cm, align=center, font=\small\strut, inner sep=5pt},
+%   arr/.style={-{Stealth[length=5pt]}, thick},
+%   lbl/.style={font=\footnotesize, midway, above=1pt},
+% ]
+
+% %% Row 1 — Corpus construction and pair selection
+% \node[box] (bench) {SWE-bench +\\BeetleBox};
+% \node[box, right=of bench] (pool) {qualifying\\Python repos};
+% \node[box, right=of pool] (projs) {13 Python\\Projects};
+% \node[box, right=of projs] (pairs) {63 Directed\\Pairs (A/B/C)};
+
+% \draw[arr] (bench) -- (pool) node[lbl]{$\geq$100 bug reports};
+% \draw[arr] (pool)  -- (projs) node[lbl]{diversity criteria};
+% \draw[arr] (projs) -- (pairs) node[lbl]{selection};
+
+% %% Row 2 — Shared infrastructure (Moved DOWN to prevent horizontal overflow)
+% \node[box, below=1.2cm of projs, xshift=0.5cm] (bge) {BGE-code-v1\\embeddings};
+% \node[box, right=of bge] (faiss) {FAISS top-300\\candidates};
+
+% % Arrow wrapping from Row 1 down to Row 2
+% \draw[arr] (pairs.south) -- ++(0,-0.4) -| (bge.north) node[pos=0.2, right, font=\footnotesize] {embed};
+% \draw[arr] (bge)   -- (faiss) node[lbl]{index};
+
+% %% Bracket label for shared backbone
+% \node[font=\footnotesize\itshape, above=0.12cm of bge, xshift=0.8cm]
+%   {shared backbone (one per target project)};
+
+% %% Row 3 — Three parallel model branches (Centered perfectly below FAISS)
+% \node[box, below=1.2cm of faiss, xshift=-2.6cm]  (blaze)    {BLAZE\\{\footnotesize cosine adapter}};
+% \node[box, below=1.2cm of faiss]                  (tranpcnn) {TRANP-CNN\\{\footnotesize CNN reranker}};
+% \node[box, below=1.2cm of faiss, xshift=+2.6cm]  (cooba)    {COOBA\\{\footnotesize GNN + GRL}};
+
+% \draw[arr] (faiss.south) -- ++(0,-0.3) -| (blaze.north);
+% \draw[arr] (faiss.south) -- (tranpcnn.north);
+% \draw[arr] (faiss.south) -- ++(0,-0.3) -| (cooba.north);
+
+% %% Row 4 — Four training scenarios
+% \node[scbox, below=1.0cm of tranpcnn]
+%   (scenarios) {WP-small \quad$|$\quad WP-large \quad$|$\quad CP-cold-start \quad$|$\quad CP-transfer
+%                \quad\textbf{(same held-out test set: 20\% target bugs, seed 42)}};
+
+% \draw[arr] (blaze)    -- (blaze    |- scenarios.north);
+% \draw[arr] (tranpcnn) -- (tranpcnn |- scenarios.north);
+% \draw[arr] (cooba)    -- (cooba    |- scenarios.north);
+
+% %% Row 5 — Evaluation
+% \node[box, below=0.8cm of scenarios, xshift=-2.0cm] (metrics)
+%   {5 metrics\\{\footnotesize MRR, MAP, Top-1/5/10}};
+% \node[box, right=0.5cm of metrics] (rq1) {RQ1\\CPL vs.\ WP};
+% \node[box, right=0.4cm of rq1]     (rq2) {RQ2\\Mods};
+% \node[box, right=0.4cm of rq2]     (rq3) {RQ3\\Cross-model};
+
+% \draw[arr] (scenarios.south) -- (metrics);
+% \draw[arr] (metrics) -- (rq1);
+% \draw[arr] (rq1) -- (rq2);
+% \draw[arr] (rq2) -- (rq3);
+
+% \end{tikzpicture}
+% \caption{End-to-end study design. Python projects from SWE-bench and BeetleBox are
+% filtered by bug-report volume and diversity criteria to yield 13 projects, which are
+% paired into 63 directed pairs via structured selection.
+% All target projects share one BGE-code-v1 embedding and one FAISS top-300 retrieval stage (the
+% controlled backbone). Three architecturally distinct models (BLAZE, TRANP-CNN, COOBA)
+% rerank the same candidate pool in four training scenarios, with the held-out test set
+% held constant throughout. The uniform protocol makes CPL outcomes attributable to
+% model architecture rather than experimental heterogeneity.}
+% \label{fig:study_design}
+% \end{figure*}
 
 Figure~\ref{fig:study_design} summarises the end-to-end design.
 The study is organised around a single methodological principle: to make CPL
@@ -438,10 +444,10 @@ or evaluation conditions. Every design choice documented in this section follows
 from this principle and is justified explicitly below. These choices include
 the shared retrieval backbone, the identical datasets and held-out test splits,
 the four-scenario training framework, the choice of primary baseline, and the
-structured pair selection.
+structured pair selection~\citep{wohlin2012experimentation,runeson2009guidelines,feldt2010validity}.
 
 A critical element of this controlled design is the shared retrieval infrastructure.
-A \textbf{FAISS IndexFlatIP} retrieval stage, built from identical BGE embeddings
+A \textbf{FAISS IndexFlatIP}~\citep{johnson2019billion} retrieval stage, built from identical BGE embeddings
 across all target projects, serves as the first-stage candidate pool shared across
 all three models.
 
@@ -518,10 +524,10 @@ conclusions that are artefacts of one model's inductive bias. The three models
 span the dominant paradigms in the current literature.
 
 \paragraph{BLAZE \citep{chakraborty2025blaze}.}
-BLAZE is a dual-encoder contrastive model that retrieves the top-300 candidate
+BLAZE is a dual-encoder contrastive model~\citep{reimers2019sentencebert} that retrieves the top-300 candidate
 files via the shared FAISS index and re-ranks them by maximum cosine similarity.
 Its backbone is \texttt{BAAI/bge-code-v1} \citep{bge_code}, frozen during training.
-Two modal-specific residual adapter modules are trained with in-batch NTXentLoss
+Two modal-specific residual adapter modules are trained with in-batch NTXentLoss~\citep{oord2018cpc}
 ($\tau = 0.3$) using hard-negative and hard-positive scaling: one for bug reports
 (prefixed \texttt{search\_query:}) and one for code chunks (prefixed
 \texttt{search\_document:}). At evaluation time, each source file is scored as the
@@ -621,7 +627,7 @@ bug-report--to--commit-SHA ground truth, covering a broad range of application d
 BeetleBox extends Python coverage to large-scale infrastructure repositories
 (ansible, localstack) that are absent from SWE-bench's scope, contributing the remaining 2.
 Together, these two sources provide the Python corpora with the requisite depth of
-verified bug-report ground truth needed for controlled CPL evaluation.
+verified bug-report ground truth needed for controlled CPL evaluation~\citep{kalliamvakou2014promises}.
 
 \paragraph{Selection Criteria.}
 A Python project from the combined SWE-bench and BeetleBox corpus was retained if
@@ -913,12 +919,12 @@ three model evaluations.
 
 \paragraph{RQ1, Wilcoxon Signed-Rank Test.}
 To assess whether CP-transfer outperforms WP-small, a \textbf{Wilcoxon signed-rank
-test} \citep{wilcoxon1945} is applied to each metric separately. This non-parametric
+test} \citep{wilcoxon1945,arcuri2011practical} is applied to each metric separately. This non-parametric
 paired test is appropriate for two reasons. First, observations are naturally paired:
 each source$\to$target pair contributes one CPT and one WPS result under identical
 test conditions. Second, the distribution of improvements cannot be assumed normal
 across such a diverse corpus. A one-sided alternative is tested ($H_1$: CPT $>$ WPS).
-Effect sizes are reported as Cohen's $d$ \citep{cohen1988statistical}
+Effect sizes are reported as Cohen's $d$ \citep{cohen1988statistical,kampenes2007systematic,arcuri2014hitchhiker}
 ($d \geq 0.8$ large, $\geq 0.5$ medium, $\geq 0.2$ small) for comparability with
 prior literature, alongside the matched-pairs rank-biserial correlation $r_{rb}$,
 the effect size aligned with the signed-rank test and free of normality assumptions.
@@ -932,7 +938,7 @@ correction.
 \paragraph{Equivalence Testing (TOST).}
 Claims that two conditions perform equivalently cannot rest on a non-significant
 difference test, since absence of evidence is not evidence of absence. Wherever the
-paper reports equivalence, we apply \textbf{two one-sided tests} (TOST) implemented
+paper reports equivalence, we apply \textbf{two one-sided tests} (TOST)~\citep{schuirmann1987,lakens2017equivalence} implemented
 as Wilcoxon signed-rank tests against null hypotheses shifted by $\pm\delta$, with an
 equivalence margin of $\delta = 0.05$ MRR. This margin is approximately the smallest
 mean CPL gain treated as practically meaningful in this study (TRANP-CNN's $+0.054$
@@ -940,7 +946,7 @@ MRR); differences smaller than this are of little practical consequence for adop
 decisions. Equivalence is declared when both one-sided tests reject at $\alpha = 0.05$.
 
 \paragraph{RQ2, Spearman Rank Correlation.}
-To identify project-level features predictive of CPL gain, \textbf{Spearman's $\rho$}
+To identify project-level features predictive of CPL gain, \textbf{Spearman's $\rho$}~\citep{spearman1904}
 is computed between each feature and CPT$-$WPS gain across all pairs. Spearman's
 $\rho$ is preferred over Pearson's $r$ because the corpus spans several orders of
 magnitude in codebase size and bug count. This makes linear association inappropriate.
@@ -1784,18 +1790,41 @@ across all 63 pairs. COOBA experiences \emph{negative transfer} ($-0.081$ MRR),
 one of its worst outcomes. TRANP-CNN also gains ($+0.146$) but from a high
 within-project baseline.
 
-\begin{center}
+% \begin{center}
+% \small
+% \begin{tabular}{lcccc}
+% \toprule
+% Model & WPS & WPL & CPC & CPT \\ \midrule
+% BLAZE     & 0.022 & 0.512 & 0.294 & \textbf{0.396} \\
+% COOBA     & 0.170 & 0.184 & 0.057 & 0.089 \\
+% TRANP-CNN & 0.654 & 0.760 & 0.130 & 0.800$^{\ddagger}$ \\ \bottomrule
+% \multicolumn{5}{l}{\footnotesize $^{\ddagger}$Absolute MRR reflects jupyterlab's small codebase (39K LoC); relative gain ($+0.146$) is the meaningful comparison.}
+% \end{tabular}
+% \end{center}
+
+% Requires \usepackage{booktabs} in preamble
+\begin{table}[htbp]
+\centering
 \small
+
+% 1. Data table stays tight and clean
 \begin{tabular}{lcccc}
 \toprule
-Model & WPS & WPL & CPC & CPT \\ \midrule
+Model     & WPS   & WPL   & CPC   & CPT \\ \midrule
 BLAZE     & 0.022 & 0.512 & 0.294 & \textbf{0.396} \\
 COOBA     & 0.170 & 0.184 & 0.057 & 0.089 \\
-TRANP-CNN & 0.654 & 0.760 & 0.130 & 0.800$^{\ddagger}$ \\ \bottomrule
-\multicolumn{5}{l}{\footnotesize $^{\ddagger}$Absolute MRR reflects jupyterlab's small codebase (39K LoC); relative gain ($+0.146$) is the meaningful comparison.}
+TRANP-CNN & 0.654 & 0.760 & 0.130 & 0.800\textsuperscript{$\ddagger$} \\ \bottomrule
 \end{tabular}
-\end{center}
 
+\vspace{4pt} % Adds subtle breathing room
+
+% 2. Footnote wraps naturally under the table without pushing columns
+\begin{minipage}{0.45\textwidth}
+\footnotesize 
+\textsuperscript{$\ddagger$}Absolute MRR reflects jupyterlab's small codebase (39K LoC); relative gain ($+0.146$) is the meaningful comparison.
+\end{minipage}
+
+\end{table}
 \noindent The same source project simultaneously produces BLAZE's best result and COOBA's
 worst outcome on the identical target. A practitioner using COOBA would correctly conclude
 that ansible is a harmful source project for jupyterlab. A practitioner using BLAZE would
@@ -1807,9 +1836,9 @@ target (median 0.101, maximum 0.275; see Section~\ref{sec:threats} on run-to-run
 variance). Measured against the median run instead, the BLAZE gain remains large
 ($+0.30$ MRR), so the divergence pattern is robust to this variance.
 
-\paragraph{Case 3: TRANP-CNN CP-transfer exceeds full within-project training (jupyterlab\,$\to$\,scikit-learn).}
-\texttt{jupyterlab/jupyterlab} (39K LoC) is used as the source project for
-\texttt{scikit-learn/scikit-learn} (376K LoC). With only 20\% of scikit-learn's labels
+\paragraph{Case 3: TRANP-CNN CP-transfer exceeds full within-project training (jupyterlab\,$\to$\,scikit-learn).} \\
+\textit{jupyterlab/jupyterlab} (39K LoC) is used as the source project for
+\textit{scikit-learn/scikit-learn} (376K LoC). With only 20\% of scikit-learn's labels
 available for within-project training (WPS MRR $= 0.023$), both limited baselines are
 weak. TRANP-CNN CP-transfer (MRR $= 0.338$) exceeds WP-large (MRR $= 0.138$) by
 $+0.200$. Training with cross-project initialisation plus 20\% target labels
@@ -2096,7 +2125,7 @@ under the same adapted protocol.
 
 \textbf{Pre-training data leakage.}
 \texttt{BAAI/bge-code-v1} was pre-trained on a large multilingual code corpus that very
-likely includes these popular open-source Python repositories. This exposes
+likely includes these popular open-source Python repositories~\citep{aleithan2024swebenchplus}. This exposes
 the cold-start result for embedding-based models: the frozen backbone may already
 encode project-specific representations from pre-training, partially inflating the
 zero-annotation performance. We treat this as a construct threat. A proxy check
@@ -2163,56 +2192,60 @@ We conducted a controlled empirical study across 63 source$\to$target project pa
 Four experimental scenarios were designed to isolate the contribution of cross-project
 knowledge.
 
-Our answers to the three research questions are:
-
-\textbf{RQ1.} Cross-project transfer significantly outperforms within-project limited
-training for 2 of 3 architectural paradigms: embedding-based ($d = 1.19$, win rate
-90.5\%, $p < 0.001$) and CNN-based reranker ($d = 0.59$, win rate 68.3\%, $p < 0.001$).
-For embedding-based models, zero-label deployment is statistically equivalent to
-within-project limited training (TOST, $\pm 0.05$ MRR) and practically viable in
-74.6\% of pairs, removing the annotation cost. CNN-based rerankers uniquely
-achieve CP-transfer performance statistically equivalent to full within-project
-training (TOST, $\pm 0.05$ MRR). GNN-based adversarial models show only marginal
-benefit ($d \approx 0.27$, unadjusted $p < 0.05$), with near-zero cold-start
-performance.
-
-\textbf{RQ2.} CPL benefit is largest for small-codebase targets and within-domain
-pairs, but neither is a prerequisite for embedding-based models. The three models
-exhibit a consistent risk spectrum: negative transfer rates of 3.2\% (BLAZE),
-27.0\% (TRANP-CNN), and 31.7\% (COOBA), roughly one in three deployments for the
-latter two architectures. Domain sensitivity is steepest for CNN-based rerankers
-(28pp win-rate drop cross-domain). GNN-based adversarial models show no domain
-effect, reflecting architecture-driven rather than domain-driven limitations. No
-single project-level metadata feature reliably predicts pair-level CPL success for
-any model.
-
-\textbf{RQ3.} CPL outcomes are architecture-dependent. Cross-model direction
-agreement ranges from 41\% (BLAZE vs.\ COOBA) to 67\% (BLAZE vs.\ TRANP-CNN).
-Source within-project quality does not predict transfer success for any model. It
-is a negative predictor for COOBA: a source that works well within-project tends
-to transfer poorly. Two heuristics tested (most-bugs and domain-gap) both fail to
-reliably rank sources ($|\tau| < 0.2$ for all model-heuristic combinations). Yet
-all three models achieve 79--93\% of oracle performance regardless of source choice,
-making heuristic source ranking low-priority for BLAZE and TRANP-CNN.
-
-The broader significance of these findings is that data-scarce projects no longer
+Our findings includes Cross-project transfer significantly outperforms within-project limited training for 2 of 3 architectural paradigms. CPL benefit is largest for small-codebase targets and within-domain pairs, but neither is a prerequisite for embedding-based models. No single project-level metadata feature reliably predicts pair-level CPL success for any model. CPL outcomes are architecture-dependent. The broader significance of these findings is that data-scarce projects no longer
 need to wait years to accumulate sufficient labelled data before deploying bug
 localisation. The deployment pathways revealed by this study are concrete.
 Embedding-based tools can be applied immediately using any within-domain source
-project with zero target annotations. CNN-based rerankers require only 20\% of
-target labels and then achieve performance statistically equivalent to
-full within-project training. The replication of CPL benefit across two independently designed
-architectures (BLAZE and TRANP-CNN) strengthens the evidence beyond any single-model
-study, supporting CPL as a viable paradigm rather than an artefact of a
-particular model's inductive bias. At the same time, the failure of GNN-based
-adversarial models to reliably benefit from CPL establishes that architectural
-choice is a first-class variable in CPL deployment. This motivates empirical
-validation for each architectural choice before production use, and informs future
-CPL model design that explicitly targets cross-project robustness at inference time.
+project with zero target annotations.
+
+% \textbf{RQ1.} Cross-project transfer significantly outperforms within-project limited
+% training for 2 of 3 architectural paradigms: embedding-based ($d = 1.19$, win rate
+% 90.5\%, $p < 0.001$) and CNN-based reranker ($d = 0.59$, win rate 68.3\%, $p < 0.001$).
+% For embedding-based models, zero-label deployment is statistically equivalent to
+% within-project limited training (TOST, $\pm 0.05$ MRR) and practically viable in
+% 74.6\% of pairs, removing the annotation cost. CNN-based rerankers uniquely
+% achieve CP-transfer performance statistically equivalent to full within-project
+% training (TOST, $\pm 0.05$ MRR). GNN-based adversarial models show only marginal
+% benefit ($d \approx 0.27$, unadjusted $p < 0.05$), with near-zero cold-start
+% performance.
+
+% \textbf{RQ2.} CPL benefit is largest for small-codebase targets and within-domain
+% pairs, but neither is a prerequisite for embedding-based models. The three models
+% exhibit a consistent risk spectrum: negative transfer rates of 3.2\% (BLAZE),
+% 27.0\% (TRANP-CNN), and 31.7\% (COOBA), roughly one in three deployments for the
+% latter two architectures. Domain sensitivity is steepest for CNN-based rerankers
+% (28pp win-rate drop cross-domain). GNN-based adversarial models show no domain
+% effect, reflecting architecture-driven rather than domain-driven limitations. No
+% single project-level metadata feature reliably predicts pair-level CPL success for
+% any model.
+
+% \textbf{RQ3.} CPL outcomes are architecture-dependent. Cross-model direction
+% agreement ranges from 41\% (BLAZE vs.\ COOBA) to 67\% (BLAZE vs.\ TRANP-CNN).
+% Source within-project quality does not predict transfer success for any model. It
+% is a negative predictor for COOBA: a source that works well within-project tends
+% to transfer poorly. Two heuristics tested (most-bugs and domain-gap) both fail to
+% reliably rank sources ($|\tau| < 0.2$ for all model-heuristic combinations). Yet
+% all three models achieve 79--93\% of oracle performance regardless of source choice,
+% making heuristic source ranking low-priority for BLAZE and TRANP-CNN.
+
+% The broader significance of these findings is that data-scarce projects no longer
+% need to wait years to accumulate sufficient labelled data before deploying bug
+% localisation. The deployment pathways revealed by this study are concrete.
+% Embedding-based tools can be applied immediately using any within-domain source
+% project with zero target annotations. CNN-based rerankers require only 20\% of
+% target labels and then achieve performance statistically equivalent to
+% full within-project training. The replication of CPL benefit across two independently designed
+% architectures (BLAZE and TRANP-CNN) strengthens the evidence beyond any single-model
+% study, supporting CPL as a viable paradigm rather than an artefact of a
+% particular model's inductive bias. At the same time, the failure of GNN-based
+% adversarial models to reliably benefit from CPL establishes that architectural
+% choice is a first-class variable in CPL deployment. This motivates empirical
+% validation for each architectural choice before production use, and informs future
+% CPL model design that explicitly targets cross-project robustness at inference time.
 
 Future work will pursue four directions. First, extend the study to multi-language
 CPL (Java, Python cross-language pairs, and Kotlin/Go) to test whether findings
-generalise beyond Python. Second, develop model-specific source selection criteria
+generalise beyond Python~\citep{yang2024multi}. Second, develop model-specific source selection criteria
 that go beyond project metadata, such as embedding-space proximity between source
 and target corpora. Third, evaluate CPL at function and line level for architectures
 that support fine-grained localisation. Fourth, investigate whether the
@@ -2223,20 +2256,20 @@ performance.
 %% ===================================================================
 %% BACK MATTER
 %% ===================================================================
-\section*{CRediT authorship contribution statement}
-%% TODO: confirm role attribution with both authors before submission
-\textbf{A Eashaan Rao:} Conceptualisation, Methodology, Software, Data curation,
-Investigation, Formal analysis, Visualisation, Writing -- original draft.
-\textbf{Sridhar Chimalakonda:} Conceptualisation, Methodology, Supervision,
-Writing -- review \& editing.
+% \section*{CRediT authorship contribution statement}
+% %% TODO: confirm role attribution with both authors before submission
+% \textbf{A Eashaan Rao:} Conceptualisation, Methodology, Software, Data curation,
+% Investigation, Formal analysis, Visualisation, Writing -- original draft.
+% \textbf{Sridhar Chimalakonda:} Conceptualisation, Methodology, Supervision,
+% Writing -- review \& editing.
 
-\section*{Declaration of competing interest}
-The authors declare that they have no known competing financial interests or
-personal relationships that could have appeared to influence the work reported in
-this paper.
+% \section*{Declaration of competing interest}
+% The authors declare that they have no known competing financial interests or
+% personal relationships that could have appeared to influence the work reported in
+% this paper.
 
-\section*{Acknowledgements}
-This work was supported by the Indian Institute of Technology Tirupati.
+% \section*{Acknowledgements}
+% This work was supported by the Indian Institute of Technology Tirupati.
 
 %% ===================================================================
 %% DATA AVAILABILITY
