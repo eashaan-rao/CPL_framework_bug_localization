@@ -1,0 +1,23 @@
+# Python 3.12
+# torch was run with a CUDA 12.6 build (torch==2.8.0+cu126) on the original machine;
+# install a CUDA-matched build from https://pytorch.org/get-started/locally/ if you have a GPU,
+# otherwise the plain PyPI torch==2.8.0 below runs on CPU.
+numpy==2.3.2
+pandas==2.3.2
+scipy==1.16.1
+scikit-learn==1.7.1
+matplotlib==3.10.5
+seaborn==0.13.2
+tqdm==4.67.1
+
+torch==2.8.0
+torch-geometric==2.7.0
+transformers==4.55.4
+sentence-transformers==5.1.0
+faiss-cpu==1.12.0
+
+GitPython==3.1.45
+javalang==0.13.0
+tree-sitter==0.25.2
+tree-sitter-languages==1.10.2
+python-pptx==1.0.2
