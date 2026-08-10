@@ -288,11 +288,15 @@ def evaluate(model, test_meta_path, test_code_ids_path, device, source_project, 
         # Get all candidates for this bug
         preds = predictions.get(bug_id, [])
         if not preds:
+            reciprocal_ranks.append(0)
+            average_precisions.append(0)
             continue    # No predictions for this bug
 
         # Get the set of correct answers for this bug
         ground_truth = ground_truth_map.get(bug_id, set())
         if not ground_truth:
+            reciprocal_ranks.append(0)
+            average_precisions.append(0)
             continue    # No ground truth for this bug
 
         # RANKING ANALYSIS
