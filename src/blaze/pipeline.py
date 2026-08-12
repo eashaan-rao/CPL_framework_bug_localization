@@ -385,13 +385,19 @@ def evaluate(
     for bug_id, meta in tqdm(test_db.items(), desc="Evaluating"):
         bug_text = bug_texts.get(bug_id, "")
         if not bug_text:
+            reciprocal_ranks.append(0.0)
+            average_precisions.append(0.0)
             continue
         commit_sha = meta.get("commit_sha", "")
         if not commit_sha:
+            reciprocal_ranks.append(0.0)
+            average_precisions.append(0.0)
             continue
 
         path_to_sha = get_path_to_sha_map(target_repo, commit_sha)
         if not path_to_sha:
+            reciprocal_ranks.append(0.0)
+            average_precisions.append(0.0)
             continue
 
         ground_truth_shas = {
@@ -400,6 +406,8 @@ def evaluate(
             if any(path.endswith(gt) for gt in meta.get("ground_truth_files", []))
         }
         if not ground_truth_shas:
+            reciprocal_ranks.append(0.0)
+            average_precisions.append(0.0)
             continue
 
         # --- BLAZE ranks: encode with fine-tuned model ---
