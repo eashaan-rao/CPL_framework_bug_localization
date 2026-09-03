@@ -1,0 +1,74 @@
+--- a/journal_draft/main.tex
++++ b/journal_draft/main.tex
+@@ -716,7 +716,9 @@
+ each project's bug-report--commit ground truth was drawn. Recall@300 is the fraction
+ of bug reports for which the ground-truth file is retrieved within the shared
+ FAISS top-300 candidate pool when this project is the target; it bounds every
+-absolute metric for that project (Section~\ref{sec:threats}).}
++absolute metric for the models that rerank that pool (TRANP-CNN, COOBA). BLAZE
++reranks the full file snapshot and is not subject to this bound
++(Section~\ref{sec:threats}).}
+ \label{tab:dataset}
+ \small
+ \begin{tabular}{@{}llrrllr@{}}
+@@ -968,7 +970,18 @@
+ 
+ Five complementary metrics provide a complete picture of retrieval breadth and
+ ranking precision, computed over the re-ranked candidate list for each test bug
+-report and averaged over all test reports.
++report and averaged over all test reports.\footnote{An earlier version of the
++evaluation harness averaged MRR and MAP only over the test bug reports that
++reached the reranking stage with a resolvable ground-truth file, whereas Top-$K$
++was averaged over all test reports. MRR and MAP in
++Table~\ref{tab:scenario_means} and all downstream analyses have been recomputed
++with \emph{all} test reports in the denominator, so that a report whose ground
++truth was never retrieved contributes reciprocal rank and average precision $0$,
++consistent with the definitions here; Top-$K$ was already computed this way and
++is unchanged. The correction lowers TRANP-CNN's MRR/MAP markedly (CP-transfer
++MRR $0.380 \rightarrow 0.214$) and BLAZE's marginally ($0.392 \rightarrow
++0.388$); COOBA is unaffected. Per-bug ground-truth ranks for all 756 runs are
++archived, so no retraining was required.}
+ 
+ \textbf{Top-$K$ Recall} ($K \in \{1, 5, 10\}$): fraction of bug reports for which
+ the ground-truth file appears within the top $K$ positions. Top-1 captures
+@@ -1144,7 +1157,9 @@
+ Bold denotes the best CPL scenario per model.
+ FAISS (retrieval stage) shows mean cosine-similarity ranking before any model reranking,
+ applicable to all three models. All values
+-on the same held-out test set (20\% of target bugs, seed 42).}
++on the same held-out test set (20\% of target bugs, seed 42).
++MRR and MAP are averaged over \emph{all} held-out test reports (unretrieved ground
++truth scores $0$); see the footnote in Section~\ref{sec:metrics}. Top-$K$ is unchanged.}
+ \label{tab:scenario_means}
+ \small
+ \begin{tabular}{@{}llrrrrr@{}}
+@@ -1153,10 +1168,10 @@
+ \midrule
+ \multirow{5}{*}{BLAZE ($n=63$)}
+   & FAISS retrieval & 0.029 & 0.029 & 0.003 & 0.019 & 0.072 \\
+-  & WP-small      & 0.256 & 0.210 & 0.156 & 0.348 & 0.446 \\
+-  & WP-large      & 0.471 & 0.391 & 0.343 & 0.608 & 0.705 \\
+-  & CP-cold-start & 0.262 & 0.214 & 0.154 & 0.359 & 0.471 \\
+-  & CP-transfer   & \textbf{0.392} & \textbf{0.322} & \textbf{0.267} & \textbf{0.527} & \textbf{0.627} \\
++  & WP-small      & 0.254 & 0.209 & 0.156 & 0.348 & 0.446 \\
++  & WP-large      & 0.466 & 0.387 & 0.343 & 0.608 & 0.705 \\
++  & CP-cold-start & 0.259 & 0.211 & 0.154 & 0.359 & 0.471 \\
++  & CP-transfer   & \textbf{0.388} & \textbf{0.319} & \textbf{0.267} & \textbf{0.527} & \textbf{0.627} \\
+ \midrule
+ \multirow{5}{*}{COOBA ($n=63$)}
+   & FAISS retrieval & 0.029 & 0.029 & 0.003 & 0.019 & 0.072 \\
+@@ -1167,10 +1182,10 @@
+ \midrule
+ \multirow{5}{*}{TRANP-CNN ($n=63$)}
+   & FAISS retrieval & 0.029 & 0.029 & 0.003 & 0.019 & 0.072 \\
+-  & WP-small      & 0.326 & 0.288 & 0.107 & 0.274 & 0.351 \\
+-  & WP-large      & 0.389 & 0.349 & 0.132 & 0.314 & 0.387 \\
+-  & CP-cold-start & 0.075 & 0.065 & 0.010 & 0.055 & 0.095 \\
+-  & CP-transfer   & \textbf{0.380} & \textbf{0.337} & \textbf{0.134} & \textbf{0.306} & \textbf{0.370} \\
++  & WP-small      & 0.185 & 0.159 & 0.107 & 0.274 & 0.351 \\
++  & WP-large      & 0.219 & 0.192 & 0.132 & 0.314 & 0.387 \\
++  & CP-cold-start & 0.038 & 0.033 & 0.010 & 0.055 & 0.095 \\
++  & CP-transfer   & \textbf{0.214} & \textbf{0.185} & \textbf{0.134} & \textbf{0.306} & \textbf{0.370} \\
+ \bottomrule
+ \end{tabular}
+ \end{table*}
