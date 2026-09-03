@@ -28,7 +28,7 @@ import matplotlib.patches as mpatches
 from scipy.stats import spearmanr
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-RESULTS_CSV  = "/home/cs21d002_eashaan/PhD/Objective1/results/paper_results_complete.csv"
+RESULTS_CSV  = "/home/cs21d002_eashaan/PhD/Objective1/results/paper_results_complete_corrected.csv"
 METADATA_PKL = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/project_metadata.parquet"
 IMG_DIR      = "/home/cs21d002_eashaan/PhD/Objective1/results/images"
 OUT_CSV      = "/home/cs21d002_eashaan/PhD/Objective1/results/cross_model_agreement.csv"
@@ -155,6 +155,42 @@ def plot_delta_comparison(merged):
     print("  ✓ cm_delta_comparison.png")
 
 
+def build_pairwise_table(df):
+    """Direction agreement + Spearman rho for all three model-pair combinations
+    (feeds tab:model_agreement in the paper)."""
+    delta = {}
+    for model in ['BLAZE', 'COOBA', 'TRANP-CNN']:
+        g   = df[df['model_name'] == model]
+        cpt = g[g['scenario'] == 'CP-transfer'].set_index(['source_project', 'target_project'])['MRR']
+        wps = g[g['scenario'] == 'WP-small'].set_index(['source_project', 'target_project'])['MRR']
+        common = cpt.index.intersection(wps.index)
+        delta[model] = (cpt[common] - wps[common])
+
+    def direction(d):
+        return 'positive' if d > THRESHOLD else ('negative' if d < -THRESHOLD else 'neutral')
+
+    rows = []
+    for m1, m2 in [('BLAZE', 'COOBA'), ('BLAZE', 'TRANP-CNN'), ('COOBA', 'TRANP-CNN')]:
+        idx = delta[m1].index.intersection(delta[m2].index)
+        x, y = delta[m1][idx], delta[m2][idx]
+        agree = (x.apply(direction) == y.apply(direction)).mean()
+        rho, p = spearmanr(x, y)
+        rows.append({'pair': f'{m1} vs. {m2}', 'n': len(idx),
+                      'agreement_pct': 100 * agree, 'spearman_rho': rho, 'p_value': p})
+
+    table = pd.DataFrame(rows)
+    print("\n── Pairwise Cross-Model Direction Agreement (all 3 combinations) ──────")
+    for _, r in table.iterrows():
+        sig = '***' if r['p_value'] < 0.001 else ('**' if r['p_value'] < 0.01 else
+              ('*' if r['p_value'] < 0.05 else 'n.s.'))
+        print(f"  {r['pair']:22s} n={r['n']:.0f}  agreement={r['agreement_pct']:.0f}%  "
+              f"rho={r['spearman_rho']:.3f} {sig} (p={r['p_value']:.4f})")
+    out = "/home/cs21d002_eashaan/PhD/Objective1/results/cross_model_agreement_pairwise.csv"
+    table.to_csv(out, index=False)
+    print(f"  ✓ {out}")
+    return table
+
+
 def print_summary(merged):
     n = len(merged)
     n_agree      = merged['agree'].sum()
@@ -183,6 +219,7 @@ def main():
     print_summary(merged)
     plot_scatter(merged)
     plot_delta_comparison(merged)
+    build_pairwise_table(df)
 
     merged.to_csv(OUT_CSV, index=False)
     print(f"  ✓ {OUT_CSV}")

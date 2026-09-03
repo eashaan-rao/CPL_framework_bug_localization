@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-RESULTS_CSV = "/home/cs21d002_eashaan/PhD/Objective1/results/obj1_experimental_results.csv"
+RESULTS_CSV = "/home/cs21d002_eashaan/PhD/Objective1/results/obj1_experimental_results_corrected.csv"
 TOST_MARGIN_MRR = 0.05  # smallest mean CPL gain treated as practically meaningful
 
 METRICS = ["MRR", "MAP", "top-1", "top-5", "top-10"]
@@ -66,6 +66,24 @@ def tost_wilcoxon(diff, margin):
     return max(p_lower, p_upper)
 
 
+def cohens_dz(x, y):
+    """Paired-sample Cohen's d (mean difference / SD of differences)."""
+    d = x - y
+    return d.mean() / d.std(ddof=1)
+
+
+def bootstrap_ci_dz(x, y, n_boot=10000, ci=0.95, seed=0):
+    """Percentile bootstrap 95% CI for paired Cohen's d, resampling pairs."""
+    rng = np.random.default_rng(seed)
+    n = len(x)
+    boots = np.empty(n_boot)
+    for i in range(n_boot):
+        idx = rng.integers(0, n, n)
+        boots[i] = cohens_dz(x[idx], y[idx])
+    lo, hi = np.percentile(boots, [(1 - ci) / 2 * 100, (1 + ci) / 2 * 100])
+    return lo, hi
+
+
 def main():
     df = load_shared_pairs()
 
@@ -74,9 +92,10 @@ def main():
         for met in METRICS:
             cpt, wps = paired(df, m, "CP-transfer", "WP-small", met)
             _, p = stats.wilcoxon(cpt, wps, alternative="greater")
-            d = cpt - wps
+            d = cohens_dz(cpt, wps)
+            ci_lo, ci_hi = bootstrap_ci_dz(cpt, wps)
             print(f"{m:10s} {met:6s} n={len(cpt)} p={p:.4g} "
-                  f"r_rb={rank_biserial(cpt, wps):+.2f} d={d.mean()/d.std(ddof=1):.2f}")
+                  f"r_rb={rank_biserial(cpt, wps):+.2f} d={d:.2f} 95%CI=[{ci_lo:.2f}, {ci_hi:.2f}]")
         print()
 
     print("=== 2. TOST equivalence (margin +/-%.2f MRR) ===" % TOST_MARGIN_MRR)
