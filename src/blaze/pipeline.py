@@ -6,9 +6,10 @@ Entry point: run_blaze_experiment()
 Training uses in-batch contrastive learning (NTXentLoss) to fine-tune a
 pre-trained transformer with modal-specific ResidualAdapters.
 
-Evaluation retrieves directly from the full file snapshot (no FAISS pre-filter),
-using the fine-tuned model to embed bug reports and code chunks, then ranks
-files by maximum chunk similarity.
+Evaluation reranks the shared FAISS top-300 candidate pool (TOP_K_CANDIDATES),
+matching the candidate-generation protocol TRANP-CNN and COOBA use. The
+fine-tuned model embeds bug reports and code chunks, then ranks files by
+maximum chunk similarity among the FAISS-retrieved candidates only.
 """
 
 import copy
@@ -85,6 +86,10 @@ FREEZE_TRANSFORMER = True
 
 # Evaluation batch size (larger: inference is cheaper than training)
 EVAL_BATCH_SIZE = 16
+
+# Candidate pool size for evaluation reranking — matches TRANP-CNN/COOBA's
+# TOP_K_CANDIDATES so all three models compete over the same FAISS shortlist.
+TOP_K_CANDIDATES = 300
 
 # GPU memory guard — pause BLAZE and offload model to CPU when GPU is tight,
 # so COOBA shards always have headroom for their occasional spikes to ~45 GB.
@@ -343,7 +348,7 @@ def _encode_snapshot_blobs(
 def evaluate(
     model: BlazeEmbedding,
     bug_metadata_db: dict,
-    blob_embedding_db: dict,  # pre-built BGE embeddings for FAISS-rank diagnostics
+    blob_embedding_db: dict,  # pre-built BGE embeddings — defines the FAISS candidate pool
     bug_reports_df: pd.DataFrame,
     target_test_ids: list,
     target_repo: git.Repo,
@@ -354,16 +359,18 @@ def evaluate(
     device: str,
 ) -> dict:
     """
-    Full-corpus BLAZE evaluation (no FAISS candidate pre-filter).
+    BLAZE evaluation reranking the shared FAISS top-K candidate pool.
 
     For each test bug:
       1. Encode the bug report with the fine-tuned report_adapter.
-      2. Encode ALL files in the commit snapshot with the source_adapter.
+      2. Encode every file in the commit snapshot with the source_adapter.
       3. Score each file as max(cosine_sim over its chunks).
-      4. Rank files by score → compute Top-1/5/10, MAP, MRR.
+      4. Restrict to the FAISS top-TOP_K_CANDIDATES candidates (from pre-built
+         BGE embeddings), then rank the restricted set by BLAZE score →
+         compute Top-1/5/10, MAP, MRR over that candidate pool.
 
-    Also writes a diagnostic CSV with FAISS rank (from pre-built embeddings) vs
-    BLAZE rank (from fine-tuned model) for every ground-truth file.
+    Also writes a diagnostic CSV with FAISS rank vs. BLAZE rank (both within
+    the same restricted candidate pool) for every ground-truth file.
     """
     model.eval()
     os.makedirs(os.path.join(RESULT_PATH, "blaze_ph1_diagnostics"), exist_ok=True)
@@ -429,7 +436,7 @@ def evaluate(
         blaze_ranked = sorted(blaze_scores.items(), key=lambda x: x[1], reverse=True)
         blaze_shas = [sha for sha, _ in blaze_ranked]
 
-        # --- FAISS ranks: use pre-built BGE embeddings for diagnostics ---
+        # --- FAISS ranks: pre-built BGE embeddings define the candidate pool ---
         snap_shas = [sha for sha in path_to_sha.values() if sha in blob_embedding_db]
         if snap_shas:
             snap_embs = np.stack(
@@ -446,7 +453,14 @@ def evaluate(
         else:
             faiss_ranked_shas = []
 
-        # --- Standard metrics (BLAZE ranking) ---
+        # --- Restrict to the shared FAISS top-K candidate pool ---
+        # blaze_ranked is already sorted by score, so filtering to membership
+        # in the FAISS top-K preserves BLAZE's relative order within the pool
+        # (equivalent to scoring only those candidates in the first place).
+        faiss_topk_set = set(faiss_ranked_shas[:TOP_K_CANDIDATES])
+        blaze_shas = [sha for sha in blaze_shas if sha in faiss_topk_set]
+
+        # --- Standard metrics (BLAZE ranking, restricted to FAISS top-K) ---
         for k in top_k_hits:
             if not set(blaze_shas[:k]).isdisjoint(ground_truth_shas):
                 top_k_hits[k] += 1
@@ -480,6 +494,7 @@ def evaluate(
                 "rank_displacement": rank_displacement,
                 "faiss_score": float(faiss_sims[snap_shas.index(gt_sha)]) if gt_sha in snap_shas else -1.0,
                 "model_score": blaze_scores.get(gt_sha, -1.0),
+                "n_candidates_ranked": len(blaze_shas),
             })
 
     # --- Save diagnostics ---
