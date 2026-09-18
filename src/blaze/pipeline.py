@@ -92,10 +92,14 @@ EVAL_BATCH_SIZE = 16
 TOP_K_CANDIDATES = 300
 
 # GPU memory guard — pause BLAZE and offload model to CPU when GPU is tight,
-# so COOBA shards always have headroom for their occasional spikes to ~45 GB.
-GPU_FREE_THRESHOLD_MiB = 8_192    # back off when less than 8 GB is free
+# so COOBA shards (or concurrent BLAZE-family runs) always have headroom for
+# occasional spikes, without triggering on ordinary memory wobble between
+# two co-resident BLAZE-family processes.
+GPU_FREE_THRESHOLD_MiB = 3_072    # back off when less than 3 GB is free
 GPU_POLL_INTERVAL_S    = 30       # seconds between checks while waiting
-GPU_CHECK_EVERY_N_BATCHES = 20    # how often to check mid-epoch
+GPU_CHECK_EVERY_N_BATCHES = 20    # how often to check mid-epoch (training)
+GPU_CHECK_EVERY_N_EVAL_ITEMS = 1  # how often to check mid-evaluation (per test bug —
+                                   # full-snapshot encoding per bug is the spikiest step)
 
 
 # ---------------------------------------------------------------------------
@@ -389,7 +393,9 @@ def evaluate(
 
     test_db = {bid: bug_metadata_db[bid] for bid in target_test_ids if bid in bug_metadata_db}
 
-    for bug_id, meta in tqdm(test_db.items(), desc="Evaluating"):
+    for bug_idx, (bug_id, meta) in enumerate(tqdm(test_db.items(), desc="Evaluating")):
+        if bug_idx % GPU_CHECK_EVERY_N_EVAL_ITEMS == 0:
+            _wait_for_gpu(model, device)  # full-snapshot encoding is the spikiest step
         bug_text = bug_texts.get(bug_id, "")
         if not bug_text:
             reciprocal_ranks.append(0.0)
