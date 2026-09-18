@@ -60,7 +60,7 @@ models, embedding-based dual-encoding (BLAZE), convolutional reranking (TRANP-CN
 GNN-based adversarial adaptation (COOBA), across 63 source$\to$target pairs from 13
 open-source Python projects under identical bug corpora, data splits, retrieval
 candidates, and baselines, against within-project limited training (WP-small,
-$\sim$20\% of target labels), the data a newly active project actually has. CPL
+$\sim$10\% of target labels), the data a newly active project actually has. CPL
 outperforms WP-small for 2 of 3 architectures: BLAZE with a large effect (Cohen's
 $d = 1.16$, win rate 95.2\%, $p < 0.001$) and TRANP-CNN with a medium effect
 ($d = 0.65$, win rate 68.3\%), while COOBA, in this corpus and under our
@@ -110,7 +110,7 @@ when a bug localization tool is most needed.
 The same is true of codebases recently adopting structured issue management and systems with infrequent defect reports.
 The difficulty is not merely one of data volume: developer familiarity with a project's codebase materially affects debugging efficiency~\citep{wang2020familiarity}, so a model transferred from another project must compensate for exactly the contextual knowledge that familiarity provides.
 The scale of this problem is illustrated by the following: the project with the smallest bug corpus in our study, \texttt{pydata/xarray}, has only 110 verified bug-report-to-file mappings (the project with the smallest codebase, \texttt{docker/compose} at 35K LoC, has a larger bug corpus of 572 mappings, so corpus size and codebase size are distinct axes of ``smallest'' here).
-A standard limited-data split yields just 22 labeled training examples from xarray's corpus.
+A standard limited-data split yields just 11 labeled training examples from xarray's corpus.
 That is too few for reliable generalization across a diverse codebase and is representative of any project in its first years of active bug tracking.
 It is also precisely where an effective bug localization would be most valuable.
 
@@ -891,11 +891,11 @@ supervision precisely.
 
 \begin{itemize}
   \item \textbf{WP-small} (Within-Project, Limited): Model trained on approximately
-    20\% of the target bug corpus, drawn from within the same 80\% training split
+    10\% of the target bug corpus, drawn from within the same 80\% training split
     used by WP-large (so WP-small and WP-large are nested, and neither touches the
     held-out 20\% test set). This is the data a newly active project actually has.
-    In absolute terms it ranges from 22 labeled bugs (\texttt{pydata/xarray}) to
-    267 (\texttt{qiskit/qiskit}) across the 13 targets; even the upper end of this
+    In absolute terms it ranges from 11 labeled bugs (\texttt{pydata/xarray}) to
+    133 (\texttt{qiskit/qiskit}) across the 13 targets; even the upper end of this
     range is a small-data regime relative to the ample-data comparators used in
     prior CPL work. This scenario serves as the \emph{primary baseline} for all CPL comparisons
     throughout the study. Choosing WP-small rather than WP-large as the primary
@@ -920,16 +920,17 @@ supervision precisely.
   \item \looseness=-1 \textbf{CP-transfer} (Cross-Project, Fine-Tuned): Model jointly trained on 100\%
     of source bugs plus approximately 20\% of target bugs (source and target
     batches contribute to the same training step, not a sequential
-    pretrain-on-source-then-fine-tune-on-target schedule). The target-data budget
-    is deliberately matched to WP-small. This is a critical design choice: because
-    both CP-transfer and WP-small use the same number of target-project labels,
-    a performance advantage of CP-transfer over WP-small cannot be explained by
-    CP-transfer simply having access to more \emph{target} data. It rules out that
-    specific confound, but not the more general possibility that CP-transfer
-    simply sees more training examples overall (source plus target, versus target
-    alone); Section~\ref{sec:threats} discusses this residual threat.
-    Without budget-matching on the target side, the comparison would additionally be confounded by differential
-    access to target-project supervision.
+    pretrain-on-source-then-fine-tune-on-target schedule). This target-side share
+    is twice WP-small's (approximately 20\% vs.\ approximately 10\% of the target
+    corpus): the two scenarios are \emph{not} budget-matched on the target side.
+    A performance advantage of CP-transfer over WP-small can therefore not be
+    attributed to cross-project knowledge alone; it may partly or wholly reflect
+    CP-transfer's larger target-side training set, on top of the additional
+    source data it also has access to. Section~\ref{sec:threats} treats this as
+    an internal-validity threat and discusses how the CP-transfer-vs-WP-small
+    gains reported throughout should accordingly be read: as an upper bound on
+    the cross-project-knowledge component specifically, not an isolated
+    measurement of it.
 \end{itemize}
 
 This scenario framework is applied identically to all three benchmarked models.
@@ -950,10 +951,10 @@ the same held-out test set (20\% of target bugs, seed 42).}
 \toprule
 \textbf{Scenario} & \textbf{Training Data} & \textbf{Target Budget} & \textbf{Role in Study} \\
 \midrule
-WP-small      & $\sim$20\% target bugs only         & Low  & Primary baseline; practical data-scarce setting \\
-WP-large      & 80\% target bugs only               & High & Performance ceiling \\
-CP-cold-start & 100\% source, 0\% target            & None & Zero-shot deployment viability \\
-CP-transfer   & 100\% source + $\sim$20\% target    & Low  & Core CPL scenario; matched budget to WP-small \\
+WP-small      & $\sim$10\% target bugs only         & Low    & Primary baseline; practical data-scarce setting \\
+WP-large      & 80\% target bugs only               & High   & Performance ceiling \\
+CP-cold-start & 100\% source, 0\% target            & None   & Zero-shot deployment viability \\
+CP-transfer   & 100\% source + $\sim$20\% target    & Medium & Core CPL scenario; target share double WP-small's (Section~\ref{sec:threats}) \\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -1558,8 +1559,12 @@ the target project already has, which sets the absolute size of the WP-small
 training set (Section~\ref{sec:scenarios}) -- is the strongest predictor we find,
 and it is a negative one: for BLAZE, target bug-report count correlates with CPL
 gain at $\rho = -0.67$ ($p < 0.001$), and for TRANP-CNN at $\rho = -0.61$
-($p < 0.001$); target LoC and the source$\to$target LoC ratio are also significant
-for BLAZE ($\rho = -0.34$ and $\rho = 0.35$ respectively, both $p < 0.01$). In
+($p < 0.001$); target LoC, the source$\to$target LoC ratio, and target bug-report
+verbosity are also significant for BLAZE ($\rho = -0.34$, $\rho = 0.35$, and
+$\rho = 0.35$ respectively, all $p < 0.01$). Verbosity is itself moderately
+correlated with target label volume ($\rho = -0.52$), so it is not an independent
+fourth signal so much as a related facet of the same under-resourced-target
+pattern. In
 other words, the fewer labeled bugs a target project already has, the more it
 stands to gain from CPL -- directly on topic for a study about data-scarce
 projects, and the same relationship documented at the paradigm level in
@@ -1688,17 +1693,19 @@ the smaller-LoC target consistently gains more from CPL. This hypothesis is moti
 by the LoC-stratified results: if smaller codebases benefit more on average, the
 same asymmetry should appear within symmetric pairs.
 
-For the embedding-based model (BLAZE), 67.9\% of symmetric pairs (19/28) show the
-smaller-LoC target gaining more, above the 50\% random baseline and consistent with
-the hypothesis that data-scarce targets gain most from external knowledge. For
-the CNN-based reranker (TRANP-CNN), the consistency rate is 50.0\% (14/28),
-essentially random. LoC asymmetry does not predict transfer direction for TRANP-CNN.
-Domain alignment and bug distribution are the stronger factors.
+For the embedding-based model (BLAZE), 57.1\% of symmetric pairs (16/28) show the
+smaller-LoC target gaining more, only modestly above the 50\% random baseline --
+weak, not strong, evidence for the hypothesis that data-scarce targets gain most
+from external knowledge. For the CNN-based reranker (TRANP-CNN), the consistency
+rate is the same, 57.1\% (16/28). LoC asymmetry is therefore a weak predictor of
+transfer direction for both learned-ranker models, not the dominant factor;
+domain alignment and bug distribution contribute more to which direction wins.
 For the GNN-based adversarial model (COOBA), the consistency rate is 60.7\% (17/28),
-a moderate tendency that aligns with the LoC-stratified results showing stronger
-CPL gains for small targets. This stands in contrast to TRANP-CNN's random
-commutativity (50.0\%), consistent with COOBA's failure mode being LoC-driven even
-if its success mode is not domain-driven.
+the highest of the three models and broadly consistent with the LoC-stratified
+results showing stronger CPL gains for small targets, though the margin over
+BLAZE and TRANP-CNN (57.1\% each) is narrow enough that LoC asymmetry is best read
+as a shared, mild tendency across all three architectures rather than a
+COOBA-specific signature.
 
 \begin{tcolorbox}[colback=gray!10, colframe=gray!50, title=\textbf{RQ2 Summary}]
 CPL benefit is largest for small-codebase targets and within-domain pairs, but
@@ -1842,15 +1849,17 @@ within-domain validation is advisable regardless of which heuristic is used.
 
 \looseness=-1 For the GNN-based adversarial model (COOBA), most-bugs achieves Hit@1 = 38.5\% with
 $\tau = -0.194$. Domain-gap achieves Hit@1 = 23.1\% with $\tau \approx 0$
-($-0.007$). Both heuristics achieve 78.8\%--79.2\% of oracle performance, the
-lowest oracle recovery of the three models. The near-zero $\tau$ for domain-gap is expected: domain similarity provides essentially no signal for ranking
+($-0.007$). Oracle recovery is uneven between the two heuristics here: most-bugs
+reaches only 73.8\% while domain-gap reaches 84.8\%, the widest heuristic-to-heuristic
+gap of the three models and, on its lower end, the lowest oracle recovery observed
+in this study. The near-zero $\tau$ for domain-gap is expected: domain similarity provides essentially no signal for ranking
 sources when the CPL mechanism is adversarial domain adaptation, which already
 attempts to erase domain-specific features from the learned representations.
 
 The practical takeaway is consistent across both heuristics and all three models
 (Figure~\ref{fig:ss_quality} visualizes ranking quality under the most-bugs
 heuristic). No tested heuristic reliably ranks sources ($\tau < 0.2$ in all cases),
-yet all three models achieve 79--93\% of oracle performance with any heuristic. Practitioners
+yet all three models achieve 74--93\% of oracle performance with any heuristic. Practitioners
 do not need sophisticated source selection for BLAZE or TRANP-CNN. For COOBA, source
 selection matters more (lower absolute oracle recovery), but neither heuristic is
 reliable. Empirical holdout validation on a small target sample remains the safest
@@ -1862,7 +1871,7 @@ strategy.
 (source with largest bug corpus) and \emph{domain-gap} (source with lowest embedding-space
 domain gap). ``\% oracle'' = mean CP-transfer MRR of selected source as a fraction of
 oracle CP-transfer MRR. No heuristic reliably ranks sources ($\tau < 0.2$ in all cases),
-yet oracle recovery remains high (79--93\%) for all strategies.}
+yet oracle recovery remains high (74--93\%) for all strategies.}
 \label{tab:source_selection}
 \small
 \begin{tabular}{@{}llrrr@{}}
@@ -1876,13 +1885,13 @@ yet oracle recovery remains high (79--93\%) for all strategies.}
 \midrule
 \multirow{3}{*}{COOBA}
   & Oracle (upper bound)   & 100\%  & N/A    & 100\%  \\
-  & Most-bugs heuristic    &  38.5\% & $-0.194$ & 78.8\% \\
-  & Domain-gap heuristic   &  23.1\% & $-0.007$ & 79.2\% \\
+  & Most-bugs heuristic    &  38.5\% & $-0.194$ & 73.8\% \\
+  & Domain-gap heuristic   &  23.1\% & $-0.007$ & 84.8\% \\
 \midrule
 \multirow{3}{*}{TRANP-CNN}
   & Oracle (upper bound)   & 100\%  & N/A    & 100\%  \\
-  & Most-bugs heuristic    &  30.8\% & $+0.110$ & 86.7\% \\
-  & Domain-gap heuristic   &  23.1\% & $-0.080$ & 89.8\% \\
+  & Most-bugs heuristic    &  30.8\% & $+0.110$ & 92.6\% \\
+  & Domain-gap heuristic   &  23.1\% & $-0.080$ & 91.1\% \\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -2199,7 +2208,7 @@ independent of training-time sophistication.
 
 \subsection{Implications for CPL Research}
 
-\looseness=-1 The low cross-model agreement (41--62\% across the three model pairs) is a
+\looseness=-1 The low cross-model agreement (44--62\% across the three model pairs) is a
 methodological contribution for the CPL research community. It suggests that
 CPL benefit may not generalize across model architectures: a finding
 from one CPL model did not, in this corpus, reliably predict outcomes from a different architecture
@@ -2225,8 +2234,9 @@ irrelevant to transfer outcome.
 
 Beyond architectural choices, this study yields several observations about how
 future CPL evaluations should be designed, summarized in Section~\ref{sec:conclusion}:
-reporting against a limited (not ample-data) within-project baseline, matching the
-target label budget between conditions, and reporting negative-transfer rates and
+reporting against a limited (not ample-data) within-project baseline, actually
+matching the target label budget between conditions (a control this study
+intended but did not achieve, as detailed above), and reporting negative-transfer rates and
 zero-label cold-start viability alongside win rates and mean gains -- the cold-start
 result for BLAZE is among the most practically useful findings in this study, yet it
 is invisible under a standard fine-tuning-only evaluation protocol.
@@ -2284,16 +2294,29 @@ threat rather than a controlled-for one, and recommend a chronological
 sensitivity check on a subset of pairs before the random-split results are
 treated as an upper bound on realistic deployment performance.
 
-\textbf{Budget-matching controls for target data, not for total data volume.}
-CP-transfer and WP-small are matched on target-project labels (Section
-\ref{sec:scenarios}), which rules out the confound that CP-transfer simply sees
-more \emph{target} data. It does not rule out the more general possibility that
-CP-transfer's advantage partly reflects seeing more training examples overall
-(source plus target combined, versus target alone). Disambiguating the two would
-need a shuffled- or mismatched-source condition on a subset of pairs, which
-we did not run for this study; the CP-transfer-vs-WP-small gains reported
-throughout should be read as an upper bound on the cross-project-knowledge
-component specifically, not a lower bound.
+\textbf{CP-transfer and WP-small are not matched on target-project labels.}
+Section~\ref{sec:scenarios} describes CP-transfer's target-side share as
+budget-matched to WP-small; this description does not hold. Inspection of the
+experiment orchestration script confirms WP-small draws 12.5\% of the 80\%
+target train-pool, i.e.\ $0.125 \times 0.80 \approx 10\%$ of the full target
+bug corpus, while CP-transfer draws 25\% of the same pool, i.e.\
+$0.25 \times 0.80 = 20\%$ --
+twice WP-small's target-side share, not the same number of labels. In absolute
+terms this is 11 vs.\ 22 target bugs for \texttt{pydata/xarray} and 133 vs.\
+267 for \texttt{qiskit/qiskit}, consistently a factor of $\approx 2\times$
+across all 13 targets. Consequently, a performance advantage of CP-transfer
+over WP-small cannot be attributed to cross-project knowledge alone: it may
+reflect CP-transfer's larger target-side training set on top of the additional
+source data it also has access to, and the two confounds (more target data,
+more total data) are not distinguishable from each other or from a genuine
+cross-project-knowledge effect in the current design. Disambiguating them would
+need either a WP-small variant re-run at CP-transfer's actual $\sim$20\%
+target share, or a shuffled- or mismatched-source condition on a subset of
+pairs; we did not run either for this study. The CP-transfer-vs-WP-small gains
+reported throughout (Table~\ref{tab:wilcoxon} and elsewhere) should accordingly
+be read as an upper bound on the cross-project-knowledge component
+specifically, not as an isolated measurement of it, and this bound is looser
+than the paper's earlier framing implied.
 
 \paragraph{Construct validity.}
 MRR and Top-$K$ measure file-level localization. Finer-grained (function- or
@@ -2430,11 +2453,13 @@ WP-small MRR) on model identity, with target project as a random effect,
 following recent guidance for empirical software engineering research on
 handling non-independent, clustered observations~\citep{oliveira2019evolution}.
 Model identity remains a significant predictor of gain after accounting for the
-target-project random effect (BLAZE intercept $= 0.123$; COOBA $-0.119$,
-TRANP-CNN $-0.082$ relative to BLAZE, all $p < 0.001$), and the estimated
-between-target-project variance is small relative to the residual (group
-variance $= 0.003$), so most of the variation in gain is explained by which
-model is used rather than which target project recurs across pairs -- the
+target-project random effect (BLAZE intercept $= 0.082$; COOBA $-0.071$,
+TRANP-CNN $-0.060$ relative to BLAZE, all $p < 0.001$), and the estimated
+between-target-project variance (group variance $= 0.001$) is smaller than,
+though not negligible next to, the residual variance ($= 0.003$; intraclass
+correlation $\approx 0.31$), so target-project clustering explains a real but
+minority share of the variation in gain, with model identity remaining the
+dominant factor -- the
 architecture effect is robust to pair non-independence, though with only 13
 target-project clusters the random-effect variance estimate should be read
 cautiously.
@@ -2489,9 +2514,11 @@ within-domain source project with zero target annotations, and its within-domain
 CP-transfer win rate against WP-small climbs to 90.0\% once a modest set of
 target labels is added; TRANP-CNN requires only 20\% of
 target labels and then matches full within-project training. Both come with a
-cost worth weighing: CP-transfer trains on the full source-project corpus, a
-materially larger compute budget than WP-small's $\sim$20\% of the target's own
-history, and neither guarantees a win -- source and domain alignment should be
+cost worth weighing: CP-transfer trains on the full source-project corpus plus
+twice WP-small's target-side data ($\sim$20\% vs.\ $\sim$10\% of the target's
+own history, Section~\ref{sec:threats}), a materially larger compute budget and
+training-data footprint than WP-small alone, and neither guarantees a win --
+source and domain alignment should be
 checked empirically, not assumed, particularly for TRANP-CNN and COOBA.
 
 Two evaluation-only additions follow directly from the threats above. First, an
@@ -2516,9 +2543,12 @@ The most durable contribution of this study, beyond any single number, is
 methodological: low cross-model agreement suggests that CPL benefit may not
 generalize across model architectures, so future CPL evaluations
 should report results per-architecture, against a limited (not ample-data)
-within-project baseline, with the target label budget matched between
-conditions, and with negative transfer rates reported alongside win rates and
-mean gains.
+within-project baseline, with the target label budget \emph{verified as}
+matched between conditions -- this study's own CP-transfer and WP-small
+scenarios were intended to be matched on target labels but were not
+(Section~\ref{sec:threats}), a discrepancy worth checking for in any
+similarly-structured design -- and with negative transfer rates reported
+alongside win rates and mean gains.
 
 %% ===================================================================
 %% BACK MATTER
