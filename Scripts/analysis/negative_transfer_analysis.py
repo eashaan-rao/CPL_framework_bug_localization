@@ -14,9 +14,11 @@ Questions answered
    repeated WP-small runs (same target, different pair-runs) show a mean
    run-to-run spread of 0.03-0.06 MRR (max 0.25) -- 3-6x the classification
    band. This check reclassifies each originally-negative pair against (a)
-   the target's median WP-small MRR across its repeats, and (b) a noise-aware
-   band derived from that target's own measured spread, to see how much of
-   the headline rate is a single-run artifact.
+   the target's median WP-small MRR across its repeats, (b) a noise-aware
+   band derived from that target's own measured spread, and (c) a band that
+   also propagates an assumed comparable noise on the CP-transfer side
+   (sqrt(2) x the measured spread), since CP-transfer was never repeated
+   and its own run-to-run variance has no direct estimate.
 
 Outputs
 ───────
@@ -366,13 +368,24 @@ def negative_transfer_robustness_check(delta):
     Re-tests every originally-negative pair against WP-small's own measured
     run-to-run noise, using the repeated WP-small runs in WPS_REPEATS_CSV.
 
-    Two independent corrections, applied together and separately:
+    Three independent corrections, applied together and separately:
       (a) median baseline  -- CP-transfer MRR minus the target's MEDIAN
           WP-small MRR across its repeats, instead of one arbitrary run
           (same method as equivalence_and_robustness_tests.py's RQ1 re-test).
       (b) noise-aware band -- classify as negative only if |delta| exceeds
           half (or, for a stricter check, all) of that target's own measured
           WP-small spread, instead of the fixed +/-0.01 MRR band.
+      (c) symmetric-noise band -- only WP-small has repeated runs (it is
+          target-only, so the same config recurs across every pair sharing
+          that target; CP-transfer's source+target combination is unique
+          per pair, so it was never repeated and its own run-to-run
+          variance is unmeasured). Assuming CP-transfer wobbles by a
+          comparable amount from the same source (training stochasticity --
+          weight init, data-loader order, GPU non-determinism -- not data
+          volume), the noise band for a *difference* of two independent,
+          similarly-noisy values is sqrt(2) times one side's measured
+          spread, not the measured spread itself. This is an assumption,
+          not a direct measurement of CP-transfer's noise.
 
     This does not produce one "corrected" negative-transfer rate -- the
     result is threshold-sensitive by construction -- it bounds how much of
@@ -389,29 +402,34 @@ def negative_transfer_robustness_check(delta):
     neg = delta[delta['transfer'] == 'negative'].merge(
         stats_by_target, on=['model_name', 'target_project'], how='left')
     neg['delta_mrr_median'] = neg['MRR'] - neg['mrr_wps_median']
-    neg['half_spread_band'] = neg['wps_spread'] / 2
+    neg['half_spread_band']      = neg['wps_spread'] / 2
+    neg['symmetric_noise_band']  = neg['wps_spread'] * np.sqrt(2)
 
-    neg['negative_vs_median'] = neg['delta_mrr_median'] < NEG_THRESH
-    neg['negative_vs_half_spread_band'] = neg['delta_mrr_median'] < -neg['half_spread_band']
-    neg['negative_vs_full_spread_band'] = neg['delta_mrr_median'] < -neg['wps_spread']
+    neg['negative_vs_median']            = neg['delta_mrr_median'] < NEG_THRESH
+    neg['negative_vs_half_spread_band']  = neg['delta_mrr_median'] < -neg['half_spread_band']
+    neg['negative_vs_full_spread_band']  = neg['delta_mrr_median'] < -neg['wps_spread']
+    neg['negative_vs_symmetric_noise_band'] = neg['delta_mrr_median'] < -neg['symmetric_noise_band']
 
     print("\n── Negative-Transfer Robustness Check "
           "(re-test vs. WP-small's own measured run-to-run noise) ──────────")
     print(f"{'Model':<10} {'orig':>6} {'median-retest':>14} "
-          f"{'half-spread band':>18} {'full-spread band':>18}")
+          f"{'half-spread band':>18} {'full-spread band':>18} {'symmetric-noise band':>22}")
     for model, g in neg.groupby('model_name'):
         n_orig = len(g)
         n_med  = g['negative_vs_median'].sum()
         n_half = g['negative_vs_half_spread_band'].sum()
         n_full = g['negative_vs_full_spread_band'].sum()
+        n_sym  = g['negative_vs_symmetric_noise_band'].sum()
         print(f"{model:<10} {n_orig:>3d}/63 {n_med:>9d}/63 ({n_med/63*100:4.1f}%) "
               f"{n_half:>9d}/63 ({n_half/63*100:4.1f}%) "
-              f"{n_full:>9d}/63 ({n_full/63*100:4.1f}%)")
+              f"{n_full:>9d}/63 ({n_full/63*100:4.1f}%) "
+              f"{n_sym:>9d}/63 ({n_sym/63*100:4.1f}%)")
 
     return neg[[
         'model_name', 'source_project', 'target_project',
         'delta_mrr', 'delta_mrr_median', 'n_wps_repeats', 'wps_spread',
         'negative_vs_median', 'negative_vs_half_spread_band', 'negative_vs_full_spread_band',
+        'negative_vs_symmetric_noise_band',
     ]]
 
 
