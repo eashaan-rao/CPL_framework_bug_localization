@@ -1,0 +1,29 @@
+{
+  "pair": "ansible/ansible -> jupyterlab/jupyterlab",
+  "scenario": "CP-transfer",
+  "faiss_top_k": 300,
+  "best_epoch": 10,
+  "production_reference_full_corpus": {
+    "top-1": 0.25,
+    "top-5": 0.525,
+    "top-10": 0.6,
+    "MAP": 0.2781,
+    "MRR": 0.3767
+  },
+  "this_run_full_corpus": {
+    "Top-1": 0.275,
+    "Top-5": 0.5,
+    "Top-10": 0.6,
+    "MAP": 0.2933,
+    "MRR": 0.3902,
+    "n_test": 40
+  },
+  "this_run_faiss_top300_restricted": {
+    "Top-1": 0.15,
+    "Top-5": 0.2,
+    "Top-10": 0.2,
+    "MAP": 0.1628,
+    "MRR": 0.1777,
+    "n_test": 40
+  }
+}

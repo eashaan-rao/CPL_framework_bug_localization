@@ -32,7 +32,7 @@ from scipy.stats import wilcoxon, spearmanr
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 ROOT         = "/home/cs21d002_eashaan/PhD/Objective1"
-RESULTS_CSV  = f"{ROOT}/results/paper_results_complete.csv"
+RESULTS_CSV  = f"{ROOT}/results/paper_results_complete_corrected.csv"
 METADATA_PKL = f"{ROOT}/data/processed/project_metadata.parquet"
 EFFECT_CSV   = f"{ROOT}/results/effect_size_summary.csv"
 OUT_DIR      = f"{ROOT}/journal_draft/figs"
