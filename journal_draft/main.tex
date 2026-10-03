@@ -1553,6 +1553,22 @@ The three-model spectrum (1.6\%$\to$15.9\%$\to$31.7\%) aligns with the win/loss
 asymmetry ordering and provides a consistent risk profile for each architectural
 paradigm.
 
+A robustness check using repeated WP-small runs (3--12 per target, retrained
+independently for every pair-run even though WP-small does not depend on the
+source project) shows these rates are sensitive to which WP-small run is used
+as the baseline, and to how much noise is assumed on the CP-transfer side.
+Re-testing against the target's median WP-small MRR lowers the rates to
+1.6\% (BLAZE), 6.3\% (TRANP-CNN), and 20.6\% (COOBA). Re-testing against a
+band derived from that target's own measured run-to-run spread lowers them
+further. Because CP-transfer's source+target combination is unique to each
+pair, it was never repeated, so its own run-to-run variance has no direct
+estimate; assuming it wobbles by a comparable amount to WP-small (the same
+underlying source -- training stochasticity -- not data volume) and
+propagating that assumption into the classification band leaves 0\%
+(BLAZE), 1.6\% (TRANP-CNN), and 0\% (COOBA). The jupyterlab-as-target cases
+cited above as evidence of structural overfitting do not survive any of
+these checks.
+
 Figure~\ref{fig:feature_corr} plots Spearman correlations between project-level
 metadata features and CPL gain. \emph{Target label volume} -- how many bug reports
 the target project already has, which sets the absolute size of the WP-small
@@ -2281,6 +2297,20 @@ source$\to$target pairs rather than repeated seeds per pair, since RQ3 requires
 many pairs evaluated identically across all three models; this favors
 architecture-level statistical power over per-pair variance estimates, which the
 median re-test above partially recovers.
+
+\textbf{Negative-transfer classification uses a band tighter than the model's
+own noise.} The $\pm 0.01$ MRR neutral band used to classify negative transfer
+(Section~\ref{sec:results}) is 3--6$\times$ narrower than the 0.05--0.07 mean
+(0.25 max) run-to-run spread measured above from repeated WP-small runs. A
+robustness check (\texttt{negative\_transfer\_robustness\_check} in
+\texttt{negative\_transfer\_analysis.py}) re-tests each originally-negative
+pair against the target's median WP-small MRR, a band derived from WP-small's
+measured spread, and a band that also assumes a comparable, unmeasured noise
+magnitude on the CP-transfer side -- since CP-transfer's source+target
+combination is unique to each pair, it was never repeated, and its own
+run-to-run variance has no direct estimate. Under the most conservative of
+these checks, the negative-transfer rate falls to 0\% for BLAZE and COOBA and
+1.6\% for TRANP-CNN.
 
 \textbf{Random rather than chronological splits.}
 All train/test splits are drawn at random (seed 42) rather than chronologically.
