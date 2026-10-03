@@ -2316,7 +2316,17 @@ pairs; we did not run either for this study. The CP-transfer-vs-WP-small gains
 reported throughout (Table~\ref{tab:wilcoxon} and elsewhere) should accordingly
 be read as an upper bound on the cross-project-knowledge component
 specifically, not as an isolated measurement of it, and this bound is looser
-than the paper's earlier framing implied.
+than the paper's earlier framing implied. The orchestration scripts
+(\texttt{Scripts/run\_expts\_ph1.py}, \texttt{Scripts/blaze\_faiss\_restricted\_sweep\_wp\_small.py},
+and \texttt{src/tranp\_cnn/pipeline.py}) have since been corrected to draw
+WP-small's target-side training set at the same 25\% of the 80\% train pool
+used by CP-transfer (20\% of the full target corpus), so the confound does
+not affect future runs. The results reported throughout this paper predate
+that fix and still reflect the original, unmatched $\sim$10\%/$\sim$20\%
+split described above; a WP-small re-run under the corrected, budget-matched
+split, and a full recomputation of Table~\ref{tab:wilcoxon} and the
+downstream RQ1/RQ2 analyses, is required before this confound can be
+removed from the paper's reported numbers rather than merely disclosed.
 
 \paragraph{Construct validity.}
 MRR and Top-$K$ measure file-level localization. Finer-grained (function- or

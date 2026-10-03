@@ -32,7 +32,7 @@ RESULT_PATH = "/home/cs21d002_eashaan/PhD/Objective1/results"
 
 
 TOP_K_CANDIDATES = 300
-TARGET_TRAIN_SIZE = 0.10 # Use 10% of target data for training
+TARGET_TRAIN_SIZE = 0.20 # Use 20% of target data for training (matches CP-transfer's target budget)
 TEST_SET_SIZE = 0.2
 TOKENIZER_NAME = "BAAI/bge-code-v1"
 

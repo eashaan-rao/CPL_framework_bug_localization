@@ -483,7 +483,7 @@ def run_flim_experiment(
 
     Scenarios
     ---------
-    WP-small      : source_train_ids=[],        target_train_ids=~10 % of target
+    WP-small      : source_train_ids=[],        target_train_ids=~20 % of target
     WP-large      : source_train_ids=[],        target_train_ids=~80 % of target
     CP-cold-start : source_train_ids=all source, target_train_ids=[]
     CP-transfer   : source_train_ids=all source, target_train_ids=~20 % of target
