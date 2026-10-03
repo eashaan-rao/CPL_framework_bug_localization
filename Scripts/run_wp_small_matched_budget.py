@@ -123,31 +123,34 @@ def main():
     df_results = pd.read_csv(RESULTS_FILE)
 
     targets = TARGET_PROJECTS[SHARD::NUM_SHARDS]
-    for target_project in targets:
-        print(f"\n{'='*20} WP-small (matched budget) for target={target_project} {'='*20}")
 
-        target_bug_ids_all = load_bug_ids_for_project(target_project)
-        splits = get_data_splits(target_bug_ids_all)
-        target_train_ids = train_test_split(
-            splits['train_pool'], train_size=WP_SMALL_TRAIN_SIZE, random_state=42
-        )[0]
-        target_test_ids = splits['test_set']
-        print(f" -> target_train: {len(target_train_ids)} bugs "
-              f"({len(target_train_ids)/len(target_bug_ids_all)*100:.1f}% of total)  "
-              f"target_test: {len(target_test_ids)} bugs")
+    # Model-major order: finish BLAZE across all targets, then TRANP-CNN,
+    # then COOBA -- rather than cycling through all 3 models per target.
+    for model_name, model_function in MODELS.items():
+        print(f"\n{'#'*20} Model: {model_name} {'#'*20}")
 
-        for model_name, model_function in MODELS.items():
+        for target_project in targets:
             is_done = (
                 (df_results['model_name'] == model_name) &
                 (df_results['target_project'] == target_project)
             ).any()
             if is_done:
-                print(f" -> {model_name}: already in results. Skipping.")
+                print(f" -> {model_name} | {target_project}: already in results. Skipping.")
                 continue
 
-            print(f"\n -- Running {model_name} | WP-small (20% target budget) --")
-            run_start = time.time()
+            print(f"\n{'='*20} WP-small (matched budget) | {model_name} | target={target_project} {'='*20}")
 
+            target_bug_ids_all = load_bug_ids_for_project(target_project)
+            splits = get_data_splits(target_bug_ids_all)
+            target_train_ids = train_test_split(
+                splits['train_pool'], train_size=WP_SMALL_TRAIN_SIZE, random_state=42
+            )[0]
+            target_test_ids = splits['test_set']
+            print(f" -> target_train: {len(target_train_ids)} bugs "
+                  f"({len(target_train_ids)/len(target_bug_ids_all)*100:.1f}% of total)  "
+                  f"target_test: {len(target_test_ids)} bugs")
+
+            run_start = time.time()
             metrics = model_function(
                 source_project=target_project,   # harmless no-op "source" -- source_train_ids=[] below
                 target_project=target_project,
@@ -177,7 +180,8 @@ def main():
                 fcntl.flock(f, fcntl.LOCK_UN)
             df_results = pd.concat([df_results, new_result], ignore_index=True)
 
-            print(f" -> {model_name} done in {wall_time/3600:.2f} hrs. MRR={metrics['MRR']:.4f}")
+            print(f" -> {model_name} | {target_project} done in {wall_time/3600:.2f} hrs. "
+                  f"MRR={metrics['MRR']:.4f}")
             gc.collect()
 
 
