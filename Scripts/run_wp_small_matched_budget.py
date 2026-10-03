@@ -80,9 +80,9 @@ TARGET_PROJECTS = [
 ]
 
 MODELS = {
-    'BLAZE':     run_blaze_experiment,
     'TRANP-CNN': run_tranp_cnn_experiment,
     'COOBA':     run_cooba_experiment,
+    'BLAZE':     run_blaze_experiment,
 }
 
 # Corrected target-side budget: 25% of the 80% train pool = 20% of total
