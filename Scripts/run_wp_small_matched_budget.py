@@ -43,8 +43,27 @@ CSV, so it's safe to stop and restart. Supports the same SHARD/NUM_SHARDS
 pattern as run_expts_ph1.py for running multiple shards in parallel across
 GPUs.
 
+Repeats for noise-floor estimation
+───────────────────────────────────
+The data split is deterministic (fixed seed 42), so re-running this script
+as-is would reselect the identical target_train_ids -- the only source of
+variation between repeats is training stochasticity (weight init, data-
+loader order, non-deterministic GPU kernels), same as the rest of the
+study. Set WP_SMALL_REP (default "1") to run additional repeats into their
+own output file (wp_small_matched_budget_rep{N}.csv) without touching or
+re-skipping against rep 1's already-merged file. Set WP_SMALL_REVERSE=1 to
+iterate models in reverse order, for staggering two concurrent repeat runs
+on the same GPU so they're less likely to hit their heaviest target at the
+same wall-clock time.
+
+Transient CUDA OOM (e.g. from a concurrent process, or a second repeat run
+sharing the GPU) is retried with backoff rather than crashing the whole
+sweep -- see MAX_OOM_RETRIES.
+
 Run inside the obj1 virtualenv:
     python Scripts/run_wp_small_matched_budget.py
+    WP_SMALL_REP=2 python Scripts/run_wp_small_matched_budget.py
+    WP_SMALL_REP=3 WP_SMALL_REVERSE=1 python Scripts/run_wp_small_matched_budget.py
 """
 
 import fcntl
@@ -54,6 +73,7 @@ import sys
 import time
 
 import pandas as pd
+import torch
 from sklearn.model_selection import train_test_split
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -91,7 +111,20 @@ WP_SMALL_TRAIN_SIZE = 0.25
 
 BUG_REPORTS_PATH = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/bug_reports_clean.parquet"
 RESULT_PATH      = "/home/cs21d002_eashaan/PhD/Objective1/results"
-RESULTS_FILE     = os.path.join(RESULT_PATH, 'wp_small_matched_budget.csv')
+
+REP = os.environ.get('WP_SMALL_REP', '1')
+RESULTS_FILE = os.path.join(
+    RESULT_PATH,
+    'wp_small_matched_budget.csv' if REP == '1' else f'wp_small_matched_budget_rep{REP}.csv'
+)
+
+if os.environ.get('WP_SMALL_REVERSE') == '1':
+    MODELS = dict(reversed(list(MODELS.items())))
+
+# Transient OOM (e.g. a concurrent repeat run, or another process sharing
+# the GPU) is retried with backoff instead of crashing the whole sweep.
+MAX_OOM_RETRIES = 6
+OOM_RETRY_BACKOFF_SEC = 90
 
 # Parallelism: set SHARD=0/1/2 in separate terminals/GPUs to split the 13
 # targets across processes. NUM_SHARDS=1 runs all 13 sequentially.
@@ -124,8 +157,9 @@ def main():
 
     targets = TARGET_PROJECTS[SHARD::NUM_SHARDS]
 
-    # Model-major order: finish BLAZE across all targets, then TRANP-CNN,
-    # then COOBA -- rather than cycling through all 3 models per target.
+    # Model-major order: finish one model across all targets before moving
+    # to the next (order set by MODELS above), rather than cycling through
+    # all 3 models per target.
     for model_name, model_function in MODELS.items():
         print(f"\n{'#'*20} Model: {model_name} {'#'*20}")
 
@@ -151,14 +185,33 @@ def main():
                   f"target_test: {len(target_test_ids)} bugs")
 
             run_start = time.time()
-            metrics = model_function(
-                source_project=target_project,   # harmless no-op "source" -- source_train_ids=[] below
-                target_project=target_project,
-                source_train_ids=[],
-                target_train_ids=target_train_ids,
-                target_test_ids=target_test_ids,
-                scenario='WP-small',
-            )
+            metrics = None
+            for attempt in range(1, MAX_OOM_RETRIES + 1):
+                try:
+                    metrics = model_function(
+                        source_project=target_project,   # harmless no-op "source" -- source_train_ids=[] below
+                        target_project=target_project,
+                        source_train_ids=[],
+                        target_train_ids=target_train_ids,
+                        target_test_ids=target_test_ids,
+                        scenario='WP-small',
+                    )
+                    break
+                except RuntimeError as e:
+                    if 'out of memory' not in str(e).lower():
+                        raise
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    if attempt == MAX_OOM_RETRIES:
+                        print(f" -> {model_name} | {target_project}: OOM on final attempt "
+                              f"{attempt}/{MAX_OOM_RETRIES}, giving up on this run, moving on.")
+                        break
+                    print(f" -> {model_name} | {target_project}: OOM (attempt {attempt}/{MAX_OOM_RETRIES}), "
+                          f"retrying in {OOM_RETRY_BACKOFF_SEC}s...")
+                    time.sleep(OOM_RETRY_BACKOFF_SEC)
+
+            if metrics is None:
+                continue  # exhausted retries; leave for a future run to pick up (not marked done)
 
             wall_time = time.time() - run_start
             new_result = pd.DataFrame([{
