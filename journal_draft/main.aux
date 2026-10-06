@@ -1,0 +1,270 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\csgdef{mark@title}{1}
+\orcidauthor{https://orcid.org/0000-0001-8499-7538}{A Eashaan Rao}
+\csgdef{mark@corau1}{1}
+\emailauthor{cs21d002@iittp.ac.in}{A Eashaan Rao}
+\orcidauthor{https://orcid.org/0000-0003-0818-8178}{Sridhar Chimalakonda}
+\emailauthor{ch@iittp.ac.in}{Sridhar Chimalakonda}
+\citation{lam2017bug,liang2022modeling,ciborowska2022fast,hossain2024deepdive,zhu2025funloc}
+\citation{wang2020familiarity}
+\citation{huo2019deep}
+\citation{zhu2020cooba}
+\citation{zhu2022bl}
+\citation{chakraborty2025blaze}
+\citation{hosseini2017systematic,zhang2022negative}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\newlabel{sec:intro}{{1}{1}{Introduction}{section.1}{}}
+\citation{zhou2012should,saha2013improving,ye2014learning}
+\citation{robertson2009probabilistic}
+\citation{lam2017bug}
+\citation{liang2022modeling}
+\citation{ciborowska2022fast}
+\citation{devlin2019bert}
+\citation{niu2025deep}
+\citation{lee2018bench4bl}
+\citation{bogomolov2024long}
+\citation{hirsch2022benchmarks}
+\citation{kim2022digbug}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Background and Related Work}{2}{section.2}\protected@file@percent }
+\newlabel{sec:related}{{2}{2}{Background and Related Work}{section.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Bug Localization}{2}{subsection.2.1}\protected@file@percent }
+\citation{huo2019deep}
+\citation{zhu2021trobo}
+\citation{zhu2020cooba}
+\citation{ganin2016domain}
+\citation{zhu2022bl}
+\citation{chakraborty2025blaze}
+\citation{chandramohan2024supporting,li2025knowledge,reddy2025swerank}
+\citation{yang2024sweagent}
+\citation{xia2024agentless,zhang2024autocoderover,hossain2024deepdive}
+\citation{niu2025deep}
+\citation{pan2010survey}
+\citation{hosseini2017systematic}
+\citation{sottomayor2024survey}
+\citation{yu2017feature}
+\citation{tong2023array}
+\citation{giray2023deep}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Cross-Project Bug Localization}{3}{subsection.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Transfer Learning in Software Engineering}{3}{subsection.2.3}\protected@file@percent }
+\citation{ganin2016domain}
+\citation{feng2020codebert,guo2021graphcodebert,wang2021codet5,guo2022unixcoder}
+\citation{bge_code}
+\citation{johnson2019billion}
+\citation{ralph2021empirical}
+\citation{huo2019deep,chakraborty2025blaze,zhu2020cooba}
+\citation{hosseini2017systematic}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}Pre-trained Code Embeddings: Design Motivation}{4}{subsection.2.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Study Design}{4}{section.3}\protected@file@percent }
+\newlabel{sec:design}{{3}{4}{Study Design}{section.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{Reporting standards.}{4}{section*.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Research Questions}{4}{subsection.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Hypotheses and motivated expectations.}{4}{section*.2}\protected@file@percent }
+\citation{chakraborty2025blaze}
+\citation{reimers2019sentencebert}
+\citation{bge_code}
+\citation{oord2018cpc}
+\citation{zhu2020cooba}
+\citation{ganin2016domain}
+\citation{huo2019deep}
+\citation{chakraborty2025blaze}
+\citation{zhu2020cooba}
+\citation{huo2019deep}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces End-to-end study design. Python projects from SWE-bench and BeetleBox are filtered by bug-report volume and diversity criteria to yield 13 projects, which are paired into 63 directed pairs via structured selection. All target projects share one BGE-code-v1 embedding and one FAISS top-300 retrieval stage (the controlled backbone). Three architecturally distinct models (BLAZE, TRANP-CNN, COOBA) rerank the same candidate pool in four training scenarios, with the held-out test set held constant throughout. The uniform protocol makes CPL outcomes attributable to model architecture rather than experimental heterogeneity.}}{5}{figure.1}\protected@file@percent }
+\newlabel{fig:study_design}{{1}{5}{End-to-end study design. Python projects from SWE-bench and BeetleBox are filtered by bug-report volume and diversity criteria to yield 13 projects, which are paired into 63 directed pairs via structured selection. All target projects share one BGE-code-v1 embedding and one FAISS top-300 retrieval stage (the controlled backbone). Three architecturally distinct models (BLAZE, TRANP-CNN, COOBA) rerank the same candidate pool in four training scenarios, with the held-out test set held constant throughout. The uniform protocol makes CPL outcomes attributable to model architecture rather than experimental heterogeneity}{figure.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Benchmarked Models}{5}{subsection.3.2}\protected@file@percent }
+\newlabel{sec:models}{{3.2}{5}{Benchmarked Models}{subsection.3.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{BLAZE \citep  {chakraborty2025blaze}.}{5}{section*.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{COOBA \citep  {zhu2020cooba}.}{5}{section*.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{TRANP-CNN \citep  {huo2019deep}.}{5}{section*.5}\protected@file@percent }
+\citation{jimenez2023swe}
+\citation{chakraborty2025blaze}
+\citation{kalliamvakou2014promises}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Summary of the three benchmarked bug localization models.}}{6}{table.1}\protected@file@percent }
+\newlabel{tab:models}{{1}{6}{Summary of the three benchmarked bug localization models}{table.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Training configuration used for all 756 experiment runs. LR = learning rate; effective batch = batch size $\times $ gradient-accumulation steps. Early stopping monitors validation loss.}}{6}{table.2}\protected@file@percent }
+\newlabel{tab:hyperparams}{{2}{6}{Training configuration used for all 756 experiment runs. LR = learning rate; effective batch = batch size $\times $ gradient-accumulation steps. Early stopping monitors validation loss}{table.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{Adaptations and training configuration.}{6}{section*.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Dataset Selection and Curation}{6}{subsection.3.3}\protected@file@percent }
+\newlabel{sec:dataset}{{3.3}{6}{Dataset Selection and Curation}{subsection.3.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{Source Benchmarks.}{6}{section*.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Selection Criteria.}{6}{section*.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Phase 1 Scope: 13 Python Projects.}{6}{section*.9}\protected@file@percent }
+\citation{bge_code}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces The 13 Python projects used in Phase 1. Size categories: Small ($<$100K LoC), Medium (100--300K LoC), Large ($>$300K LoC). Source indicates the benchmark from which each project's bug-report--commit ground truth was drawn. Recall@300 is the fraction of bug reports for which the ground-truth file is retrieved within the shared FAISS top-300 candidate pool when this project is the target; it bounds every absolute metric for all three models, which rerank that same pool (Section~\ref {sec:threats}).}}{7}{table.3}\protected@file@percent }
+\newlabel{tab:dataset}{{3}{7}{The 13 Python projects used in Phase 1. Size categories: Small ($<$100K LoC), Medium (100--300K LoC), Large ($>$300K LoC). Source indicates the benchmark from which each project's bug-report--commit ground truth was drawn. Recall@300 is the fraction of bug reports for which the ground-truth file is retrieved within the shared FAISS top-300 candidate pool when this project is the target; it bounds every absolute metric for all three models, which rerank that same pool (Section~\ref {sec:threats})}{table.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{Domain Classification Protocol.}{7}{section*.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Pair Selection: 63 Directional Pairs.}{7}{section*.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Data Preprocessing}{7}{subsection.3.4}\protected@file@percent }
+\newlabel{sec:preprocessing}{{3.4}{7}{Data Preprocessing}{subsection.3.4}{}}
+\@writefile{toc}{\contentsline {paragraph}{Bug Report Curation.}{7}{section*.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Source Code Embedding.}{7}{section*.13}\protected@file@percent }
+\citation{robertson2009probabilistic}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Structure of the structured 63-pair set.}}{8}{table.4}\protected@file@percent }
+\newlabel{tab:pairs}{{4}{8}{Structure of the structured 63-pair set}{table.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}Evaluation Pipeline}{8}{subsection.3.5}\protected@file@percent }
+\newlabel{sec:pipeline}{{3.5}{8}{Evaluation Pipeline}{subsection.3.5}{}}
+\@writefile{toc}{\contentsline {paragraph}{Retriever-Reranker Pipeline.}{8}{section*.14}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Why Dense Retrieval, Not Lexical IR.}{8}{section*.15}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.6}Training Scenarios}{8}{subsection.3.6}\protected@file@percent }
+\newlabel{sec:scenarios}{{3.6}{8}{Training Scenarios}{subsection.3.6}{}}
+\citation{bendavid2010theory}
+\citation{ganin2016domain}
+\citation{oliveira2019evolution}
+\citation{wilcoxon1945,arcuri2011practical}
+\citation{cohen1988statistical,kampenes2007systematic,arcuri2014hitchhiker}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Four evaluation scenarios with data configurations and roles. All share the same held-out test set (20\% of target bugs, seed 42).}}{9}{table.5}\protected@file@percent }
+\newlabel{tab:scenarios}{{5}{9}{Four evaluation scenarios with data configurations and roles. All share the same held-out test set (20\% of target bugs, seed 42)}{table.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.7}Evaluation Metrics}{9}{subsection.3.7}\protected@file@percent }
+\newlabel{sec:metrics}{{3.7}{9}{Evaluation Metrics}{subsection.3.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.8}Domain Gap Measurement}{9}{subsection.3.8}\protected@file@percent }
+\newlabel{sec:domaingap}{{3.8}{9}{Domain Gap Measurement}{subsection.3.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.9}Statistical Analysis Methods}{9}{subsection.3.9}\protected@file@percent }
+\newlabel{sec:statmethods}{{3.9}{9}{Statistical Analysis Methods}{subsection.3.9}{}}
+\@writefile{toc}{\contentsline {paragraph}{RQ1, Wilcoxon Signed-Rank Test.}{9}{section*.16}\protected@file@percent }
+\citation{schuirmann1987,lakens2017equivalence}
+\citation{spearman1904}
+\citation{kendall1938new}
+\@writefile{toc}{\contentsline {paragraph}{Equivalence Testing (TOST).}{10}{section*.17}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{RQ2, Spearman Rank Correlation.}{10}{section*.18}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{RQ3, Source Selection Evaluation.}{10}{section*.19}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Statistical Power and Sample Size.}{10}{section*.20}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Results}{10}{section.4}\protected@file@percent }
+\newlabel{sec:results}{{4}{10}{Results}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}RQ1: Does CPL Outperform Within-Project Training Under Label Scarcity?}{10}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.1.1}Scenario Performance Overview}{10}{subsubsection.4.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.1.2}Statistical Significance and Effect Size}{10}{subsubsection.4.1.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Mean bug localization performance across source$\to $target pairs per model and scenario. WP-small is the primary baseline; CP-transfer is the primary CPL condition. Bold denotes the best CPL scenario per model. FAISS (retrieval stage) shows mean cosine-similarity ranking before any model reranking, applicable to all three models. All values on the same held-out test set (20\% of target bugs, seed 42). MRR and MAP are averaged over \emph  {all} held-out test reports (unretrieved ground truth scores $0$); see the footnote in Section~\ref {sec:metrics}. Top-$K$ is unchanged.}}{11}{table.6}\protected@file@percent }
+\newlabel{tab:scenario_means}{{6}{11}{Mean bug localization performance across source$\to $target pairs per model and scenario. WP-small is the primary baseline; CP-transfer is the primary CPL condition. Bold denotes the best CPL scenario per model. FAISS (retrieval stage) shows mean cosine-similarity ranking before any model reranking, applicable to all three models. All values on the same held-out test set (20\% of target bugs, seed 42). MRR and MAP are averaged over \emph {all} held-out test reports (unretrieved ground truth scores $0$); see the footnote in Section~\ref {sec:metrics}. Top-$K$ is unchanged}{table.6}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.1.3}Win/Loss Asymmetry}{11}{subsubsection.4.1.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.1.4}Zero-Label Deployment: The Cold-Start Finding}{11}{subsubsection.4.1.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Wilcoxon signed-rank test results, Cohen's $d$ with 95\% CI, and matched-pairs rank-biserial correlation $r_{rb}$ for CP-transfer vs.\ WP-small (one-sided, $H_1$: CPT $>$ WPS). \textbf  {Win \% here uses a strict zero threshold} (CPT $>$ WPS MRR, any positive margin counts as a win); this is a different, more permissive threshold than the $\pm 0.01$ MRR neutral band used for the negative-transfer rate and for the within/cross-domain win rate in Table~\ref {tab:crossdomain}, so the two should not be compared directly. Stars denote unadjusted $p$-values: $\star \star \star $ ($p < 0.001$), $\star \star $ ($p < 0.01$), $\star $ ($p < 0.05$), n.s. The Bonferroni-adjusted threshold within each 5-metric family is $\alpha /5 = 0.010$; all BLAZE metrics and TRANP-CNN MRR/MAP/Top-1/Top-5 survive it, while all COOBA metrics and TRANP-CNN Top-10 do not. Note also that the Bonferroni family here treats the five metrics as independent tests, though MRR and MAP are near duplicates and the Top-$K$ values are nested, so this correction is conservative.}}{12}{table.7}\protected@file@percent }
+\newlabel{tab:wilcoxon}{{7}{12}{Wilcoxon signed-rank test results, Cohen's $d$ with 95\% CI, and matched-pairs rank-biserial correlation $r_{rb}$ for CP-transfer vs.\ WP-small (one-sided, $H_1$: CPT $>$ WPS). \textbf {Win \% here uses a strict zero threshold} (CPT $>$ WPS MRR, any positive margin counts as a win); this is a different, more permissive threshold than the $\pm 0.01$ MRR neutral band used for the negative-transfer rate and for the within/cross-domain win rate in Table~\ref {tab:crossdomain}, so the two should not be compared directly. Stars denote unadjusted $p$-values: $\star \star \star $ ($p < 0.001$), $\star \star $ ($p < 0.01$), $\star $ ($p < 0.05$), n.s. The Bonferroni-adjusted threshold within each 5-metric family is $\alpha /5 = 0.010$; all BLAZE metrics and TRANP-CNN MRR/MAP/Top-1/Top-5 survive it, while all COOBA metrics and TRANP-CNN Top-10 do not. Note also that the Bonferroni family here treats the five metrics as independent tests, though MRR and MAP are near duplicates and the Top-$K$ values are nested, so this correction is conservative}{table.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}RQ2: What Project-Level Characteristics Determine CPL Success or Failure?}{12}{subsection.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.2.1}Target Codebase Size}{12}{subsubsection.4.2.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Distribution of CP-transfer minus WP-small MRR gain per source$\to $target pair ($n = 63$ pairs each, all three models). Positive values indicate CPL benefit. BLAZE (blue) shows a pronounced rightward skew, TRANP-CNN (purple) moderate asymmetry with a wider spread, and COOBA (orange) a near-symmetric distribution (see text for medians). The vertical dashed line marks zero; dotted lines mark the $\pm $0.01 MRR threshold used to classify positive/negative transfer.}}{13}{figure.2}\protected@file@percent }
+\newlabel{fig:gain_distribution}{{2}{13}{Distribution of CP-transfer minus WP-small MRR gain per source$\to $target pair ($n = 63$ pairs each, all three models). Positive values indicate CPL benefit. BLAZE (blue) shows a pronounced rightward skew, TRANP-CNN (purple) moderate asymmetry with a wider spread, and COOBA (orange) a near-symmetric distribution (see text for medians). The vertical dashed line marks zero; dotted lines mark the $\pm $0.01 MRR threshold used to classify positive/negative transfer}{figure.2}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.2.2}Negative Transfer}{13}{subsubsection.4.2.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces CP-transfer vs.\ WP-small MRR gain by target codebase size group. $\Delta $ = CP-transfer MRR $-$ WP-small MRR. WP-large MRR is shown for all models; the dagger marks the only size-group aggregate where mean CP-transfer exceeds mean WP-large.}}{14}{table.8}\protected@file@percent }
+\newlabel{tab:stratified}{{8}{14}{CP-transfer vs.\ WP-small MRR gain by target codebase size group. $\Delta $ = CP-transfer MRR $-$ WP-small MRR. WP-large MRR is shown for all models; the dagger marks the only size-group aggregate where mean CP-transfer exceeds mean WP-large}{table.8}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces BLAZE cold-start viability heatmap (CP-cold-start MRR), binned by target LoC quartile (columns) and source bug-report-count quartile (rows), with cell counts $n$ annotated. 9 of 15 populated cells exceed the MRR $= 0.20$ viability threshold; the six exceptions cluster at the extremes of target codebase size (source Q1/Q2/Q4 $\times $ target Q4, MRR $= 0.149/0.151/0.186$; source Q1/Q4 $\times $ target Q2, MRR $= 0.184/0.148$; source Q3 $\times $ target Q1, MRR $= 0.199$, just below threshold). One cell (source Q3 $\times $ target Q4) is empty ($n=0$) and shown white. COOBA and TRANP-CNN are not shown: both achieve MRR $<0.20$ almost everywhere in cold-start (0\% and 1.6\% of pairs respectively).}}{14}{figure.3}\protected@file@percent }
+\newlabel{fig:coldstart_heatmap}{{3}{14}{BLAZE cold-start viability heatmap (CP-cold-start MRR), binned by target LoC quartile (columns) and source bug-report-count quartile (rows), with cell counts $n$ annotated. 9 of 15 populated cells exceed the MRR $= 0.20$ viability threshold; the six exceptions cluster at the extremes of target codebase size (source Q1/Q2/Q4 $\times $ target Q4, MRR $= 0.149/0.151/0.186$; source Q1/Q4 $\times $ target Q2, MRR $= 0.184/0.148$; source Q3 $\times $ target Q1, MRR $= 0.199$, just below threshold). One cell (source Q3 $\times $ target Q4) is empty ($n=0$) and shown white. COOBA and TRANP-CNN are not shown: both achieve MRR $<0.20$ almost everywhere in cold-start (0\% and 1.6\% of pairs respectively)}{figure.3}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.2.3}Source-Target Domain Alignment}{14}{subsubsection.4.2.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Distribution of CP-transfer minus WP-small MRR gain by target codebase size group (Small $<$100K, Medium 100K--300K, Large $>$300K LoC). Each violin shows the spread of pair-level gains for a given model (color) and size group; see Table~\ref {tab:stratified} for the corresponding means.}}{15}{figure.4}\protected@file@percent }
+\newlabel{fig:gain_by_size}{{4}{15}{Distribution of CP-transfer minus WP-small MRR gain by target codebase size group (Small $<$100K, Medium 100K--300K, Large $>$300K LoC). Each violin shows the spread of pair-level gains for a given model (color) and size group; see Table~\ref {tab:stratified} for the corresponding means}{figure.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Spearman correlations between project-level metadata features (target and source LoC, target and source bug-report count, LoC ratio, domain gap accuracy, target and source bug-report verbosity) and CP-transfer minus WP-small MRR gain, shown for all three models (BLAZE, COOBA, TRANP-CNN); see text for which correlations reach significance.}}{15}{figure.5}\protected@file@percent }
+\newlabel{fig:feature_corr}{{5}{15}{Spearman correlations between project-level metadata features (target and source LoC, target and source bug-report count, LoC ratio, domain gap accuracy, target and source bug-report verbosity) and CP-transfer minus WP-small MRR gain, shown for all three models (BLAZE, COOBA, TRANP-CNN); see text for which correlations reach significance}{figure.5}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.2.4}Commutativity: Does Transfer Direction Matter?}{15}{subsubsection.4.2.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces CPL gain by domain alignment (within-domain = same application category; cross-domain = different category). $\Delta $MRR = mean CP-transfer $-$ WP-small MRR. Win Rate uses the $\pm 0.01$ MRR neutral band, a different (stricter) threshold than Table~\ref {tab:wilcoxon}'s zero-cutoff Win \% (see that table's caption). TRANP-CNN shows the steepest domain sensitivity (24.5 percentage-point win-rate drop); COOBA shows essentially no domain effect ($-$2pp, cross-domain slightly higher); BLAZE shows only a marginal domain effect (2.1pp drop) and remains strong cross-domain (87.9\% win rate).}}{16}{table.9}\protected@file@percent }
+\newlabel{tab:crossdomain}{{9}{16}{CPL gain by domain alignment (within-domain = same application category; cross-domain = different category). $\Delta $MRR = mean CP-transfer $-$ WP-small MRR. Win Rate uses the $\pm 0.01$ MRR neutral band, a different (stricter) threshold than Table~\ref {tab:wilcoxon}'s zero-cutoff Win \% (see that table's caption). TRANP-CNN shows the steepest domain sensitivity (24.5 percentage-point win-rate drop); COOBA shows essentially no domain effect ($-$2pp, cross-domain slightly higher); BLAZE shows only a marginal domain effect (2.1pp drop) and remains strong cross-domain (87.9\% win rate)}{table.9}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces CPL gain distributions (CP-transfer $-$ WP-small MRR) for within-domain (DS$\times $DS) versus cross-domain pairs across all three models; see Table~\ref {tab:crossdomain} for the corresponding win rates.}}{16}{figure.6}\protected@file@percent }
+\newlabel{fig:cross_domain}{{6}{16}{CPL gain distributions (CP-transfer $-$ WP-small MRR) for within-domain (DS$\times $DS) versus cross-domain pairs across all three models; see Table~\ref {tab:crossdomain} for the corresponding win rates}{figure.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}RQ3: How Consistent Are CPL Outcomes Across Model Implementations?}{16}{subsection.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.3.1}Cross-Model Direction Agreement}{16}{subsubsection.4.3.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Pairwise cross-model direction agreement on CPL gain (CPT$-$WPS MRR, $n = 63$). Agreement = fraction of pairs where both models show the same directional outcome (positive, neutral, or negative gain). Spearman $\rho $ measures the continuous correlation of pair-level CPL gains. $\star \star \star $: $p < 0.001$.}}{16}{table.10}\protected@file@percent }
+\newlabel{tab:model_agreement}{{10}{16}{Pairwise cross-model direction agreement on CPL gain (CPT$-$WPS MRR, $n = 63$). Agreement = fraction of pairs where both models show the same directional outcome (positive, neutral, or negative gain). Spearman $\rho $ measures the continuous correlation of pair-level CPL gains. $\star \star \star $: $p < 0.001$}{table.10}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Cross-model scatter of CPT$-$WPS MRR gain across 63 shared source$\to $target pairs, for all three model pairs: BLAZE vs.\ COOBA (left), BLAZE vs.\ TRANP-CNN (center), and COOBA vs.\ TRANP-CNN (right); see Table~\ref {tab:model_agreement} for the corresponding correlations.}}{17}{figure.7}\protected@file@percent }
+\newlabel{fig:agreement_scatter}{{7}{17}{Cross-model scatter of CPT$-$WPS MRR gain across 63 shared source$\to $target pairs, for all three model pairs: BLAZE vs.\ COOBA (left), BLAZE vs.\ TRANP-CNN (center), and COOBA vs.\ TRANP-CNN (right); see Table~\ref {tab:model_agreement} for the corresponding correlations}{figure.7}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.3.2}Source Quality as a Transfer Predictor}{17}{subsubsection.4.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.3.3}Source Selection Heuristics}{17}{subsubsection.4.3.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Source selection heuristic evaluation. Two heuristics tested: \emph  {most-bugs} (source with largest bug corpus) and \emph  {domain-gap} (source with lowest embedding-space domain gap). ``\% oracle'' = mean CP-transfer MRR of selected source as a fraction of oracle CP-transfer MRR. No heuristic reliably ranks sources ($\tau < 0.2$ in all cases), yet oracle recovery remains high (74--93\%) for all strategies.}}{18}{table.11}\protected@file@percent }
+\newlabel{tab:source_selection}{{11}{18}{Source selection heuristic evaluation. Two heuristics tested: \emph {most-bugs} (source with largest bug corpus) and \emph {domain-gap} (source with lowest embedding-space domain gap). ``\% oracle'' = mean CP-transfer MRR of selected source as a fraction of oracle CP-transfer MRR. No heuristic reliably ranks sources ($\tau < 0.2$ in all cases), yet oracle recovery remains high (74--93\%) for all strategies}{table.11}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Source selection ranking quality (most-bugs heuristic) for BLAZE (left), COOBA (center), and TRANP-CNN (right). Bubble size proportional to target bug count; color indicates oracle rank of the selected source. Table~\ref {tab:source_selection} reports results for both heuristics.}}{18}{figure.8}\protected@file@percent }
+\newlabel{fig:ss_quality}{{8}{18}{Source selection ranking quality (most-bugs heuristic) for BLAZE (left), COOBA (center), and TRANP-CNN (right). Bubble size proportional to target bug count; color indicates oracle rank of the selected source. Table~\ref {tab:source_selection} reports results for both heuristics}{figure.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Illustrative Cases}{18}{subsection.4.4}\protected@file@percent }
+\newlabel{sec:cases}{{4.4}{18}{Illustrative Cases}{subsection.4.4}{}}
+\@writefile{toc}{\contentsline {paragraph}{Case 1: BLAZE cold-start viability (lightning-ai\,$\to $\,xarray).}{18}{section*.21}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Case 2: Architecture divergence on the same pair (wagtail\,$\to $\,docker/compose).}{18}{section*.22}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Case 3: TRANP-CNN CP-transfer exceeds full within-project training (jupyterlab\,$\to $\,scikit-learn).}{19}{section*.23}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Discussion}{19}{section.5}\protected@file@percent }
+\newlabel{sec:discussion}{{5}{19}{Discussion}{section.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Practical Implications}{19}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{1. For BLAZE, CPL showed consistent benefit with low loss exposure in this corpus.}{19}{section*.24}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{2. Target codebase size moderates benefit; validate empirically for large targets.}{19}{section*.25}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{3. Choose sources by domain, not by ranking heuristics or within-project quality.}{19}{section*.26}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{4. With 20\% target labels, TRANP-CNN reaches full within-project training performance.}{19}{section*.27}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{5. Empirical holdout validation is the safest guard against negative transfer.}{19}{section*.28}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{6. CP-transfer's benefit has a compute cost that WP-small does not.}{19}{section*.29}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Architectural Interpretation of CPL Profiles}{19}{subsection.5.2}\protected@file@percent }
+\newlabel{sec:architecture}{{5.2}{19}{Architectural Interpretation of CPL Profiles}{subsection.5.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{BLAZE (embedding-based dual-encoder).}{20}{section*.30}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{COOBA (GNN with adversarial domain adaptation).}{20}{section*.31}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{TRANP-CNN (CNN reranker).}{20}{section*.32}\protected@file@percent }
+\citation{hosseini2017systematic}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Implications for CPL Research}{21}{subsection.5.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Threats to Validity}{21}{subsection.5.4}\protected@file@percent }
+\newlabel{sec:threats}{{5.4}{21}{Threats to Validity}{subsection.5.4}{}}
+\@writefile{toc}{\contentsline {paragraph}{Internal validity.}{21}{section*.33}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Construct validity.}{21}{section*.34}\protected@file@percent }
+\citation{aleithan2024swebenchplus}
+\citation{oliveira2019evolution}
+\@writefile{toc}{\contentsline {paragraph}{External validity.}{22}{section*.35}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Conclusion validity.}{22}{section*.36}\protected@file@percent }
+\citation{yang2024multi}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusion}{23}{section.6}\protected@file@percent }
+\newlabel{sec:conclusion}{{6}{23}{Conclusion}{section.6}{}}
+\bibstyle{cas-model2-names}
+\bibdata{cas-refs}
+\bibcite{aleithan2024swebenchplus}{{1}{2024}{{Aleithan et~al.}}{{Aleithan, Xue, Mohajer, Nnorom, Uddin and Wang}}}
+\bibcite{arcuri2011practical}{{2}{2011}{{Arcuri and Briand}}{{}}}
+\bibcite{arcuri2014hitchhiker}{{3}{2014}{{Arcuri and Briand}}{{}}}
+\bibcite{bge_code}{{4}{2025}{{Beijing Academy of Artificial Intelligence}}{{}}}
+\bibcite{bendavid2010theory}{{5}{2010}{{Ben-David et~al.}}{{Ben-David, Blitzer, Crammer, Kulesza, Pereira and Vaughan}}}
+\bibcite{bogomolov2024long}{{6}{2024}{{Bogomolov et~al.}}{{Bogomolov, Eliseeva, Galimzyanov, Glukhov, Shapkin, Tiganov, Golubev, Ivanov, Sokolov, Evtikhiev et~al.}}}
+\bibcite{chakraborty2025blaze}{{7}{2025}{{Chakraborty et~al.}}{{Chakraborty, Alfadel and Nagappan}}}
+\bibcite{chandramohan2024supporting}{{8}{2024}{{Chandramohan et~al.}}{{Chandramohan, Nguyen, Krishnan and Jancic}}}
+\bibcite{ciborowska2022fast}{{9}{2022}{{Ciborowska and Damevski}}{{}}}
+\bibcite{cohen1988statistical}{{10}{1988}{{Cohen}}{{}}}
+\bibcite{devlin2019bert}{{11}{2019}{{Devlin et~al.}}{{Devlin, Chang, Lee and Toutanova}}}
+\bibcite{feng2020codebert}{{12}{2020}{{Feng et~al.}}{{Feng, Guo, Tang, Duan, Feng, Gong, Shou, Qin, Liu, Jiang and Zhou}}}
+\bibcite{ganin2016domain}{{13}{2016}{{Ganin et~al.}}{{Ganin, Ustinova, Ajakan, Germain, Larochelle, Laviolette, Marchand and Lempitsky}}}
+\bibcite{giray2023deep}{{14}{2023}{{Giray et~al.}}{{Giray, Bennin, K{\"o}ksal, Babur and Tekinerdogan}}}
+\bibcite{oliveira2019evolution}{{15}{2019}{{{Gomes de Oliveira Neto} et~al.}}{{{Gomes de Oliveira Neto}, Torkar, Feldt, Gren, Furia and Huang}}}
+\bibcite{guo2022unixcoder}{{16}{2022}{{Guo et~al.}}{{Guo, Lu, Duan, Wang, Zhou and Yin}}}
+\bibcite{guo2021graphcodebert}{{17}{2021}{{Guo et~al.}}{{Guo, Ren, Lu, Feng, Tang, Liu, Zhou, Duan, Svyatkovskiy, Fu, Tufano, Deng, Clement, Drain, Sundaresan, Yin, Jiang and Zhou}}}
+\bibcite{hirsch2022benchmarks}{{18}{2022}{{Hirsch and Hofer}}{{}}}
+\bibcite{hossain2024deepdive}{{19}{2024}{{Hossain et~al.}}{{Hossain, Jiang, Zhou, Li, Chiang, Lyu, Nguyen and Tripp}}}
+\bibcite{hosseini2017systematic}{{20}{2019}{{Hosseini et~al.}}{{Hosseini, Turhan and Gunarathna}}}
+\bibcite{huo2019deep}{{21}{2021}{{Huo et~al.}}{{Huo, Thung, Li, Lo and Shi}}}
+\bibcite{jimenez2023swe}{{22}{2024}{{Jimenez et~al.}}{{Jimenez, Yang, Wettig, Yao, Pei, Press and Narasimhan}}}
+\bibcite{johnson2019billion}{{23}{2021}{{Johnson et~al.}}{{Johnson, Douze and J{\'e}gou}}}
+\bibcite{kalliamvakou2014promises}{{24}{2014}{{Kalliamvakou et~al.}}{{Kalliamvakou, Gousios, Blincoe, Singer, German and Damian}}}
+\bibcite{kampenes2007systematic}{{25}{2007}{{Kampenes et~al.}}{{Kampenes, Dyb{\r a}, Hannay and Sj{\o }berg}}}
+\bibcite{kendall1938new}{{26}{1938}{{Kendall}}{{}}}
+\bibcite{kim2022digbug}{{27}{2022}{{Kim et~al.}}{{Kim, Ghatpande, Liu, Koyuncu, Kim, Bissyand{\'e}, Klein and Le~Traon}}}
+\bibcite{lakens2017equivalence}{{28}{2017}{{Lakens}}{{}}}
+\bibcite{lam2017bug}{{29}{2017}{{Lam et~al.}}{{Lam, Nguyen, Nguyen and Nguyen}}}
+\bibcite{lee2018bench4bl}{{30}{2018}{{Lee et~al.}}{{Lee, Kim, Bissyand{\'e}, Jung and Le~Traon}}}
+\bibcite{li2025knowledge}{{31}{2025}{{Li et~al.}}{{Li, Liu, Zhang, Wang, Lo, Yang, Lyu and Zhang}}}
+\bibcite{liang2022modeling}{{32}{2022}{{Liang et~al.}}{{Liang, Hang and Li}}}
+\bibcite{niu2025deep}{{33}{2025}{{Niu et~al.}}{{Niu, Li, Liu, Xia and Lo}}}
+\bibcite{oord2018cpc}{{34}{2018}{{van~den Oord et~al.}}{{van~den Oord, Li and Vinyals}}}
+\bibcite{pan2010survey}{{35}{2010}{{Pan and Yang}}{{}}}
+\bibcite{ralph2021empirical}{{36}{2021}{{Ralph et~al.}}{{}}}
+\bibcite{reddy2025swerank}{{37}{2025}{{Reddy et~al.}}{{Reddy, Suresh, Doo, Liu, Nguyen, Zhou, Yavuz, Xiong, Ji and Joty}}}
+\bibcite{reimers2019sentencebert}{{38}{2019}{{Reimers and Gurevych}}{{}}}
+\bibcite{robertson2009probabilistic}{{39}{2009}{{Robertson and Zaragoza}}{{}}}
+\bibcite{saha2013improving}{{40}{2013}{{Saha et~al.}}{{Saha, Lease, Khurshid and Perry}}}
+\bibcite{schuirmann1987}{{41}{1987}{{Schuirmann}}{{}}}
+\bibcite{sottomayor2024survey}{{42}{2024}{{Sotto-Mayor and Kalech}}{{}}}
+\bibcite{spearman1904}{{43}{1904}{{Spearman}}{{}}}
+\bibcite{tong2023array}{{44}{2023}{{Tong et~al.}}{{Tong, Lu, Xing and Wang}}}
+\bibcite{wang2020familiarity}{{45}{2020}{{Wang et~al.}}{{Wang, Li, Chen, Huang, Zhou and Xu}}}
+\bibcite{wang2021codet5}{{46}{2021}{{Wang et~al.}}{{Wang, Wang, Joty and Hoi}}}
+\bibcite{wilcoxon1945}{{47}{1945}{{Wilcoxon}}{{}}}
+\bibcite{xia2024agentless}{{48}{2024}{{Xia et~al.}}{{Xia, Deng, Dunn and Zhang}}}
+\bibcite{yang2024multi}{{49}{2024a}{{Yang et~al.}}{{Yang, Nong, Wang and Cai}}}
+\bibcite{yang2024sweagent}{{50}{2024b}{{Yang et~al.}}{{Yang, Jimenez, Wettig, Lieret, Yao, Narasimhan and Press}}}
+\bibcite{ye2014learning}{{51}{2014}{{Ye et~al.}}{{Ye, Bunescu and Liu}}}
+\bibcite{yu2017feature}{{52}{2017}{{Yu et~al.}}{{Yu, Jiang and Zhang}}}
+\bibcite{zhang2022negative}{{53}{2022}{{Zhang et~al.}}{{Zhang, Deng, Zhang and Wu}}}
+\bibcite{zhang2024autocoderover}{{54}{2024}{{Zhang et~al.}}{{Zhang, Ruan, Fan and Roychoudhury}}}
+\bibcite{zhou2012should}{{55}{2012}{{Zhou et~al.}}{{Zhou, Zhang and Lo}}}
+\bibcite{zhu2020cooba}{{56}{2020}{{Zhu et~al.}}{{Zhu, Li, Tong and Wang}}}
+\bibcite{zhu2025funloc}{{57}{2025}{{Zhu et~al.}}{{Zhu, Peng, Wang, Li and Xianzhong}}}
+\bibcite{zhu2022bl}{{58}{2023}{{Zhu et~al.}}{{Zhu, Tong, Wang and Li}}}
+\bibcite{zhu2021trobo}{{59}{2021}{{Zhu et~al.}}{{Zhu, Wang and Li}}}
+\csxdef{lastpage}{25}
+\gdef \@abspage@last{26}

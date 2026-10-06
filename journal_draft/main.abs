@@ -1,0 +1,24 @@
+Bug localization, identifying the source location responsible for a reported defect, is a
+critical precursor to efficient debugging, yet the models that automate it require
+substantial within-project training data that newly active or small open-source projects
+rarely have. Cross-project learning (CPL) promises to close this gap by reusing labeled
+bugs from mature projects, but prior CPL studies evaluate a single model against
+ample-data within-project baselines that data-scarce projects cannot reach. We ask
+whether CPL's effectiveness is a general property of the transfer setting or contingent
+on model architecture, evaluating three architecturally distinct bug localization
+models, embedding-based dual-encoding (BLAZE), convolutional reranking (TRANP-CNN), and
+GNN-based adversarial adaptation (COOBA), across 63 source$\to$target pairs from 13
+open-source Python projects under identical bug corpora, data splits, retrieval
+candidates, and baselines, against within-project limited training (WP-small,
+$\sim$10\% of target labels), the data a newly active project actually has. CPL
+outperforms WP-small for 2 of 3 architectures: BLAZE with a large effect (Cohen's
+$d = 1.16$, win rate 95.2\%, $p < 0.001$) and TRANP-CNN with a medium effect
+($d = 0.65$, win rate 68.3\%), while COOBA, in this corpus and under our
+re-implementation, shows only marginal gains ($d = 0.27$) with a
+31.7\% negative transfer rate. Cross-model direction agreement ranges from 44\% to 62\%:
+the same source$\to$target pair can help one architecture and harm another, even though
+BLAZE and TRANP-CNN's gains are themselves correlated across pairs ($\rho = 0.516$,
+$p < 0.001$). CPL outcomes therefore vary substantially across architectures on the same
+source$\to$target pairs; practitioners may need to validate CPL empirically for their
+chosen model rather than relying on results reported for a different one, and future CPL
+research should report results per-architecture rather than assume generalization.

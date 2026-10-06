@@ -1,0 +1,290 @@
+\begin{thebibliography}{59}
+\expandafter\ifx\csname natexlab\endcsname\relax\def\natexlab#1{#1}\fi
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\href}[2]{#2}
+\providecommand{\path}[1]{#1}
+\providecommand{\DOIprefix}{doi:}
+\providecommand{\ArXivprefix}{arXiv:}
+\providecommand{\URLprefix}{URL: }
+\providecommand{\Pubmedprefix}{pmid:}
+\providecommand{\doi}[1]{\href{http://dx.doi.org/#1}{\path{#1}}}
+\providecommand{\Pubmed}[1]{\href{pmid:#1}{\path{#1}}}
+\providecommand{\bibinfo}[2]{#2}
+\ifx\xfnm\relax \def\xfnm[#1]{\unskip,\space#1}\fi
+%Type = Misc
+\bibitem[{Aleithan et~al.(2024)Aleithan, Xue, Mohajer, Nnorom, Uddin and Wang}]{aleithan2024swebenchplus}
+\bibinfo{author}{Aleithan, R.}, \bibinfo{author}{Xue, H.}, \bibinfo{author}{Mohajer, M.M.}, \bibinfo{author}{Nnorom, E.}, \bibinfo{author}{Uddin, G.}, \bibinfo{author}{Wang, S.}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{{SWE-Bench+}: Enhanced coding benchmark for {LLM}s}.
+\newblock \href{http://arxiv.org/abs/2410.06992}{\tt arXiv:2410.06992}.
+%Type = Inproceedings
+\bibitem[{Arcuri and Briand(2011)}]{arcuri2011practical}
+\bibinfo{author}{Arcuri, A.}, \bibinfo{author}{Briand, L.}, \bibinfo{year}{2011}.
+\newblock \bibinfo{title}{A practical guide for using statistical tests to assess randomized algorithms in software engineering}, in: \bibinfo{booktitle}{Proceedings of the 33rd International Conference on Software Engineering (ICSE)}, \bibinfo{organization}{ACM}. pp. \bibinfo{pages}{1--10}.
+%Type = Article
+\bibitem[{Arcuri and Briand(2014)}]{arcuri2014hitchhiker}
+\bibinfo{author}{Arcuri, A.}, \bibinfo{author}{Briand, L.}, \bibinfo{year}{2014}.
+\newblock \bibinfo{title}{A hitchhiker's guide to statistical tests for assessing randomized algorithms in software engineering}.
+\newblock \bibinfo{journal}{Software Testing, Verification and Reliability} \bibinfo{volume}{24}, \bibinfo{pages}{219--250}.
+%Type = Misc
+\bibitem[{{Beijing Academy of Artificial Intelligence}(2025)}]{bge_code}
+\bibinfo{author}{{Beijing Academy of Artificial Intelligence}}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{{BAAI/bge-code-v1}: A code-specialized text embedding model}.
+\newblock \bibinfo{howpublished}{\url{https://huggingface.co/BAAI/bge-code-v1}}.
+\newblock \bibinfo{note}{Accessed: 2025}.
+%Type = Article
+\bibitem[{Ben-David et~al.(2010)Ben-David, Blitzer, Crammer, Kulesza, Pereira and Vaughan}]{bendavid2010theory}
+\bibinfo{author}{Ben-David, S.}, \bibinfo{author}{Blitzer, J.}, \bibinfo{author}{Crammer, K.}, \bibinfo{author}{Kulesza, A.}, \bibinfo{author}{Pereira, F.}, \bibinfo{author}{Vaughan, J.W.}, \bibinfo{year}{2010}.
+\newblock \bibinfo{title}{A theory of learning from different domains}.
+\newblock \bibinfo{journal}{Machine Learning} \bibinfo{volume}{79}, \bibinfo{pages}{151--175}.
+%Type = Inproceedings
+\bibitem[{Bogomolov et~al.(2024)Bogomolov, Eliseeva, Galimzyanov, Glukhov, Shapkin, Tiganov, Golubev, Ivanov, Sokolov, Evtikhiev et~al.}]{bogomolov2024long}
+\bibinfo{author}{Bogomolov, E.}, \bibinfo{author}{Eliseeva, A.}, \bibinfo{author}{Galimzyanov, T.}, \bibinfo{author}{Glukhov, T.}, \bibinfo{author}{Shapkin, I.}, \bibinfo{author}{Tiganov, M.}, \bibinfo{author}{Golubev, Y.}, \bibinfo{author}{Ivanov, V.}, \bibinfo{author}{Sokolov, N.}, \bibinfo{author}{Evtikhiev, M.}, et~al., \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Long code arena: a set of benchmarks for long-context code models}, in: \bibinfo{booktitle}{Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing}.
+%Type = Article
+\bibitem[{Chakraborty et~al.(2025)Chakraborty, Alfadel and Nagappan}]{chakraborty2025blaze}
+\bibinfo{author}{Chakraborty, P.}, \bibinfo{author}{Alfadel, M.}, \bibinfo{author}{Nagappan, M.}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{{BLAZE}: Cross-language and cross-project bug localization via dynamic chunking and hard example learning}.
+\newblock \bibinfo{journal}{IEEE Transactions on Software Engineering} .
+%Type = Misc
+\bibitem[{Chandramohan et~al.(2024)Chandramohan, Nguyen, Krishnan and Jancic}]{chandramohan2024supporting}
+\bibinfo{author}{Chandramohan, M.}, \bibinfo{author}{Nguyen, D.Q.}, \bibinfo{author}{Krishnan, P.}, \bibinfo{author}{Jancic, J.}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Supporting cross-language cross-project bug localization using pre-trained language models}.
+\newblock \href{http://arxiv.org/abs/2407.02732}{\tt arXiv:2407.02732}.
+%Type = Inproceedings
+\bibitem[{Ciborowska and Damevski(2022)}]{ciborowska2022fast}
+\bibinfo{author}{Ciborowska, A.}, \bibinfo{author}{Damevski, K.}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{Fast changeset-based bug localization with {BERT}}, in: \bibinfo{booktitle}{Proceedings of the 44th International Conference on Software Engineering}, \bibinfo{organization}{ACM}. pp. \bibinfo{pages}{2666--2677}.
+%Type = Book
+\bibitem[{Cohen(1988)}]{cohen1988statistical}
+\bibinfo{author}{Cohen, J.}, \bibinfo{year}{1988}.
+\newblock \bibinfo{title}{Statistical Power Analysis for the Behavioral Sciences}.
+\newblock \bibinfo{edition}{2nd} ed., \bibinfo{publisher}{Lawrence Erlbaum Associates}, \bibinfo{address}{Hillsdale, NJ}.
+%Type = Inproceedings
+\bibitem[{Devlin et~al.(2019)Devlin, Chang, Lee and Toutanova}]{devlin2019bert}
+\bibinfo{author}{Devlin, J.}, \bibinfo{author}{Chang, M.W.}, \bibinfo{author}{Lee, K.}, \bibinfo{author}{Toutanova, K.}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{{BERT}: Pre-training of deep bidirectional transformers for language understanding}, in: \bibinfo{booktitle}{Proceedings of the 2019 Conference of the North American Chapter of the Association for Computational Linguistics (NAACL-HLT)}, pp. \bibinfo{pages}{4171--4186}.
+%Type = Inproceedings
+\bibitem[{Feng et~al.(2020)Feng, Guo, Tang, Duan, Feng, Gong, Shou, Qin, Liu, Jiang and Zhou}]{feng2020codebert}
+\bibinfo{author}{Feng, Z.}, \bibinfo{author}{Guo, D.}, \bibinfo{author}{Tang, D.}, \bibinfo{author}{Duan, N.}, \bibinfo{author}{Feng, X.}, \bibinfo{author}{Gong, M.}, \bibinfo{author}{Shou, L.}, \bibinfo{author}{Qin, B.}, \bibinfo{author}{Liu, T.}, \bibinfo{author}{Jiang, D.}, \bibinfo{author}{Zhou, M.}, \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{{CodeBERT}: A pre-trained model for programming and natural languages}, in: \bibinfo{booktitle}{Findings of the Association for Computational Linguistics: EMNLP 2020}, pp. \bibinfo{pages}{1536--1547}.
+%Type = Article
+\bibitem[{Ganin et~al.(2016)Ganin, Ustinova, Ajakan, Germain, Larochelle, Laviolette, Marchand and Lempitsky}]{ganin2016domain}
+\bibinfo{author}{Ganin, Y.}, \bibinfo{author}{Ustinova, E.}, \bibinfo{author}{Ajakan, H.}, \bibinfo{author}{Germain, P.}, \bibinfo{author}{Larochelle, H.}, \bibinfo{author}{Laviolette, F.}, \bibinfo{author}{Marchand, M.}, \bibinfo{author}{Lempitsky, V.}, \bibinfo{year}{2016}.
+\newblock \bibinfo{title}{Domain-adversarial training of neural networks}.
+\newblock \bibinfo{journal}{Journal of Machine Learning Research} \bibinfo{volume}{17}, \bibinfo{pages}{1--35}.
+%Type = Article
+\bibitem[{Giray et~al.(2023)Giray, Bennin, K{\"o}ksal, Babur and Tekinerdogan}]{giray2023deep}
+\bibinfo{author}{Giray, G.}, \bibinfo{author}{Bennin, K.E.}, \bibinfo{author}{K{\"o}ksal, {\"O}.}, \bibinfo{author}{Babur, {\"O}.}, \bibinfo{author}{Tekinerdogan, B.}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{On the use of deep learning in software defect prediction}.
+\newblock \bibinfo{journal}{Journal of Systems and Software} \bibinfo{volume}{195}, \bibinfo{pages}{111537}.
+%Type = Article
+\bibitem[{{Gomes de Oliveira Neto} et~al.(2019){Gomes de Oliveira Neto}, Torkar, Feldt, Gren, Furia and Huang}]{oliveira2019evolution}
+\bibinfo{author}{{Gomes de Oliveira Neto}, F.}, \bibinfo{author}{Torkar, R.}, \bibinfo{author}{Feldt, R.}, \bibinfo{author}{Gren, L.}, \bibinfo{author}{Furia, C.A.}, \bibinfo{author}{Huang, Z.}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{Evolution of statistical analysis in empirical software engineering research: Current state and steps forward}.
+\newblock \bibinfo{journal}{Journal of Systems and Software} \bibinfo{volume}{156}, \bibinfo{pages}{246--267}.
+%Type = Inproceedings
+\bibitem[{Guo et~al.(2022)Guo, Lu, Duan, Wang, Zhou and Yin}]{guo2022unixcoder}
+\bibinfo{author}{Guo, D.}, \bibinfo{author}{Lu, S.}, \bibinfo{author}{Duan, N.}, \bibinfo{author}{Wang, Y.}, \bibinfo{author}{Zhou, M.}, \bibinfo{author}{Yin, J.}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{{UniXcoder}: Unified cross-modal pre-training for code representation}, in: \bibinfo{booktitle}{Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics (ACL)}, pp. \bibinfo{pages}{7212--7225}.
+%Type = Inproceedings
+\bibitem[{Guo et~al.(2021)Guo, Ren, Lu, Feng, Tang, Liu, Zhou, Duan, Svyatkovskiy, Fu, Tufano, Deng, Clement, Drain, Sundaresan, Yin, Jiang and Zhou}]{guo2021graphcodebert}
+\bibinfo{author}{Guo, D.}, \bibinfo{author}{Ren, S.}, \bibinfo{author}{Lu, S.}, \bibinfo{author}{Feng, Z.}, \bibinfo{author}{Tang, D.}, \bibinfo{author}{Liu, S.}, \bibinfo{author}{Zhou, L.}, \bibinfo{author}{Duan, N.}, \bibinfo{author}{Svyatkovskiy, A.}, \bibinfo{author}{Fu, S.}, \bibinfo{author}{Tufano, M.}, \bibinfo{author}{Deng, S.K.}, \bibinfo{author}{Clement, C.}, \bibinfo{author}{Drain, D.}, \bibinfo{author}{Sundaresan, N.}, \bibinfo{author}{Yin, J.}, \bibinfo{author}{Jiang, D.}, \bibinfo{author}{Zhou, M.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{{GraphCodeBERT}: Pre-training code representations with data flow}, in: \bibinfo{booktitle}{International Conference on Learning Representations (ICLR)}.
+%Type = Article
+\bibitem[{Hirsch and Hofer(2022)}]{hirsch2022benchmarks}
+\bibinfo{author}{Hirsch, T.}, \bibinfo{author}{Hofer, B.}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{A systematic literature review on benchmarks for evaluating debugging approaches}.
+\newblock \bibinfo{journal}{Journal of Systems and Software} \bibinfo{volume}{192}, \bibinfo{pages}{111423}.
+%Type = Article
+\bibitem[{Hossain et~al.(2024)Hossain, Jiang, Zhou, Li, Chiang, Lyu, Nguyen and Tripp}]{hossain2024deepdive}
+\bibinfo{author}{Hossain, S.B.}, \bibinfo{author}{Jiang, N.}, \bibinfo{author}{Zhou, Q.}, \bibinfo{author}{Li, X.}, \bibinfo{author}{Chiang, W.H.}, \bibinfo{author}{Lyu, Y.}, \bibinfo{author}{Nguyen, H.}, \bibinfo{author}{Tripp, O.}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{A deep dive into large language models for automated bug localization and repair}.
+\newblock \bibinfo{journal}{Proceedings of the ACM on Software Engineering} \bibinfo{volume}{1}.
+%Type = Article
+\bibitem[{Hosseini et~al.(2019)Hosseini, Turhan and Gunarathna}]{hosseini2017systematic}
+\bibinfo{author}{Hosseini, S.}, \bibinfo{author}{Turhan, B.}, \bibinfo{author}{Gunarathna, D.}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{A systematic literature review and meta-analysis on cross project defect prediction}.
+\newblock \bibinfo{journal}{IEEE Transactions on Software Engineering} \bibinfo{volume}{45}, \bibinfo{pages}{111--147}.
+%Type = Article
+\bibitem[{Huo et~al.(2021)Huo, Thung, Li, Lo and Shi}]{huo2019deep}
+\bibinfo{author}{Huo, X.}, \bibinfo{author}{Thung, F.}, \bibinfo{author}{Li, M.}, \bibinfo{author}{Lo, D.}, \bibinfo{author}{Shi, S.T.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Deep transfer bug localization}.
+\newblock \bibinfo{journal}{IEEE Transactions on Software Engineering} \bibinfo{volume}{47}, \bibinfo{pages}{1368--1380}.
+%Type = Inproceedings
+\bibitem[{Jimenez et~al.(2024)Jimenez, Yang, Wettig, Yao, Pei, Press and Narasimhan}]{jimenez2023swe}
+\bibinfo{author}{Jimenez, C.E.}, \bibinfo{author}{Yang, J.}, \bibinfo{author}{Wettig, A.}, \bibinfo{author}{Yao, S.}, \bibinfo{author}{Pei, K.}, \bibinfo{author}{Press, O.}, \bibinfo{author}{Narasimhan, K.}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{{SWE-bench}: Can language models resolve real-world {GitHub} issues?}, in: \bibinfo{booktitle}{The Twelfth International Conference on Learning Representations}.
+%Type = Article
+\bibitem[{Johnson et~al.(2021)Johnson, Douze and J{\'e}gou}]{johnson2019billion}
+\bibinfo{author}{Johnson, J.}, \bibinfo{author}{Douze, M.}, \bibinfo{author}{J{\'e}gou, H.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Billion-scale similarity search with {GPU}s}.
+\newblock \bibinfo{journal}{IEEE Transactions on Big Data} \bibinfo{volume}{7}, \bibinfo{pages}{535--547}.
+%Type = Inproceedings
+\bibitem[{Kalliamvakou et~al.(2014)Kalliamvakou, Gousios, Blincoe, Singer, German and Damian}]{kalliamvakou2014promises}
+\bibinfo{author}{Kalliamvakou, E.}, \bibinfo{author}{Gousios, G.}, \bibinfo{author}{Blincoe, K.}, \bibinfo{author}{Singer, L.}, \bibinfo{author}{German, D.M.}, \bibinfo{author}{Damian, D.}, \bibinfo{year}{2014}.
+\newblock \bibinfo{title}{The promises and perils of mining {GitHub}}, in: \bibinfo{booktitle}{Proceedings of the 11th Working Conference on Mining Software Repositories (MSR)}, \bibinfo{organization}{ACM}. pp. \bibinfo{pages}{92--101}.
+%Type = Article
+\bibitem[{Kampenes et~al.(2007)Kampenes, Dyb{\aa}, Hannay and Sj{\o}berg}]{kampenes2007systematic}
+\bibinfo{author}{Kampenes, V.B.}, \bibinfo{author}{Dyb{\aa}, T.}, \bibinfo{author}{Hannay, J.E.}, \bibinfo{author}{Sj{\o}berg, D.I.}, \bibinfo{year}{2007}.
+\newblock \bibinfo{title}{A systematic review of effect size in software engineering experiments}.
+\newblock \bibinfo{journal}{Information and Software Technology} \bibinfo{volume}{49}, \bibinfo{pages}{1073--1086}.
+%Type = Article
+\bibitem[{Kendall(1938)}]{kendall1938new}
+\bibinfo{author}{Kendall, M.G.}, \bibinfo{year}{1938}.
+\newblock \bibinfo{title}{A new measure of rank correlation}.
+\newblock \bibinfo{journal}{Biometrika} \bibinfo{volume}{30}, \bibinfo{pages}{81--93}.
+%Type = Article
+\bibitem[{Kim et~al.(2022)Kim, Ghatpande, Liu, Koyuncu, Kim, Bissyand{\'e}, Klein and Le~Traon}]{kim2022digbug}
+\bibinfo{author}{Kim, K.}, \bibinfo{author}{Ghatpande, S.}, \bibinfo{author}{Liu, K.}, \bibinfo{author}{Koyuncu, A.}, \bibinfo{author}{Kim, D.}, \bibinfo{author}{Bissyand{\'e}, T.F.}, \bibinfo{author}{Klein, J.}, \bibinfo{author}{Le~Traon, Y.}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{{DigBug}---pre/post-processing operator selection for accurate bug localization}.
+\newblock \bibinfo{journal}{Journal of Systems and Software} \bibinfo{volume}{189}, \bibinfo{pages}{111300}.
+%Type = Article
+\bibitem[{Lakens(2017)}]{lakens2017equivalence}
+\bibinfo{author}{Lakens, D.}, \bibinfo{year}{2017}.
+\newblock \bibinfo{title}{Equivalence tests: A practical primer for t tests, correlations, and meta-analyses}.
+\newblock \bibinfo{journal}{Social Psychological and Personality Science} \bibinfo{volume}{8}, \bibinfo{pages}{355--362}.
+%Type = Inproceedings
+\bibitem[{Lam et~al.(2017)Lam, Nguyen, Nguyen and Nguyen}]{lam2017bug}
+\bibinfo{author}{Lam, A.N.}, \bibinfo{author}{Nguyen, A.T.}, \bibinfo{author}{Nguyen, H.A.}, \bibinfo{author}{Nguyen, T.N.}, \bibinfo{year}{2017}.
+\newblock \bibinfo{title}{Bug localization with combination of deep learning and information retrieval}, in: \bibinfo{booktitle}{2017 IEEE/ACM 25th International Conference on Program Comprehension (ICPC)}, \bibinfo{organization}{IEEE}. pp. \bibinfo{pages}{218--229}.
+%Type = Inproceedings
+\bibitem[{Lee et~al.(2018)Lee, Kim, Bissyand{\'e}, Jung and Le~Traon}]{lee2018bench4bl}
+\bibinfo{author}{Lee, J.}, \bibinfo{author}{Kim, D.}, \bibinfo{author}{Bissyand{\'e}, T.F.}, \bibinfo{author}{Jung, W.}, \bibinfo{author}{Le~Traon, Y.}, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{{Bench4BL}: Reproducibility study on the performance of {IR}-based bug localization}, in: \bibinfo{booktitle}{Proceedings of the 27th ACM SIGSOFT International Symposium on Software Testing and Analysis}, pp. \bibinfo{pages}{61--72}.
+%Type = Article
+\bibitem[{Li et~al.(2025)Li, Liu, Zhang, Wang, Lo, Yang, Lyu and Zhang}]{li2025knowledge}
+\bibinfo{author}{Li, Y.}, \bibinfo{author}{Liu, B.}, \bibinfo{author}{Zhang, T.}, \bibinfo{author}{Wang, Z.}, \bibinfo{author}{Lo, D.}, \bibinfo{author}{Yang, L.}, \bibinfo{author}{Lyu, J.}, \bibinfo{author}{Zhang, H.}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{A knowledge enhanced large language model for bug localization}.
+\newblock \bibinfo{journal}{Proceedings of the ACM on Software Engineering} \bibinfo{volume}{2}, \bibinfo{pages}{1914--1936}.
+%Type = Article
+\bibitem[{Liang et~al.(2022)Liang, Hang and Li}]{liang2022modeling}
+\bibinfo{author}{Liang, H.}, \bibinfo{author}{Hang, D.}, \bibinfo{author}{Li, X.}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{Modeling function-level interactions for file-level bug localization}.
+\newblock \bibinfo{journal}{Empirical Software Engineering} \bibinfo{volume}{27}, \bibinfo{pages}{186}.
+%Type = Article
+\bibitem[{Niu et~al.(2025)Niu, Li, Liu, Xia and Lo}]{niu2025deep}
+\bibinfo{author}{Niu, F.}, \bibinfo{author}{Li, C.}, \bibinfo{author}{Liu, K.}, \bibinfo{author}{Xia, X.}, \bibinfo{author}{Lo, D.}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{When deep learning meets information retrieval-based bug localization: A survey}.
+\newblock \bibinfo{journal}{ACM Computing Surveys} \bibinfo{volume}{57}, \bibinfo{pages}{1--41}.
+%Type = Misc
+\bibitem[{van~den Oord et~al.(2018)van~den Oord, Li and Vinyals}]{oord2018cpc}
+\bibinfo{author}{van~den Oord, A.}, \bibinfo{author}{Li, Y.}, \bibinfo{author}{Vinyals, O.}, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{Representation learning with contrastive predictive coding}.
+\newblock \href{http://arxiv.org/abs/1807.03748}{\tt arXiv:1807.03748}.
+%Type = Article
+\bibitem[{Pan and Yang(2010)}]{pan2010survey}
+\bibinfo{author}{Pan, S.J.}, \bibinfo{author}{Yang, Q.}, \bibinfo{year}{2010}.
+\newblock \bibinfo{title}{A survey on transfer learning}.
+\newblock \bibinfo{journal}{IEEE Transactions on Knowledge and Data Engineering} \bibinfo{volume}{22}, \bibinfo{pages}{1345--1359}.
+%Type = Misc
+\bibitem[{Ralph et~al.(2021)}]{ralph2021empirical}
+\bibinfo{author}{Ralph, P.}, et~al., \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Empirical standards for software engineering research}.
+\newblock \href{http://arxiv.org/abs/2010.03525}{\tt arXiv:2010.03525}. \bibinfo{note}{aCM SIGSOFT Empirical Standards initiative}.
+%Type = Misc
+\bibitem[{Reddy et~al.(2025)Reddy, Suresh, Doo, Liu, Nguyen, Zhou, Yavuz, Xiong, Ji and Joty}]{reddy2025swerank}
+\bibinfo{author}{Reddy, R.G.}, \bibinfo{author}{Suresh, T.}, \bibinfo{author}{Doo, J.}, \bibinfo{author}{Liu, Y.}, \bibinfo{author}{Nguyen, X.P.}, \bibinfo{author}{Zhou, Y.}, \bibinfo{author}{Yavuz, S.}, \bibinfo{author}{Xiong, C.}, \bibinfo{author}{Ji, H.}, \bibinfo{author}{Joty, S.}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{{SweRank}: Software issue localization with code ranking}.
+\newblock \href{http://arxiv.org/abs/2505.07849}{\tt arXiv:2505.07849}.
+%Type = Inproceedings
+\bibitem[{Reimers and Gurevych(2019)}]{reimers2019sentencebert}
+\bibinfo{author}{Reimers, N.}, \bibinfo{author}{Gurevych, I.}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{{Sentence-BERT}: Sentence embeddings using {S}iamese {BERT}-networks}, in: \bibinfo{booktitle}{Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing (EMNLP)}, pp. \bibinfo{pages}{3982--3992}.
+%Type = Article
+\bibitem[{Robertson and Zaragoza(2009)}]{robertson2009probabilistic}
+\bibinfo{author}{Robertson, S.}, \bibinfo{author}{Zaragoza, H.}, \bibinfo{year}{2009}.
+\newblock \bibinfo{title}{The probabilistic relevance framework: {BM25} and beyond}.
+\newblock \bibinfo{journal}{Foundations and Trends in Information Retrieval} \bibinfo{volume}{3}, \bibinfo{pages}{333--389}.
+%Type = Inproceedings
+\bibitem[{Saha et~al.(2013)Saha, Lease, Khurshid and Perry}]{saha2013improving}
+\bibinfo{author}{Saha, R.K.}, \bibinfo{author}{Lease, M.}, \bibinfo{author}{Khurshid, S.}, \bibinfo{author}{Perry, D.E.}, \bibinfo{year}{2013}.
+\newblock \bibinfo{title}{Improving bug localization using structured information retrieval}, in: \bibinfo{booktitle}{2013 28th IEEE/ACM International Conference on Automated Software Engineering (ASE)}, \bibinfo{organization}{IEEE}. pp. \bibinfo{pages}{345--355}.
+%Type = Article
+\bibitem[{Schuirmann(1987)}]{schuirmann1987}
+\bibinfo{author}{Schuirmann, D.J.}, \bibinfo{year}{1987}.
+\newblock \bibinfo{title}{A comparison of the two one-sided tests procedure and the power approach for assessing the equivalence of average bioavailability}.
+\newblock \bibinfo{journal}{Journal of Pharmacokinetics and Biopharmaceutics} \bibinfo{volume}{15}, \bibinfo{pages}{657--680}.
+%Type = Article
+\bibitem[{Sotto-Mayor and Kalech(2024)}]{sottomayor2024survey}
+\bibinfo{author}{Sotto-Mayor, B.}, \bibinfo{author}{Kalech, M.}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{A survey on transfer learning for cross-project defect prediction}.
+\newblock \bibinfo{journal}{IEEE Access} \bibinfo{volume}{12}, \bibinfo{pages}{93398--93425}.
+%Type = Article
+\bibitem[{Spearman(1904)}]{spearman1904}
+\bibinfo{author}{Spearman, C.}, \bibinfo{year}{1904}.
+\newblock \bibinfo{title}{The proof and measurement of association between two things}.
+\newblock \bibinfo{journal}{American Journal of Psychology} \bibinfo{volume}{15}, \bibinfo{pages}{72--101}.
+%Type = Article
+\bibitem[{Tong et~al.(2023)Tong, Lu, Xing and Wang}]{tong2023array}
+\bibinfo{author}{Tong, H.}, \bibinfo{author}{Lu, W.}, \bibinfo{author}{Xing, W.}, \bibinfo{author}{Wang, S.}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{{ARRAY}: Adaptive triple feature-weighted transfer {N}aive {B}ayes for cross-project defect prediction}.
+\newblock \bibinfo{journal}{Journal of Systems and Software} \bibinfo{volume}{202}, \bibinfo{pages}{111721}.
+%Type = Article
+\bibitem[{Wang et~al.(2020)Wang, Li, Chen, Huang, Zhou and Xu}]{wang2020familiarity}
+\bibinfo{author}{Wang, C.}, \bibinfo{author}{Li, Y.}, \bibinfo{author}{Chen, L.}, \bibinfo{author}{Huang, W.}, \bibinfo{author}{Zhou, Y.}, \bibinfo{author}{Xu, B.}, \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Examining the effects of developer familiarity on bug fixing}.
+\newblock \bibinfo{journal}{Journal of Systems and Software} \bibinfo{volume}{169}, \bibinfo{pages}{110667}.
+%Type = Inproceedings
+\bibitem[{Wang et~al.(2021)Wang, Wang, Joty and Hoi}]{wang2021codet5}
+\bibinfo{author}{Wang, Y.}, \bibinfo{author}{Wang, W.}, \bibinfo{author}{Joty, S.}, \bibinfo{author}{Hoi, S.C.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{{CodeT5}: Identifier-aware unified pre-trained encoder-decoder models for code understanding and generation}, in: \bibinfo{booktitle}{Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing (EMNLP)}, pp. \bibinfo{pages}{8696--8708}.
+%Type = Article
+\bibitem[{Wilcoxon(1945)}]{wilcoxon1945}
+\bibinfo{author}{Wilcoxon, F.}, \bibinfo{year}{1945}.
+\newblock \bibinfo{title}{Individual comparisons by ranking methods}.
+\newblock \bibinfo{journal}{Biometrics Bulletin} \bibinfo{volume}{1}, \bibinfo{pages}{80--83}.
+%Type = Article
+\bibitem[{Xia et~al.(2024)Xia, Deng, Dunn and Zhang}]{xia2024agentless}
+\bibinfo{author}{Xia, C.S.}, \bibinfo{author}{Deng, Y.}, \bibinfo{author}{Dunn, S.}, \bibinfo{author}{Zhang, L.}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Agentless: Demystifying {LLM}-based software engineering agents}.
+\newblock \bibinfo{journal}{arXiv preprint arXiv:2407.01489} .
+%Type = Article
+\bibitem[{Yang et~al.(2024a)Yang, Nong, Wang and Cai}]{yang2024multi}
+\bibinfo{author}{Yang, H.}, \bibinfo{author}{Nong, Y.}, \bibinfo{author}{Wang, S.}, \bibinfo{author}{Cai, H.}, \bibinfo{year}{2024}a.
+\newblock \bibinfo{title}{Multi-language software development: Issues, challenges, and solutions}.
+\newblock \bibinfo{journal}{IEEE Transactions on Software Engineering} \bibinfo{volume}{50}, \bibinfo{pages}{512--533}.
+%Type = Inproceedings
+\bibitem[{Yang et~al.(2024b)Yang, Jimenez, Wettig, Lieret, Yao, Narasimhan and Press}]{yang2024sweagent}
+\bibinfo{author}{Yang, J.}, \bibinfo{author}{Jimenez, C.E.}, \bibinfo{author}{Wettig, A.}, \bibinfo{author}{Lieret, K.}, \bibinfo{author}{Yao, S.}, \bibinfo{author}{Narasimhan, K.}, \bibinfo{author}{Press, O.}, \bibinfo{year}{2024}b.
+\newblock \bibinfo{title}{{SWE}-agent: Agent-computer interfaces enable automated software engineering}, in: \bibinfo{booktitle}{Advances in Neural Information Processing Systems}.
+%Type = Inproceedings
+\bibitem[{Ye et~al.(2014)Ye, Bunescu and Liu}]{ye2014learning}
+\bibinfo{author}{Ye, X.}, \bibinfo{author}{Bunescu, R.}, \bibinfo{author}{Liu, C.}, \bibinfo{year}{2014}.
+\newblock \bibinfo{title}{Learning to rank relevant files for bug reports using domain knowledge}, in: \bibinfo{booktitle}{Proceedings of the 22nd ACM SIGSOFT International Symposium on Foundations of Software Engineering}, pp. \bibinfo{pages}{689--699}.
+%Type = Article
+\bibitem[{Yu et~al.(2017)Yu, Jiang and Zhang}]{yu2017feature}
+\bibinfo{author}{Yu, Q.}, \bibinfo{author}{Jiang, S.}, \bibinfo{author}{Zhang, Y.}, \bibinfo{year}{2017}.
+\newblock \bibinfo{title}{A feature matching and transfer approach for cross-company defect prediction}.
+\newblock \bibinfo{journal}{Journal of Systems and Software} \bibinfo{volume}{132}, \bibinfo{pages}{366--378}.
+%Type = Article
+\bibitem[{Zhang et~al.(2022)Zhang, Deng, Zhang and Wu}]{zhang2022negative}
+\bibinfo{author}{Zhang, W.}, \bibinfo{author}{Deng, L.}, \bibinfo{author}{Zhang, L.}, \bibinfo{author}{Wu, D.}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{A survey on negative transfer}.
+\newblock \bibinfo{journal}{IEEE/CAA Journal of Automatica Sinica} \bibinfo{volume}{10}, \bibinfo{pages}{305--329}.
+%Type = Inproceedings
+\bibitem[{Zhang et~al.(2024)Zhang, Ruan, Fan and Roychoudhury}]{zhang2024autocoderover}
+\bibinfo{author}{Zhang, Y.}, \bibinfo{author}{Ruan, H.}, \bibinfo{author}{Fan, Z.}, \bibinfo{author}{Roychoudhury, A.}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{{AutoCodeRover}: Autonomous program improvement}, in: \bibinfo{booktitle}{Proceedings of the 33rd ACM SIGSOFT International Symposium on Software Testing and Analysis (ISSTA)}, pp. \bibinfo{pages}{1592--1604}.
+%Type = Inproceedings
+\bibitem[{Zhou et~al.(2012)Zhou, Zhang and Lo}]{zhou2012should}
+\bibinfo{author}{Zhou, J.}, \bibinfo{author}{Zhang, H.}, \bibinfo{author}{Lo, D.}, \bibinfo{year}{2012}.
+\newblock \bibinfo{title}{Where should the bugs be fixed? {M}ore accurate information retrieval-based bug localization based on bug reports}, in: \bibinfo{booktitle}{2012 34th International Conference on Software Engineering (ICSE)}, \bibinfo{organization}{IEEE}. pp. \bibinfo{pages}{14--24}.
+%Type = Inproceedings
+\bibitem[{Zhu et~al.(2020)Zhu, Li, Tong and Wang}]{zhu2020cooba}
+\bibinfo{author}{Zhu, Z.}, \bibinfo{author}{Li, Y.}, \bibinfo{author}{Tong, H.}, \bibinfo{author}{Wang, Y.}, \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{{COOBA}: Cross-project bug localization via adversarial transfer learning}, in: \bibinfo{booktitle}{Proceedings of the 29th International Joint Conference on Artificial Intelligence (IJCAI)}.
+%Type = Inproceedings
+\bibitem[{Zhu et~al.(2025)Zhu, Peng, Wang, Li and Xianzhong}]{zhu2025funloc}
+\bibinfo{author}{Zhu, Z.}, \bibinfo{author}{Peng, L.}, \bibinfo{author}{Wang, Y.}, \bibinfo{author}{Li, Y.}, \bibinfo{author}{Xianzhong, L.}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{{FunLoc}: A novel function-level bug localization framework enhanced by contrastive and active learning strategies}, in: \bibinfo{booktitle}{Proceedings of the 34th ACM International Conference on Information and Knowledge Management (CIKM)}.
+%Type = Article
+\bibitem[{Zhu et~al.(2023)Zhu, Tong, Wang and Li}]{zhu2022bl}
+\bibinfo{author}{Zhu, Z.}, \bibinfo{author}{Tong, H.}, \bibinfo{author}{Wang, Y.}, \bibinfo{author}{Li, Y.}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{{BL-GAN}: Semi-supervised bug localization via generative adversarial network}.
+\newblock \bibinfo{journal}{IEEE Transactions on Knowledge and Data Engineering} \bibinfo{volume}{35}, \bibinfo{pages}{11112--11125}.
+%Type = Inproceedings
+\bibitem[{Zhu et~al.(2021)Zhu, Wang and Li}]{zhu2021trobo}
+\bibinfo{author}{Zhu, Z.}, \bibinfo{author}{Wang, Y.}, \bibinfo{author}{Li, Y.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{{TroBo}: A novel deep transfer model for enhancing cross-project bug localization}, in: \bibinfo{booktitle}{Knowledge Science, Engineering and Management (KSEM)}, \bibinfo{organization}{Springer}. pp. \bibinfo{pages}{556--568}.
+
+\end{thebibliography}
