@@ -2320,7 +2320,11 @@ reported in Section~\ref{sec:dataset}.
 The replication package for this study is publicly archived on Zenodo at
 \url{https://doi.org/10.5281/zenodo.21560518}.
 It includes the curated bug metadata databases for all projects, experiment result CSVs, the four-scenario evaluation pipeline, and all analysis scripts. The package supports full reproduction of Tables~\ref{tab:scenario_means}--\ref{tab:source_selection}
-and all figures in Section~\ref{sec:results}. Given the re-implementation
+and all figures in Section~\ref{sec:results}. It also ships the three WP-small
+replicates and their per-target summary, so the run-to-run noise floor reported
+in Section~\ref{sec:threats} can be re-derived, together with the
+pre-correction results files so that the effect of the WP-small budget fix
+(Section~\ref{sec:metrics}) can be reproduced rather than taken on trust. Given the re-implementation
 fidelity threat discussed in Section~\ref{sec:threats}, the package explicitly
 includes our COOBA and TRANP-CNN re-implementations (source, configuration,
 and the equation-by-equation verification notes against the original
