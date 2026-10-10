@@ -14,7 +14,7 @@ Questions answered
    repeated WP-small runs (same target, different pair-runs) show a mean
    run-to-run spread of 0.03-0.06 MRR (max 0.25) -- 3-6x the classification
    band. This check reclassifies each originally-negative pair against (a)
-   the target's median WP-small MRR across its repeats, (b) a noise-aware
+   the target's mean WP-small MRR across its repeats, (b) a noise-aware
    band derived from that target's own measured spread, and (c) a band that
    also propagates an assumed comparable noise on the CP-transfer side
    (sqrt(2) x the measured spread), since CP-transfer was never repeated
@@ -25,7 +25,7 @@ Outputs
 results/negative_transfer_analysis.csv              — per-pair deltas + features + transfer label
 results/negative_transfer_analysis_commutativity.csv — symmetric pair breakdown
 results/negative_transfer_robustness_check.csv       — originally-negative pairs re-tested against
-                                                        median WP-small MRR + noise-aware threshold
+                                                        mean WP-small MRR + noise-aware threshold
 results/images/nt_feature_correlations.png
 results/images/nt_delta_by_target_loc.png
 results/images/nt_commutativity.png
@@ -46,7 +46,7 @@ from scipy.stats import spearmanr, wilcoxon
 RESULTS_CSV  = "/home/cs21d002_eashaan/PhD/Objective1/results/paper_results_complete_corrected.csv"
 METADATA_PKL = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/project_metadata.parquet"
 DOMAIN_CSV   = "/home/cs21d002_eashaan/PhD/Objective1/results/all_project_domain_gaps.csv"
-# WP-small in RESULTS_CSV is now the median of 3 clean reps at the corrected
+# WP-small in RESULTS_CSV is now the mean of 3 clean reps at the corrected
 # 20% budget, broadcast identically to every pair sharing a target (see
 # merge_wp_small_matched_budget.py) -- so the old accidental per-pair repeats
 # in obj1_experimental_results_corrected.csv are degenerate (zero spread) for
@@ -373,13 +373,13 @@ def print_summary(delta):
 def negative_transfer_robustness_check(delta):
     """
     Re-tests every originally-negative pair (negative already computed
-    against WP-small's median-of-3-reps, corrected 20% budget -- see
+    against WP-small's mean-of-3-reps, corrected 20% budget -- see
     merge_wp_small_matched_budget.py) against WP-small's own measured
     run-to-run noise.
 
     Two independent checks, applied separately:
       (a) per-rep sensitivity -- reclassify using each INDIVIDUAL rep's
-          WP-small value instead of the median already baked into `delta`,
+          WP-small value instead of the mean already baked into `delta`,
           to see whether a pair's negative-transfer label depends on which
           single rep you'd have used.
       (b) noise-aware band -- classify as negative only if |delta| exceeds
@@ -424,7 +424,7 @@ def negative_transfer_robustness_check(delta):
               f"{n_sym:>9d}/63 ({n_sym/63*100:4.1f}%)")
 
     print("\n── Per-rep sensitivity: does the negative-transfer label survive "
-          "using a single rep instead of the median? ───")
+          "using a single rep instead of the mean? ───")
     reps = []
     for n, path in enumerate(WPS_REP_FILES, start=1):
         r = pd.read_csv(path)[['model_name', 'target_project', 'MRR']].rename(columns={'MRR': f'mrr_rep{n}'})
