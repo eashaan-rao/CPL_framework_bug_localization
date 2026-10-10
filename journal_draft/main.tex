@@ -1813,18 +1813,17 @@ CPL deployment.
 CP-transfer outperformed WP-small in most deployments (60.3\%,
 Table~\ref{tab:wilcoxon}), with losses small (median $-0.017$ MRR, worst
 $-0.045$) and of the order of the run-to-run noise
-floor (Section~\ref{sec:results}). \emph{Zero-label deployment comes within about 0.06 MRR of
-WP-small on average, and is viable in under half of pairs.}
+floor (Section~\ref{sec:results}). \emph{Zero-label deployment retains about
+80\% of WP-small's MRR on average, and is viable in under half of pairs.}
 Deployment can begin without target annotations, with labels accumulated
 subsequently for fine-tuning.
 
 \paragraph{2. Target codebase size moderates benefit; validate empirically for large targets.}
 CPL gain is largest for small-codebase targets and drops for medium targets;
-for BLAZE and COOBA it is essentially zero for large targets
-(Table~
-ef{tab:stratified}), while TRANP-CNN retains a gain there.
-Practitioners with large-codebase targets and BLAZE- or COOBA-style tools
-should validate CPL empirically before relying on it.
+for BLAZE it is essentially zero for large targets
+(Table~\ref{tab:stratified}), while TRANP-CNN retains a gain there and COOBA
+shows none at any size. Practitioners with large-codebase targets and
+BLAZE-style tools should validate CPL empirically before relying on it.
 
 \paragraph{3. Choose sources by domain, not by ranking heuristics or within-project quality.}
 No tested heuristic reliably ranks source projects for any model, yet all
@@ -1833,7 +1832,8 @@ three achieve near-oracle CP-transfer performance regardless of source choice
 BLAZE and TRANP-CNN. Domain category membership is the most actionable
 criterion, though the within-domain evidence here comes entirely from Data
 Science pairs: same-domain sources give a markedly higher win rate for
-BLAZE (63.3\% vs.\ 42.4\%), and any conveniently available within-domain source beats
+BLAZE (70.0\% vs.\ 45.5\%) but not for the other two models, where the
+contrast is mildly reversed, and for BLAZE any conveniently available within-domain source beats
 investing in ranking by corpus size or embedding proximity. Within-project
 quality should not be used as a selection criterion for any architecture;
 for TRANP-CNN and COOBA it is a significant \emph{negative} predictor (Section~\ref{sec:results}),
@@ -1849,7 +1849,7 @@ ceiling \emph{relative to its own baseline} of the three models, though BLAZE
 still leads on absolute MRR and Top-K throughout
 (Table~\ref{tab:scenario_means}). This carries some
 negative-transfer risk (Section~\ref{sec:results}), though in this corpus it is not
-concentrated in cross-domain pairs (win rate 73.3\% within-domain vs.\ 69.7\%
+concentrated in cross-domain pairs (win rate 60.0\% within-domain vs.\ 63.6\%
 cross-domain), so empirical validation remains the safer guard.
 
 \paragraph{5. Empirical holdout validation is the safest guard against negative transfer.}
@@ -1858,8 +1858,8 @@ measured feature reliably predicts pair-level gain for COOBA
 (Section~\ref{sec:results}). When deployment risk is high, the safest
 approach is a small annotated target holdout before committing to
 cross-project transfer, especially for COOBA (roughly one in three
-deployments negative) and, to a lesser extent, TRANP-CNN (roughly one in
-six); a project able to hold one out is, by definition, not fully in the
+deployments negative) and BLAZE (roughly one in four), and to a lesser extent
+TRANP-CNN (roughly one in six); a project able to hold one out is, by definition, not fully in the
 zero-label regime this study is written for (Section~\ref{sec:threats}
 gives a rough usable size).
 
@@ -1921,11 +1921,11 @@ evaluation-mechanism account: if
 representation quality were the sole factor, cold-start should be
 near-optimal without adapter training, yet CP-cold-start (0.210) trails
 CP-transfer (0.298), so fine-tuning adds signal beyond the pre-trained
-representations; BLAZE's gain-to-loss asymmetry ($+0.040$ vs.\ $-0.017$
+representations; BLAZE's gain-to-loss asymmetry ($+0.045$ vs.\ $-0.017$
 MRR) reflects ranking smoothness, not representation capacity, since a
 strong backbone alone would not guarantee bounded losses; and the two
-non-BGE rerankers differ from each other in profile ($d = 0.95$ vs.\
-$0.27$), so representation vintage alone does not determine transfer
+non-BGE rerankers differ from each other in profile ($d = 0.67$ vs.\
+$-0.01$), so representation vintage alone does not determine transfer
 behavior. Section~\ref{sec:threats} records the residual representation
 asymmetry as a construct threat.
 
@@ -1940,7 +1940,7 @@ to contrast against the source distribution; with zero target data it gets
 no target signal, so the resulting features stay calibrated to the source
 AST vocabulary (identifier namespaces, call-graph structures, type
 hierarchies, all project-specific), which misalign on a new target,
-explaining the near-zero cold-start MRR ($0.027$ vs.\ $0.138$ for
+explaining the near-zero cold-start MRR ($0.027$ vs.\ $0.157$ for
 WP-small). The counter-intuitive finding that higher source within-project
 performance predicts \emph{worse} transfer follows the same logic: a model
 that has learned source AST patterns very precisely has encoded more
@@ -1953,12 +1953,13 @@ file) pair via parallel convolutional feature extractors and margin
 ranking loss, calibrated during training to the source project's ranking
 difficulty. Without target examples this score stays anchored to the
 source distribution, its scale and decision boundary not transferring,
-explaining cold-start failure ($0.038$ vs.\ WP-small $0.165$). With 20\%
+explaining cold-start failure ($0.038$ vs.\ WP-small $0.182$). With 20\%
 target labels in the same joint training run (CP-transfer,
 Section~\ref{sec:scenarios}), the scalar score calibrates to the target's
 ranking difficulty while still drawing on the full source signal, yielding
-the largest effect of the three models ($d = 0.95$, $p < 0.001$ across all metrics;
-BLAZE $0.49$, COOBA $0.27$); this jointly-trained
+nominally the largest effect of the three models, though not separable from
+BLAZE's ($d = 0.67$, $p < 0.001$ across all metrics;
+BLAZE $0.55$, COOBA $-0.01$); this jointly-trained
 result is statistically equivalent to WP-large (TOST, $\pm 0.05$ MRR), the
 joint signal closes the gap to the ample-data ceiling once target
 calibration is provided.
@@ -1981,7 +1982,7 @@ sophistication.
 
 \subsection{Implications for CPL Research}
 
-\looseness=-1 The low cross-model agreement (44--54\% across the three model pairs) is a
+\looseness=-1 The low cross-model agreement (38--56\% across the three model pairs) is a
 methodological contribution for the CPL research community. It suggests that
 CPL benefit may not generalize across model architectures: a finding
 from one CPL model did not, in this corpus, reliably predict outcomes from a different architecture
@@ -2029,38 +2030,48 @@ re-ranking-only evaluation over gold-standard candidate sets, left to future
 work. The within-model CPL comparison (CPT vs.\ WPS) is unaffected, since
 both conditions face the same constraint.
 
-\textbf{Training stochasticity and the fixed split.}
+\textbf{Training stochasticity, and why only WP-small is replicated.}
 The fixed seed (42) controls the data splits, not the training process:
 weight initialization, data-loader ordering, and non-deterministic GPU
-kernels are unseeded, so identically configured WP-small runs on the same
-target differ by a mean min--max MRR spread of 0.05--0.07 across the three
-models (maximum 0.25), on the same order as the mean CPL gains, so
-\emph{individual}-pair gains carry a substantial noise floor. Two properties
-protect the aggregate conclusions: the Wilcoxon analysis is paired at the run
-level, and re-testing CP-transfer against each target's \emph{median}
-WP-small MRR retains a positive difference for all three models (BLAZE $p < 0.001$,
-$r_{rb} = 0.99$; TRANP-CNN $p < 0.001$, $r_{rb} = 0.74$; COOBA $p = 0.007$,
-$r_{rb} = 0.35$), though COOBA's $p = 0.007$ now falls below the $0.010$
-threshold it failed in Table~\ref{tab:wilcoxon}. Pair-level results, including the illustrative cases
-(Section~\ref{sec:cases}), should be read with this noise floor in mind. The
-compute budget favored breadth of pairs over repeated seeds, since RQ3
-needs many pairs evaluated identically across all three models; this trades
-per-pair variance estimation for architecture-level power, which the median
-re-test partially recovers.
+kernels are unseeded, so identically configured runs differ. We measured this
+directly on WP-small, which is run three times per (model, target)
+(Section~\ref{sec:scenarios}): the mean min--max MRR spread is 0.032 (BLAZE),
+0.047 (TRANP-CNN) and 0.051 (COOBA), with a maximum of 0.153. That is on the
+same order as the mean CPL gains, so \emph{individual}-pair gains carry a
+substantial noise floor even though the aggregate comparisons are well
+separated from it. Three properties protect the aggregate conclusions: each
+WP-small value is a 3-run mean rather than a single draw; the Wilcoxon
+analysis is paired; and re-running the RQ1 test against each individual
+WP-small replicate rather than their mean leaves BLAZE and TRANP-CNN
+significant under every replicate ($p \leq 0.014$ in all six tests), while
+COOBA is non-significant under two of three and nominally negative under
+those two. The asymmetry in replication is deliberate but not free:
+WP-small depends only on the target, so three runs per (model, target) cover
+all 63 pairs, whereas CP-transfer's source+target combination is unique to
+each pair and replicating it to the same depth would cost roughly five times
+as many runs. We therefore have a direct noise estimate for one side of the
+primary comparison and none for the other, and pair-level results --
+including the illustrative cases (Section~\ref{sec:cases}) -- should be read
+with that in mind.
 
 \textbf{Negative-transfer classification uses a band tighter than the model's
 own noise.} The $\pm 0.01$ MRR neutral band used to classify negative transfer
-(Section~\ref{sec:results}) is 3--6$\times$ narrower than the 0.05--0.07 mean
-(0.25 max) run-to-run spread measured above from repeated WP-small runs. A
-robustness check (\texttt{negative\_transfer\_robustness\_check} in
+(Section~\ref{sec:results}) is 3--5$\times$ narrower than the 0.03--0.05 mean
+(0.15 max) run-to-run spread measured above. We retain $\pm 0.01$ as the
+primary definition, since it is the conventional ``any meaningful loss''
+threshold and re-defining it post hoc against our own noise would be a moving
+target, and report noise-calibrated rates alongside it. A robustness check
+(\texttt{negative\_transfer\_robustness\_check} in
 \texttt{negative\_transfer\_analysis.py}) re-tests each originally-negative
-pair against the target's median WP-small MRR, a band derived from WP-small's
-measured spread, and a band that also assumes a comparable, unmeasured noise
-magnitude on the CP-transfer side -- since CP-transfer's source+target
-combination is unique to each pair, it was never repeated, and its own
-run-to-run variance has no direct estimate. Under the most conservative of
-these checks, the negative-transfer rate falls to 0\% for BLAZE and COOBA and
-1.6\% for TRANP-CNN.
+pair against a band derived from that target's own measured WP-small spread,
+and against a wider band that additionally assumes a comparable noise
+magnitude on the CP-transfer side. That second band is an \emph{assumption},
+not a measurement: CP-transfer was not replicated, so its run-to-run variance
+has no direct estimate, and we take it to wobble like WP-small on the grounds
+that the cause is shared (training stochasticity) rather than data-volume
+dependent. Under the most conservative of these checks the rates fall to
+6.3\% (BLAZE), 7.9\% (TRANP-CNN) and 9.5\% (COOBA) -- reduced, but non-zero
+for every model, so the phenomenon is not an artifact of the threshold.
 
 \textbf{Random rather than chronological splits.}
 Splits are drawn at random (seed 42) rather than chronologically, which can
@@ -2083,7 +2094,7 @@ both faithful to their original designs. Representation quality differs
 across rerankers and is bundled into each architecture rather than
 controlled out. This is bounded by three observations: the candidate pool
 is identical for all models; the two non-BGE rerankers differ from each
-other ($d = 0.95$ vs.\ $0.27$), so vintage alone does not determine CPL
+other ($d = 0.67$ vs.\ $-0.01$), so vintage alone does not determine CPL
 profile; and the cold-start dichotomy is consistent with the mechanism
 account in Section~\ref{sec:architecture}. A more specific asymmetry: the shared
 FAISS stage pools candidates via mean-pooled BGE embeddings, and BLAZE
@@ -2187,18 +2198,23 @@ re-test above, we additionally fit linear mixed-effects models of CPL gain with 
 project as a random intercept, following recent guidance
 for clustered observations~\citep{oliveira2019evolution}
 (\texttt{Scripts/analysis/mixed\_effects\_check.py}). Clustering matters:
-between-project variance ($0.0013$) is about two-thirds of the residual
-($0.0020$; intraclass correlation $\approx 0.39$). In a pooled model with
-BLAZE as reference, TRANP-CNN's gain is higher ($+0.020$, $p = 0.012$) but
-COOBA's does not differ significantly ($-0.011$, $p = 0.17$), so model
-identity is a modest, not dominant, source of variation in gain. Fitted
+between-project variance ($0.0008$) is about two-fifths of the residual
+($0.0021$; intraclass correlation $\approx 0.27$). In a pooled model with
+BLAZE as reference, TRANP-CNN's gain does not differ significantly
+($-0.003$, $p = 0.70$) while COOBA's is clearly lower ($-0.036$,
+$p < 0.001$), reinforcing the two-group reading of
+Section~\ref{sec:results}: the clustered analysis separates COOBA from the
+other two rather than ordering all three. Fitted
 per model, the mean CPL gain is significantly positive only for TRANP-CNN
-($+0.041$, $p = 0.001$) and not for BLAZE ($+0.017$, $p = 0.18$) or COOBA
-($+0.009$, $p = 0.47$); a Wilcoxon test on the 13 per-target mean gains gives
-the same picture (TRANP-CNN $p = 0.007$, 10/13 targets positive; BLAZE
-$p = 0.27$, 7/13; COOBA $p = 0.32$, 6/13). BLAZE's pair-level significance in
+($+0.024$, $p = 0.016$) and not for BLAZE ($+0.022$, $p = 0.11$) or COOBA
+($-0.001$, $p = 0.96$); a Wilcoxon test on the 13 per-target mean gains gives
+the same picture (TRANP-CNN $p = 0.013$, 10/13 targets positive; BLAZE
+$p = 0.073$, 8/13; COOBA $p = 0.45$, 7/13). BLAZE's pair-level significance in
 Table~\ref{tab:wilcoxon} therefore depends on treating pairs sharing a target
-as independent and should be read as suggestive; TRANP-CNN's benefit is
+as independent and should be read as suggestive -- note that its per-model
+point estimate ($+0.022$) is essentially the same as TRANP-CNN's, so this is a
+power limitation at 13 clusters rather than evidence of a weaker effect;
+TRANP-CNN's benefit is
 robust to this clustering, though with only 13 clusters all of these
 estimates should be read cautiously.
 
@@ -2221,29 +2237,32 @@ four scenarios isolating the contribution of cross-project knowledge.
 
 Cross-project transfer outperforms within-project limited training for TRANP-CNN
 (robustly) and for BLAZE (at the pair level, though not when pairs are clustered by
-target project) but yields only marginal benefit for COOBA, our only adversarial
+target project), with effect sizes that are comparable rather than ordered, but
+yields no measurable benefit for COOBA, our only adversarial
 GNN instance and one we re-implemented, which also collapses to near-zero in
-cold-start (Section~\ref{sec:results}). BLAZE's zero-label deployment comes within about 0.06 MRR of WP-small and is
+cold-start (Section~\ref{sec:results}). BLAZE's zero-label deployment retains about
+80\% of WP-small's MRR and is
 viable in nearly half of pairs;
 TRANP-CNN reaches full within-project performance with 20\% target labels, the
 highest CPL ceiling relative to its own baseline, though BLAZE still leads on
 absolute MRR and Top-K throughout. CPL gain correlates strongly with how few
 labels the target already has: the least-labeled targets, the ones this
 study is written for, benefit the most. This benefit has limits, however:
-negative transfer affects 31.7\% of COOBA deployments, 15.9\% of TRANP-CNN's,
-and 1.6\% of BLAZE's; domain sensitivity is steepest for BLAZE and smallest
-for TRANP-CNN; similarity-based project features do not reliably predict pair-level
+negative transfer affects 31.7\% of COOBA deployments, 27.0\% of BLAZE's,
+and 15.9\% of TRANP-CNN's -- common for every architecture tested, not a
+property that separates them; domain sensitivity is pronounced for BLAZE and
+absent for the other two; similarity-based project features do not reliably predict pair-level
 success, though target label count does; and cross-model direction agreement
-ranges from only 44\% to 54\%, so a result from one architecture does not
+ranges from only 38\% to 56\%, so a result from one architecture does not
 reliably predict another's even on the same pair, though BLAZE's and
 TRANP-CNN's gains are themselves correlated (Section~\ref{sec:discussion}).
 
 For practitioners, BLAZE can often be deployed immediately with zero target
-annotations, climbing to a 63.3\% within-domain win rate once a modest label
+annotations, climbing to a 70.0\% within-domain win rate once a modest label
 set is added; TRANP-CNN needs 20\% of target labels to match full
 within-project training. Both carry a cost WP-small does not: CP-transfer
 trains on the full source corpus in addition to the target-side labels, and neither guarantees a win. Source and domain alignment should be checked empirically, not
-assumed, particularly for BLAZE and COOBA.
+assumed, particularly for BLAZE.
 
 Future work should pursue: an untrained BGE-with-MaxSim
 baseline to separate the aggregation effect from adapter training, which
