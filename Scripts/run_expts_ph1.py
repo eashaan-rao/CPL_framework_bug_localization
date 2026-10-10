@@ -209,8 +209,8 @@ def main():
 
             # Define the four scenarios based on the splits
             scenarios = [
-                # Scenario 1: WP-Small (Train: 10% Target, Test: 20% Target)
-                {'name': 'WP-small', 'source_train':[], 'target_train': train_test_split(splits['train_pool'], train_size=0.125, random_state=42)[0], 'target_test': splits['test_set']},
+                # Scenario 1: WP-Small (Train: 20% Target, Test: 20% Target) — matched to CP-transfer's target budget
+                {'name': 'WP-small', 'source_train':[], 'target_train': train_test_split(splits['train_pool'], train_size=0.25, random_state=42)[0], 'target_test': splits['test_set']},
 
                 # Scenario 2: WP-Large (Train: 80% Target, Test: 20% Target)
                 {'name': 'WP-large', 'source_train':[], 'target_train': splits['train_pool'], 'target_test': splits['test_set']},

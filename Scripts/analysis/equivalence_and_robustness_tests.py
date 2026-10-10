@@ -7,9 +7,17 @@ Produces, on the 63 shared source->target pairs from obj1_experimental_results.c
   2. TOST equivalence tests (margin +/-0.05 MRR, Wilcoxon variant):
      - TRANP-CNN CP-transfer vs WP-large
      - BLAZE CP-cold-start vs WP-small
-  3. WP-small run-to-run variance per target (internal-validity threat)
-  4. Wilcoxon re-test of CP-transfer vs per-target MEDIAN WP-small MRR
-     (robustness check quoted in the threats section)
+  3. WP-small run-to-run variance per target (internal-validity threat).
+     RESULTS_CSV's WP-small rows are now the median of 3 clean reps at the
+     corrected 20% budget, broadcast identically to every pair sharing a
+     target (see merge_wp_small_matched_budget.py) -- the per-pair spread
+     computed from RESULTS_CSV itself would therefore be zero by
+     construction. The real noise floor is read from
+     wp_small_matched_budget_summary.csv instead (the 3 raw reps).
+  4. Wilcoxon re-test of CP-transfer vs EACH INDIVIDUAL WP-small rep
+     (not the median already baked into RESULTS_CSV) -- shows whether the
+     RQ1 conclusion is sensitive to which single rep you'd have used, now
+     that WP-small is budget-matched to CP-transfer.
   5. WP-large MRR by target size group (tab:stratified WP-large columns)
 
 Run inside the obj1 virtualenv:
@@ -21,6 +29,12 @@ import pandas as pd
 from scipy import stats
 
 RESULTS_CSV = "/home/cs21d002_eashaan/PhD/Objective1/results/obj1_experimental_results_corrected.csv"
+WPS_SUMMARY_CSV = "/home/cs21d002_eashaan/PhD/Objective1/results/wp_small_matched_budget_summary.csv"
+WPS_REP_FILES = [
+    "/home/cs21d002_eashaan/PhD/Objective1/results/wp_small_matched_budget.csv",
+    "/home/cs21d002_eashaan/PhD/Objective1/results/wp_small_matched_budget_rep2.csv",
+    "/home/cs21d002_eashaan/PhD/Objective1/results/wp_small_matched_budget_rep3.csv",
+]
 TOST_MARGIN_MRR = 0.05  # smallest mean CPL gain treated as practically meaningful
 
 METRICS = ["MRR", "MAP", "top-1", "top-5", "top-10"]
@@ -109,24 +123,24 @@ def main():
         print(f"{label}: mean diff={diff.mean():+.4f}, two-sided p={p_two:.3f}, "
               f"TOST p={tost_wilcoxon(diff, TOST_MARGIN_MRR):.4f}")
 
-    print("\n=== 3. WP-small run-to-run variance per target ===")
-    wps_all = df[df.scenario == "WP-small"]
+    print("\n=== 3. WP-small run-to-run variance per target (3 clean reps, corrected 20% budget) ===")
+    wps_summary = pd.read_csv(WPS_SUMMARY_CSV)
+    wps_summary["MRR_spread"] = wps_summary["MRR_max"] - wps_summary["MRR_min"]
     for m in MODELS:
-        g = wps_all[wps_all.model_name == m].groupby("target_project")["MRR"].agg(["count", "min", "max"])
-        g["spread"] = g["max"] - g["min"]
-        multi = g[g["count"] > 1]
-        print(f"{m}: targets with repeats={len(multi)}, "
-              f"mean spread={multi['spread'].mean():.3f}, max spread={multi['spread'].max():.3f}")
+        g = wps_summary[wps_summary.model_name == m]
+        print(f"{m}: targets={len(g)}, "
+              f"mean spread={g['MRR_spread'].mean():.3f}, max spread={g['MRR_spread'].max():.3f}")
 
-    print("\n=== 4. CPT vs per-target MEDIAN WPS (robustness re-test, MRR) ===")
-    for m in MODELS:
-        sub = df[df.model_name == m]
-        med = sub[sub.scenario == "WP-small"].groupby("target_project")["MRR"].median()
-        cpt = sub[sub.scenario == "CP-transfer"].set_index("pair")["MRR"]
-        wps_med = pd.Series({p: med[p[1]] for p in cpt.index})
-        _, p = stats.wilcoxon(cpt.values, wps_med.values, alternative="greater")
-        print(f"{m:10s}: p={p:.4g}, r_rb={rank_biserial(cpt.values, wps_med.values):+.2f}, "
-              f"win%={(cpt.values > wps_med.values).mean()*100:.1f}")
+    print("\n=== 4. CPT vs EACH INDIVIDUAL WP-small rep (sensitivity to single-run choice, MRR) ===")
+    for rep_n, rep_path in enumerate(WPS_REP_FILES, start=1):
+        rep = pd.read_csv(rep_path).set_index(["model_name", "target_project"])["MRR"]
+        for m in MODELS:
+            sub = df[df.model_name == m]
+            cpt = sub[sub.scenario == "CP-transfer"].set_index("pair")["MRR"]
+            wps_rep = pd.Series({p: rep[(m, p[1])] for p in cpt.index})
+            _, p = stats.wilcoxon(cpt.values, wps_rep.values, alternative="greater")
+            print(f"rep{rep_n} {m:10s}: p={p:.4g}, r_rb={rank_biserial(cpt.values, wps_rep.values):+.2f}, "
+                  f"win%={(cpt.values > wps_rep.values).mean()*100:.1f}")
 
     print("\n=== 5. WP-large MRR by target size group ===")
     df["size"] = df.target_project.map(SIZE_GROUP)

@@ -2,8 +2,9 @@
 WP-small counterpart of blaze_faiss_restricted_sweep.py (which covers
 CP-transfer). Same train-once / evaluate-twice design (full-corpus vs.
 FAISS-top-300, same weights), across all 63 paper pairs, WP-small scenario
-only: source_train=[], target_train=12.5% of the 80% train pool (=10% of the
-target's total bugs), matching run_expts_ph1.py's scenario 1 definition.
+only: source_train=[], target_train=25% of the 80% train pool (=20% of the
+target's total bugs), matching run_expts_ph1.py's scenario 1 definition and
+CP-transfer's target-side budget.
 
 Designed to run CONCURRENTLY with the other three scenario sweeps (separate
 output dir, separate summary CSV — no file collisions). Each sweep's own
@@ -248,9 +249,9 @@ def run_pair(source_project, target_project, df_meta, df_bugs, ref_df, device):
     target_bug_ids_all = load_bug_ids_for_project(target_project, df_bugs)
     splits = get_data_splits(target_bug_ids_all)
 
-    # WP-small: no source data, 12.5% of the 80% train pool (= 10% of target's total bugs)
+    # WP-small: no source data, 25% of the 80% train pool (= 20% of target's total bugs) — matched to CP-transfer's target budget
     source_train_ids = []
-    target_train_ids = train_test_split(splits["train_pool"], train_size=0.125, random_state=42)[0]
+    target_train_ids = train_test_split(splits["train_pool"], train_size=0.25, random_state=42)[0]
     target_test_ids = splits["test_set"]
     print(f"  Source train: {len(source_train_ids)}  Target train: {len(target_train_ids)}  "
           f"Target test: {len(target_test_ids)}")

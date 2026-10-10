@@ -8,11 +8,24 @@ Questions answered
 1. What observable features predict the sign and magnitude of CP-transfer − WP-small?
 2. Which pairs exhibit negative transfer, and what do they share?
 3. For symmetric pairs (A→B and B→A), does the smaller-LoC target consistently benefit?
+4. How many "negative transfer" pairs survive once WP-small's own measured
+   run-to-run noise is accounted for? The headline classification compares
+   CP-transfer to a *single* WP-small run against a fixed ±0.01 MRR band, but
+   repeated WP-small runs (same target, different pair-runs) show a mean
+   run-to-run spread of 0.03-0.06 MRR (max 0.25) -- 3-6x the classification
+   band. This check reclassifies each originally-negative pair against (a)
+   the target's mean WP-small MRR across its repeats, (b) a noise-aware
+   band derived from that target's own measured spread, and (c) a band that
+   also propagates an assumed comparable noise on the CP-transfer side
+   (sqrt(2) x the measured spread), since CP-transfer was never repeated
+   and its own run-to-run variance has no direct estimate.
 
 Outputs
 ───────
 results/negative_transfer_analysis.csv              — per-pair deltas + features + transfer label
 results/negative_transfer_analysis_commutativity.csv — symmetric pair breakdown
+results/negative_transfer_robustness_check.csv       — originally-negative pairs re-tested against
+                                                        mean WP-small MRR + noise-aware threshold
 results/images/nt_feature_correlations.png
 results/images/nt_delta_by_target_loc.png
 results/images/nt_commutativity.png
@@ -33,10 +46,23 @@ from scipy.stats import spearmanr, wilcoxon
 RESULTS_CSV  = "/home/cs21d002_eashaan/PhD/Objective1/results/paper_results_complete_corrected.csv"
 METADATA_PKL = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/project_metadata.parquet"
 DOMAIN_CSV   = "/home/cs21d002_eashaan/PhD/Objective1/results/all_project_domain_gaps.csv"
+# WP-small in RESULTS_CSV is now the mean of 3 clean reps at the corrected
+# 20% budget, broadcast identically to every pair sharing a target (see
+# merge_wp_small_matched_budget.py) -- so the old accidental per-pair repeats
+# in obj1_experimental_results_corrected.csv are degenerate (zero spread) for
+# the noise-floor robustness check below. The real noise floor and the raw
+# per-rep values come from these files instead.
+WPS_SUMMARY_CSV = "/home/cs21d002_eashaan/PhD/Objective1/results/wp_small_matched_budget_summary.csv"
+WPS_REP_FILES = [
+    "/home/cs21d002_eashaan/PhD/Objective1/results/wp_small_matched_budget.csv",
+    "/home/cs21d002_eashaan/PhD/Objective1/results/wp_small_matched_budget_rep2.csv",
+    "/home/cs21d002_eashaan/PhD/Objective1/results/wp_small_matched_budget_rep3.csv",
+]
 IMG_DIR      = "/home/cs21d002_eashaan/PhD/Objective1/results/images"
 OUT_CSV           = "/home/cs21d002_eashaan/PhD/Objective1/results/negative_transfer_analysis.csv"
 OUT_COMM_CSV      = "/home/cs21d002_eashaan/PhD/Objective1/results/negative_transfer_analysis_commutativity.csv"
 OUT_CROSSDOMAIN_CSV = "/home/cs21d002_eashaan/PhD/Objective1/results/cross_domain_breakdown.csv"
+OUT_ROBUSTNESS_CSV  = "/home/cs21d002_eashaan/PhD/Objective1/results/negative_transfer_robustness_check.csv"
 
 # The 6 DS projects form the within-domain group (Group A pairs in paper set).
 DS_PROJECTS = {
@@ -344,6 +370,83 @@ def print_summary(delta):
         print()
 
 
+def negative_transfer_robustness_check(delta):
+    """
+    Re-tests every originally-negative pair (negative already computed
+    against WP-small's mean-of-3-reps, corrected 20% budget -- see
+    merge_wp_small_matched_budget.py) against WP-small's own measured
+    run-to-run noise.
+
+    Two independent checks, applied separately:
+      (a) per-rep sensitivity -- reclassify using each INDIVIDUAL rep's
+          WP-small value instead of the mean already baked into `delta`,
+          to see whether a pair's negative-transfer label depends on which
+          single rep you'd have used.
+      (b) noise-aware band -- classify as negative only if |delta| exceeds
+          half (or, for a stricter check, all) of that target's own
+          measured WP-small spread (from the 3 clean reps), instead of the
+          fixed +/-0.01 MRR band. Also reports a symmetric-noise band
+          (sqrt(2) x spread) that additionally assumes CP-transfer wobbles
+          by a comparable amount -- CP-transfer's source+target combination
+          is unique per pair, so unlike WP-small it was never repeated and
+          its own run-to-run variance has no direct estimate. That band is
+          therefore an assumption, not a measurement of CP-transfer's noise.
+
+    This does not produce one "corrected" negative-transfer rate -- the
+    result is threshold-sensitive by construction -- it bounds how much of
+    the headline rate survives a noise-consistent re-test.
+    """
+    summary = pd.read_csv(WPS_SUMMARY_CSV)
+    summary['wps_spread'] = summary['MRR_max'] - summary['MRR_min']
+
+    neg = delta[delta['transfer'] == 'negative'].merge(
+        summary[['model_name', 'target_project', 'wps_spread']],
+        on=['model_name', 'target_project'], how='left')
+    neg['half_spread_band']     = neg['wps_spread'] / 2
+    neg['symmetric_noise_band'] = neg['wps_spread'] * np.sqrt(2)
+
+    neg['negative_vs_half_spread_band']     = neg['delta_mrr'] < -neg['half_spread_band']
+    neg['negative_vs_full_spread_band']     = neg['delta_mrr'] < -neg['wps_spread']
+    neg['negative_vs_symmetric_noise_band'] = neg['delta_mrr'] < -neg['symmetric_noise_band']
+
+    print("\n── Negative-Transfer Robustness Check "
+          "(re-test vs. WP-small's own measured run-to-run noise, 3 clean reps) ───")
+    print(f"{'Model':<10} {'orig':>6} {'half-spread band':>18} "
+          f"{'full-spread band':>18} {'symmetric-noise band':>22}")
+    for model, g in neg.groupby('model_name'):
+        n_orig = len(g)
+        n_half = g['negative_vs_half_spread_band'].sum()
+        n_full = g['negative_vs_full_spread_band'].sum()
+        n_sym  = g['negative_vs_symmetric_noise_band'].sum()
+        print(f"{model:<10} {n_orig:>3d}/63 "
+              f"{n_half:>9d}/63 ({n_half/63*100:4.1f}%) "
+              f"{n_full:>9d}/63 ({n_full/63*100:4.1f}%) "
+              f"{n_sym:>9d}/63 ({n_sym/63*100:4.1f}%)")
+
+    print("\n── Per-rep sensitivity: does the negative-transfer label survive "
+          "using a single rep instead of the mean? ───")
+    reps = []
+    for n, path in enumerate(WPS_REP_FILES, start=1):
+        r = pd.read_csv(path)[['model_name', 'target_project', 'MRR']].rename(columns={'MRR': f'mrr_rep{n}'})
+        reps.append(r)
+    rep_wide = reps[0].merge(reps[1], on=['model_name', 'target_project']).merge(reps[2], on=['model_name', 'target_project'])
+    neg = neg.merge(rep_wide, on=['model_name', 'target_project'], how='left')
+    for n in [1, 2, 3]:
+        neg[f'delta_mrr_rep{n}'] = neg['MRR'] - neg[f'mrr_rep{n}']
+        neg[f'negative_vs_rep{n}'] = neg[f'delta_mrr_rep{n}'] < NEG_THRESH
+    for model, g in neg.groupby('model_name'):
+        n_orig = len(g)
+        counts = [g[f'negative_vs_rep{n}'].sum() for n in [1, 2, 3]]
+        print(f"{model:<10} {n_orig:>3d}/63 orig negative -> still negative under: "
+              f"rep1={counts[0]}/{n_orig}  rep2={counts[1]}/{n_orig}  rep3={counts[2]}/{n_orig}")
+
+    return neg[[
+        'model_name', 'source_project', 'target_project', 'delta_mrr', 'wps_spread',
+        'negative_vs_half_spread_band', 'negative_vs_full_spread_band', 'negative_vs_symmetric_noise_band',
+        'negative_vs_rep1', 'negative_vs_rep2', 'negative_vs_rep3',
+    ]]
+
+
 def main():
     print("Loading data...")
     df    = load_data()
@@ -354,6 +457,7 @@ def main():
     plot_delta_by_target_loc(delta)
     comm_df = commutativity_analysis(delta)
     cd_df   = cross_domain_breakdown(delta)
+    robust_df = negative_transfer_robustness_check(delta)
 
     delta.to_csv(OUT_CSV, index=False)
     print(f"  ✓ {OUT_CSV}")
@@ -363,6 +467,8 @@ def main():
     if not cd_df.empty:
         cd_df.to_csv(OUT_CROSSDOMAIN_CSV, index=False)
         print(f"  ✓ {OUT_CROSSDOMAIN_CSV}")
+    robust_df.to_csv(OUT_ROBUSTNESS_CSV, index=False)
+    print(f"  ✓ {OUT_ROBUSTNESS_CSV}")
 
 
 if __name__ == '__main__':
