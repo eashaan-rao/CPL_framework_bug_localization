@@ -46,11 +46,18 @@ from scipy.stats import spearmanr, wilcoxon
 RESULTS_CSV  = "/home/cs21d002_eashaan/PhD/Objective1/results/paper_results_complete_corrected.csv"
 METADATA_PKL = "/home/cs21d002_eashaan/PhD/Objective1/data/processed/project_metadata.parquet"
 DOMAIN_CSV   = "/home/cs21d002_eashaan/PhD/Objective1/results/all_project_domain_gaps.csv"
-# Repeated-run source for the WP-small noise-floor robustness check: every pair-run
-# retrains WP-small from scratch even though it only depends on the target project,
-# so this file has 3-12 WP-small reruns per (model, target) -- the same repeats
-# equivalence_and_robustness_tests.py uses for its own RQ1 median re-test.
-WPS_REPEATS_CSV = "/home/cs21d002_eashaan/PhD/Objective1/results/obj1_experimental_results_corrected.csv"
+# WP-small in RESULTS_CSV is now the median of 3 clean reps at the corrected
+# 20% budget, broadcast identically to every pair sharing a target (see
+# merge_wp_small_matched_budget.py) -- so the old accidental per-pair repeats
+# in obj1_experimental_results_corrected.csv are degenerate (zero spread) for
+# the noise-floor robustness check below. The real noise floor and the raw
+# per-rep values come from these files instead.
+WPS_SUMMARY_CSV = "/home/cs21d002_eashaan/PhD/Objective1/results/wp_small_matched_budget_summary.csv"
+WPS_REP_FILES = [
+    "/home/cs21d002_eashaan/PhD/Objective1/results/wp_small_matched_budget.csv",
+    "/home/cs21d002_eashaan/PhD/Objective1/results/wp_small_matched_budget_rep2.csv",
+    "/home/cs21d002_eashaan/PhD/Objective1/results/wp_small_matched_budget_rep3.csv",
+]
 IMG_DIR      = "/home/cs21d002_eashaan/PhD/Objective1/results/images"
 OUT_CSV           = "/home/cs21d002_eashaan/PhD/Objective1/results/negative_transfer_analysis.csv"
 OUT_COMM_CSV      = "/home/cs21d002_eashaan/PhD/Objective1/results/negative_transfer_analysis_commutativity.csv"
@@ -365,71 +372,78 @@ def print_summary(delta):
 
 def negative_transfer_robustness_check(delta):
     """
-    Re-tests every originally-negative pair against WP-small's own measured
-    run-to-run noise, using the repeated WP-small runs in WPS_REPEATS_CSV.
+    Re-tests every originally-negative pair (negative already computed
+    against WP-small's median-of-3-reps, corrected 20% budget -- see
+    merge_wp_small_matched_budget.py) against WP-small's own measured
+    run-to-run noise.
 
-    Three independent corrections, applied together and separately:
-      (a) median baseline  -- CP-transfer MRR minus the target's MEDIAN
-          WP-small MRR across its repeats, instead of one arbitrary run
-          (same method as equivalence_and_robustness_tests.py's RQ1 re-test).
+    Two independent checks, applied separately:
+      (a) per-rep sensitivity -- reclassify using each INDIVIDUAL rep's
+          WP-small value instead of the median already baked into `delta`,
+          to see whether a pair's negative-transfer label depends on which
+          single rep you'd have used.
       (b) noise-aware band -- classify as negative only if |delta| exceeds
-          half (or, for a stricter check, all) of that target's own measured
-          WP-small spread, instead of the fixed +/-0.01 MRR band.
-      (c) symmetric-noise band -- only WP-small has repeated runs (it is
-          target-only, so the same config recurs across every pair sharing
-          that target; CP-transfer's source+target combination is unique
-          per pair, so it was never repeated and its own run-to-run
-          variance is unmeasured). Assuming CP-transfer wobbles by a
-          comparable amount from the same source (training stochasticity --
-          weight init, data-loader order, GPU non-determinism -- not data
-          volume), the noise band for a *difference* of two independent,
-          similarly-noisy values is sqrt(2) times one side's measured
-          spread, not the measured spread itself. This is an assumption,
-          not a direct measurement of CP-transfer's noise.
+          half (or, for a stricter check, all) of that target's own
+          measured WP-small spread (from the 3 clean reps), instead of the
+          fixed +/-0.01 MRR band. Also reports a symmetric-noise band
+          (sqrt(2) x spread) that additionally assumes CP-transfer wobbles
+          by a comparable amount -- CP-transfer's source+target combination
+          is unique per pair, so unlike WP-small it was never repeated and
+          its own run-to-run variance has no direct estimate. That band is
+          therefore an assumption, not a measurement of CP-transfer's noise.
 
     This does not produce one "corrected" negative-transfer rate -- the
     result is threshold-sensitive by construction -- it bounds how much of
     the headline rate survives a noise-consistent re-test.
     """
-    wps_all = pd.read_csv(WPS_REPEATS_CSV)
-    wps_all = wps_all[wps_all['scenario'] == 'WP-small']
-
-    stats_by_target = wps_all.groupby(['model_name', 'target_project'])['MRR'].agg(
-        mrr_wps_median='median', wps_spread=lambda s: s.max() - s.min(),
-        n_wps_repeats='count',
-    ).reset_index()
+    summary = pd.read_csv(WPS_SUMMARY_CSV)
+    summary['wps_spread'] = summary['MRR_max'] - summary['MRR_min']
 
     neg = delta[delta['transfer'] == 'negative'].merge(
-        stats_by_target, on=['model_name', 'target_project'], how='left')
-    neg['delta_mrr_median'] = neg['MRR'] - neg['mrr_wps_median']
-    neg['half_spread_band']      = neg['wps_spread'] / 2
-    neg['symmetric_noise_band']  = neg['wps_spread'] * np.sqrt(2)
+        summary[['model_name', 'target_project', 'wps_spread']],
+        on=['model_name', 'target_project'], how='left')
+    neg['half_spread_band']     = neg['wps_spread'] / 2
+    neg['symmetric_noise_band'] = neg['wps_spread'] * np.sqrt(2)
 
-    neg['negative_vs_median']            = neg['delta_mrr_median'] < NEG_THRESH
-    neg['negative_vs_half_spread_band']  = neg['delta_mrr_median'] < -neg['half_spread_band']
-    neg['negative_vs_full_spread_band']  = neg['delta_mrr_median'] < -neg['wps_spread']
-    neg['negative_vs_symmetric_noise_band'] = neg['delta_mrr_median'] < -neg['symmetric_noise_band']
+    neg['negative_vs_half_spread_band']     = neg['delta_mrr'] < -neg['half_spread_band']
+    neg['negative_vs_full_spread_band']     = neg['delta_mrr'] < -neg['wps_spread']
+    neg['negative_vs_symmetric_noise_band'] = neg['delta_mrr'] < -neg['symmetric_noise_band']
 
     print("\n── Negative-Transfer Robustness Check "
-          "(re-test vs. WP-small's own measured run-to-run noise) ──────────")
-    print(f"{'Model':<10} {'orig':>6} {'median-retest':>14} "
-          f"{'half-spread band':>18} {'full-spread band':>18} {'symmetric-noise band':>22}")
+          "(re-test vs. WP-small's own measured run-to-run noise, 3 clean reps) ───")
+    print(f"{'Model':<10} {'orig':>6} {'half-spread band':>18} "
+          f"{'full-spread band':>18} {'symmetric-noise band':>22}")
     for model, g in neg.groupby('model_name'):
         n_orig = len(g)
-        n_med  = g['negative_vs_median'].sum()
         n_half = g['negative_vs_half_spread_band'].sum()
         n_full = g['negative_vs_full_spread_band'].sum()
         n_sym  = g['negative_vs_symmetric_noise_band'].sum()
-        print(f"{model:<10} {n_orig:>3d}/63 {n_med:>9d}/63 ({n_med/63*100:4.1f}%) "
+        print(f"{model:<10} {n_orig:>3d}/63 "
               f"{n_half:>9d}/63 ({n_half/63*100:4.1f}%) "
               f"{n_full:>9d}/63 ({n_full/63*100:4.1f}%) "
               f"{n_sym:>9d}/63 ({n_sym/63*100:4.1f}%)")
 
+    print("\n── Per-rep sensitivity: does the negative-transfer label survive "
+          "using a single rep instead of the median? ───")
+    reps = []
+    for n, path in enumerate(WPS_REP_FILES, start=1):
+        r = pd.read_csv(path)[['model_name', 'target_project', 'MRR']].rename(columns={'MRR': f'mrr_rep{n}'})
+        reps.append(r)
+    rep_wide = reps[0].merge(reps[1], on=['model_name', 'target_project']).merge(reps[2], on=['model_name', 'target_project'])
+    neg = neg.merge(rep_wide, on=['model_name', 'target_project'], how='left')
+    for n in [1, 2, 3]:
+        neg[f'delta_mrr_rep{n}'] = neg['MRR'] - neg[f'mrr_rep{n}']
+        neg[f'negative_vs_rep{n}'] = neg[f'delta_mrr_rep{n}'] < NEG_THRESH
+    for model, g in neg.groupby('model_name'):
+        n_orig = len(g)
+        counts = [g[f'negative_vs_rep{n}'].sum() for n in [1, 2, 3]]
+        print(f"{model:<10} {n_orig:>3d}/63 orig negative -> still negative under: "
+              f"rep1={counts[0]}/{n_orig}  rep2={counts[1]}/{n_orig}  rep3={counts[2]}/{n_orig}")
+
     return neg[[
-        'model_name', 'source_project', 'target_project',
-        'delta_mrr', 'delta_mrr_median', 'n_wps_repeats', 'wps_spread',
-        'negative_vs_median', 'negative_vs_half_spread_band', 'negative_vs_full_spread_band',
-        'negative_vs_symmetric_noise_band',
+        'model_name', 'source_project', 'target_project', 'delta_mrr', 'wps_spread',
+        'negative_vs_half_spread_band', 'negative_vs_full_spread_band', 'negative_vs_symmetric_noise_band',
+        'negative_vs_rep1', 'negative_vs_rep2', 'negative_vs_rep3',
     ]]
 
 
