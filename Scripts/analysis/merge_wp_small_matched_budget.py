@@ -18,11 +18,11 @@ every pair that shares a target.
 
 What this does
 ───────────────
-1. Computes the median across the 3 reps per (model, target) for each
-   metric. The median (not a single run) is substituted into the primary
-   files, giving a less noisy point estimate than any individual rep --
-   consistent with how the study already re-tests RQ1 against each
-   target's median WP-small MRR elsewhere.
+1. Computes the MEAN across the 3 reps per (model, target) for each metric
+   and substitutes that into the primary files. The mean (not a single run)
+   is the point estimate: it uses all three replicates and is the
+   conventional estimator for a replicated design. median/min/max/std are
+   also written to the summary for the noise-floor analyses.
 2. Also writes results/wp_small_matched_budget_summary.csv with
    median/min/max/mean/std per (model, target) per metric -- this is the
    REAL run-to-run noise-floor data at the corrected budget (3 clean reps
@@ -32,15 +32,16 @@ What this does
      results/paper_results_complete_corrected.csv
      results/obj1_experimental_results_corrected.csv
      results/obj1_experimental_results.csv
-   setting top-1/top-5/top-10/MAP/MRR to the rep-median values for that
-   row's (model_name, target_project). Originals must already be backed up
-   (results/pre_budget_fix_backup/) before running this -- it overwrites
-   in place.
+   setting top-1/top-5/top-10/MAP/MRR to the rep-mean values for that
+   row's (model_name, target_project). The true pre-fix baseline of these
+   files is commit 233ddd4 (also copied to results/pre_budget_fix_backup/);
+   this script overwrites in place and is idempotent, since it replaces the
+   WP-small metric columns wholesale rather than adjusting them.
 
 This intentionally collapses the per-pair variation WP-small rows used to
 have (each pair previously trained its own independent WP-small run on the
 same target, differing only by training stochasticity) into a single
-median value shared by every pair with that target. That's deliberate: we
+mean value shared by every pair with that target. That's deliberate: we
 now have a real 3-rep estimate per target, which is a better point estimate
 than any single accidental repeat was, and downstream scripts that need the
 noise floor should read it from wp_small_matched_budget_summary.csv / the
@@ -88,20 +89,22 @@ def build_summary():
 
 def patch_file(path, summary):
     df = pd.read_csv(path)
-    median_cols = {m: f"{m}_median" for m in METRICS}
+    mean_cols = {m: f"{m}_mean" for m in METRICS}
     merged = df.merge(
-        summary[["model_name", "target_project"] + list(median_cols.values())],
+        summary[["model_name", "target_project"] + list(mean_cols.values())],
         on=["model_name", "target_project"], how="left",
     )
     is_wps = merged["scenario"] == "WP-small"
-    has_median = merged["MRR_median"].notna()
-    mask = is_wps & has_median
+    has_mean = merged["MRR_mean"].notna()
+    mask = is_wps & has_mean
     n_patched = mask.sum()
-    for metric, med_col in median_cols.items():
-        merged.loc[mask, metric] = merged.loc[mask, med_col]
-    merged = merged.drop(columns=list(median_cols.values()))
+    n_unmatched = (is_wps & ~has_mean).sum()
+    for metric, mean_col in mean_cols.items():
+        merged.loc[mask, metric] = merged.loc[mask, mean_col]
+    merged = merged.drop(columns=list(mean_cols.values()))
     merged.to_csv(path, index=False)
-    print(f"  patched {n_patched} WP-small rows in {path}")
+    print(f"  patched {n_patched} WP-small rows in {path}"
+          + (f"  [WARNING: {n_unmatched} WP-small rows had no matching rep data]" if n_unmatched else ""))
 
 
 def main():
